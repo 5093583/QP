@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="512" height="275">
+	<fx:Script>
+		<![CDATA[
+			import base.StaticVars;
+			
+			import com.greensock.TweenMax;
+			import com.plaza.MsgManager;
+			
+			import gameAssets.cowcowBattle.CCBattleSkinClass;
+			
+			import games.cowlord.model.CowModle;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			public function Show():void
+			{
+				this.visible = true;
+				TweenMax.from(this,1,{alpha:1});
+				
+				var _cow:CowModle = CowModle._getInstance();
+				
+				UserDScore.text  = TScore.toStringEx(_cow.m_wJieSuanArray[0]);			//玩家赢金币
+				UserFScore.text  = TScore.toStringEx(_cow.m_wJieSuanArray[1]);			//玩家返还的金币
+				DUserDScore.text = TScore.toStringEx(_cow.m_wJieSuanArray[2]);			//庄家赢的金币
+				
+				for(var i:int=1; i<5; i++)
+				{
+					this['type' + i].text = getCowTypeStr( _cow.m_wCBCardOx[i] );
+					this['score' + i].text= TScore.toStringEx( _cow.m_lUserAreaWinScore[i-1] );
+				}
+				
+				type0.text = '庄家：' + getCowTypeStr( _cow.m_wCBCardOx[0] );
+				
+				if(_cow.m_lastGameEnd.ExitUserLostScore > 0)
+				{
+					lostUser.text = '强退玩家：-' + TScore.toStringEx(_cow.m_lastGameEnd.ExitUserLostScore);
+					lostUser.visible = true;
+				}
+				else
+				{
+					lostUser.visible = false;
+				}
+				
+				
+				if(_cow.m_wJieSuanArray[0]<=0){
+					//_cowModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'lostEffcet');
+					playSoundEffect(TConst.INVALID_CHAIR,'lost');
+				}else{
+					//_cowModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'WinEffcet');
+					playSoundEffect(TConst.INVALID_CHAIR,'win');
+				}
+				TweenMax.delayedCall(6,Hide);
+				
+				TweenMax.delayedCall(8, exitGame);
+			}
+			
+			private function exitGame():void
+			{
+				if(StaticVars.isTryPlayed)
+				{
+					if(TScore.toFloatEx(StaticVars.tryPlayScore) < 1)
+					{
+						Controller.dispatchEvent('gameModuleExit');
+						
+						MsgManager.getInstance().showMessage1('您的金币不足！请取金币！');
+					}
+				}
+				else
+				{
+					if(StaticVars.enterGameLessScore > CowModle._getInstance().m_User.GetSelfData().UserScoreInfo.lScore)
+					{
+						Controller.dispatchEvent('gameModuleExit');
+						
+						MsgManager.getInstance().showMessage1('您的金币不足！请取金币！');
+					}
+				}
+			}
+			
+			
+			private function getCowTypeStr(type:int):String
+			{
+				var str:String;
+				if(type == 0)
+					str = '无  牛';
+				else if(type > 0 && type < 10)
+					str = '牛  ' + getNumStr(type);
+				else if(type == 10)
+					str = '牛  牛';
+				
+				return str;
+			}
+			
+			private function getNumStr(num:int):String
+			{
+				var str:String;
+				switch(num)
+				{
+					case 1:
+						str = '一';
+						break;
+					case 2:
+						str = '二';
+						break;
+					case 3:
+						str = '三';
+						break;
+					case 4:
+						str = '四';
+						break;
+					case 5:
+						str = '五';
+						break;
+					case 6:
+						str = '六';
+						break;
+					case 7:
+						str = '七';
+						break;
+					case 8:
+						str = '八';
+						break;
+					case 9:
+						str = '九';
+						break;
+				}
+				return str;
+			}
+			
+			private function Hide() : void
+			{
+				this.visible = false;
+			}
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				this.visible = false;
+			}
+			private function playSoundEffect(wChairID : uint,action : String):void
+			{
+				if(CowModle._getInstance() == null)	return;
+				try
+				{
+					CowModle._getInstance().m_Sound.PlayEffect(wChairID, action);
+				}
+				catch(e:Error){};
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Image source="{CCBattleSkinClass.endView}" />
+	<s:Label id="UserDScore" color="#000000" x="165" y="250" fontSize="20" />
+	<s:Label id="UserFScore" color="#ff0000" x="210" y="90" fontSize="16"  visible="false"/>
+	<s:Label id="DUserDScore" color="#000000" x="130" y="73" fontSize="20" />
+	
+	<s:Label color="#cc9933" x="35" y="160" width="120" fontSize="16" textAlign="center" fontFamily="黑体" fontWeight="bold" id="type1"/>
+	<s:Label color="#cc9933" x="155" y="160" width="120" fontSize="16" textAlign="center" fontFamily="黑体" fontWeight="bold"  id="type2"/>
+	<s:Label color="#cc9933" x="275" y="160" width="120" fontSize="16" textAlign="center" fontFamily="黑体" fontWeight="bold" id="type3"/>
+	<s:Label color="#cc9933" x="395" y="160" width="120" fontSize="16" textAlign="center" fontFamily="黑体" fontWeight="bold" id="type4"/>
+	
+	<s:Label color="#cc9933" x="395" y="75" width="120" fontSize="16" textAlign="center" fontFamily="黑体" fontWeight="bold" id="type0"/>
+	
+	<s:Label color="#27887B" x="35" y="205" width="120" fontSize="16" textAlign="center" id="score1"/>
+	<s:Label color="#27887B" x="155" y="205" width="120" fontSize="16" textAlign="center" id="score2"/>
+	<s:Label color="#27887B" x="275" y="205" width="120" fontSize="16" textAlign="center" id="score3"/>
+	<s:Label color="#27887B" x="395" y="205" width="120" fontSize="16" textAlign="center" id="score4"/>
+	
+	<s:Label id="lostUser" x="215" y="75" fontSize="16" fontFamily="微软雅黑" color="0xff0000"/>
+	
+</s:Group>

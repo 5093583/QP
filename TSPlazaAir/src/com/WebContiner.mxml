@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:com="com.*" creationComplete="group1_creationCompleteHandler(event)"
+		 width="500" height="400" >
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			
+			import com.html.HtmlSprite;
+			import com.html.IHtmlContiner;
+			import com.plaza.MsgManager;
+			
+			import cx.client.logon.model.LogonModel;
+			import cx.client.logon.model.UserModel;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.utils.MD5;
+			
+			protected var _htmlLoader : IHtmlContiner;	
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				if(_webArea.numChildren)
+				{
+					_htmlLoader = new HtmlSprite() as IHtmlContiner;
+					_htmlLoader.SetWH(751,470);
+					var sprite : Sprite= _htmlLoader.GetDisplay();
+					_webArea.addChild(sprite);
+				}
+			}
+			
+			public function Show(url : String,bAddCheck : Boolean = true,bPaint :  Boolean = false) : void
+			{
+				//if(bAddCheck) { url += '?tcode=' + _htmlLoader.timeCode; }
+				if(bAddCheck) 
+				{
+					var _timerCode : String;
+					_timerCode = new Date().time.toString();
+					var _signCode : String;
+					_signCode = MD5.hash(UserModel._getInstance().selfInfo.dwUserID.toString() + "_" + "*cxnetbasewebembed*" + "_" +_timerCode);
+					url+='?tcode=' + _htmlLoader.timeCode+'&time='+_timerCode+'&sign=' +_signCode;
+				}
+				if(_htmlLoader) {
+					_htmlLoader.CallBack = callBack;
+					_htmlLoader.JsGetValue = jsGetValue;
+					_htmlLoader.SetHost(url,bPaint);
+					trace('Show',url,bPaint);
+				}
+				if(!this.visible) { this.visible = true;  }
+			}
+			
+			public function Hide() : void
+			{
+				if(_htmlLoader) {
+					_htmlLoader.CancelLoad();
+					CxCloseBrowser();
+				}
+				this.visible = false;
+				
+			}
+			
+			private function jsGetValue(tcode : String,type : String) : *
+			{
+				switch(type)
+				{
+					case 'uid':
+					{
+						return UserModel._getInstance().selfInfo.dwUserID.toString();
+					}
+					case 'accounts':
+					{
+						return UserModel._getInstance().selfInfo.szAccount;
+					}
+					case 'score':
+					{
+						return UserModel._getInstance().selfInfo.lScore.toString();
+					}
+					case 'insurescore':
+					{
+						return UserModel._getInstance().selfInfo.lBankScore.toString();
+					}
+				}
+				return 'error';
+			}
+			private function callBack(type : String,val : String) : void
+			{
+				switch(type)
+				{
+					case 'pay':								//充值页
+					{
+						CxCreateBrowser(val,'在线充值');
+						break;
+					}
+					case 'openIE':
+					{
+						CxCreateBrowser(val,'网银充值');
+						break;
+					}
+					case 'sale':							//金币出售
+					{
+						LogonModel._GetInstance().MainNet.Refresh();
+						MsgManager.getInstance().showMessage1( val );
+						break;
+					}
+					case 'reward':							//领奖
+					{
+						LogonModel._GetInstance().MainNet.Refresh();
+						MsgManager.getInstance().showMessage1( val );
+						break;
+					}
+					case 'popup':							//弹出窗口
+					{
+						LogonModel._GetInstance().MainNet.Refresh();
+						MsgManager.getInstance().showMessage1( val );
+						break;
+					}
+				}
+			}
+			private var browserProcess:NativeProcess; 
+			public function CxCreateBrowser( url : String,title : String = '' ) : void
+			{
+				var file:File = new File(File.applicationDirectory.nativePath + '\\CBrowser.exe');
+				if(file.exists)
+				{
+					if(browserProcess == null) { browserProcess = new NativeProcess(); }
+					if( !browserProcess.running ) {
+						var nativeProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
+						nativeProcessStartupInfo.executable = file;
+						var processArgs:Vector.<String> = new Vector.<String>();
+						processArgs.push( url );
+						nativeProcessStartupInfo.arguments = processArgs;
+						browserProcess.start( nativeProcessStartupInfo );
+					}
+				}else {
+					var request:URLRequest = new URLRequest(url);
+					navigateToURL(request,"_blank");
+				}
+			}
+			public function CxCloseBrowser() : void
+			{
+				if( browserProcess!=null && browserProcess.running ) {
+					browserProcess.exit();
+				}
+			}
+			private function navigate_clickHandler(e : MouseEvent) : void
+			{
+				Hide();
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Image source="{SkinClass.web_Continer}" x="0" y="36"/>
+	<mx:HTML x="6" y="68" id="_webArea"/>
+	<com:MCButton targetClass="{SkinClass.web_backBtn}" x="680" y="40" click="navigate_clickHandler(event)"/>
+</s:Group>

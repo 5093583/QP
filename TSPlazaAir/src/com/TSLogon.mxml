@@ -1,0 +1,642 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 implements="t.cx.Interface.IKernelSocket"
+		 width="522" height="350" xmlns:com="com.*" contentBackgroundAlpha="0.0">
+	<fx:Script>
+		<![CDATA[
+			import base.NavigateURL;
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import com.greensock.TweenLite;
+			import com.greensock.TweenMax;
+			import com.html.HtmlSprite;
+			import com.html.IHtmlContiner;
+			import com.plaza.MsgManager;
+			import com.plaza.PopMessage;
+			
+			import cx.client.logon.model.LogonNet;
+			import cx.client.logon.model.UserModel;
+			import cx.client.logon.model.struct.CMD_GP_LogonByAccounts;
+			import cx.client.logon.model.struct.CMD_GP_LogonError;
+			import cx.client.logon.model.struct.LGCmd;
+			import cx.client.logon.model.vo.UserInfo;
+			import cx.kernel.CModule;
+			import cx.kernel.Tcp.TcpClose;
+			import cx.kernel.Tcp.TcpConnect;
+			import cx.kernel.Tcp.TcpCrevasse;
+			import cx.kernel.Tcp.TcpEncrypt;
+			import cx.net.Interface.IClientSocket;
+			import cx.net.NetConst;
+			import cx.net.enum.enSocketState;
+			
+			import flash.net.navigateToURL;
+			import flash.utils.ByteArray;
+			
+			import mx.core.UIComponent;
+			import mx.events.EffectEvent;
+			import mx.events.FlexEvent;
+			
+			import spark.filters.GlowFilter;
+			
+			import t.cx.Interface.IKernelFile;
+			import t.cx.Interface.IKernelWin;
+			import t.cx.air.TConst;
+			import t.cx.air.TDas;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.skin.ButtonEx;
+			import t.cx.air.utils.MD5;
+			import t.cx.air.utils.Memory;
+			import t.cx.air.utils.SystemEx;
+			import t.cx.cmd.SendPacketHelper;
+			import t.cx.cmd.enum.enDTP;
+			import t.cx.cmd.events.CxEvent;
+			
+			
+			private var isLogon:Boolean;
+			
+			private var _TuiGuang : String;
+			
+			[Bindable]
+			[Embed(source="assets/swf/pujing_sign.swf", symbol="sign_close")]
+			public static var sign_close:Class;
+			
+			protected function btn_logon_clickHandler(event:MouseEvent):void
+			{
+//				if(input_user.text == "aaa" && input_pwd.text == "111")
+//					this.dispatchEvent(new Event("logonFinish") );
+				if(input_user.text.length < 6 || input_pwd.text.length < 6) 
+				{
+					MsgManager.getInstance().showMessage1('账号或密码填写错误，请核对后重新输入！');
+					return;
+				}
+				
+				TDas._setDoubleItem( 'rem_pwd', _isRem?1:0 );
+				
+				var userRecord:String = TDas._getStringItem( 'user_name', 255);
+				if(userRecord != null && userRecord != '')
+				{
+					var ary:Array = userRecord.split(',');
+					var index:int = ary.indexOf(input_user.text);
+					if(index == -1)
+					{
+						ary.unshift(input_user.text);
+					}
+					else if(index > 0)
+					{
+						var str:String = ary[0];
+						ary[0] = ary[index];
+						ary[index] = str;
+					}
+					
+					while(ary.length > 3)
+						ary.pop();
+					TDas._setStringItem('user_name', ary.join(), 255);
+				}
+				else
+					TDas._setStringItem('user_name', input_user.text, 255);
+//				TDas._setStringItem('user_name', input_user.text, 255);
+				if(_isRem)
+					TDas._setStringItem('user_pwd', input_pwd.text, 255);
+				
+				if( TDas._getByteItem(TConst.PROXY) == 0)
+					TDas._setByteItem(TConst.PROXY,1);
+				
+				if(LogonNet._getInstance().Logon(logonCallBack)) {
+//					theErrTxt.text = '正在连接登录服务器...';
+//					thelogonBtn.enable = false;
+					
+//					btn_logon.setEnable(false);
+					BufferManager.getInstance().showBufferView(true);
+					
+					input_user.enabled = false;
+					input_pwd.enabled  = false;
+				}
+				
+				isLogon = false;
+				TweenMax.delayedCall(30, logonConnectFailed);
+			}
+			
+			private function loadMessage():void
+			{
+				var urlloader:URLLoader = new URLLoader;
+				var url:String = NavigateURL.plaza_navigate + '/Gameapi/GetMessage?MessageByte=0';
+				var request:URLRequest = new URLRequest(url); 
+				urlloader.addEventListener(Event.COMPLETE, loadCompleteHandelr);
+				urlloader.addEventListener(IOErrorEvent.IO_ERROR, ioerrorHandler);
+				urlloader.load(new URLRequest(url));
+			}
+			
+			private function loadCompleteHandelr(evt:Event):void
+			{
+				var str:String = evt.target.data;
+				StaticVars.hallRollTextStr = str;
+			}
+			
+			private function ioerrorHandler(error:IOErrorEvent):void
+			{
+				trace("load message io error")
+			}
+			
+			
+			private function logonConnectFailed():void
+			{
+				if(isLogon)		return;
+				
+				var f:Function = function ():void
+				{
+//					btn_logon.setEnable(true);
+					BufferManager.getInstance().showBufferView(false);
+					
+					input_user.enabled = true;
+					input_pwd.enabled  = true;
+				}
+				MsgManager.getInstance().showMessage1('与服务器连接断开，请检查您的网络，如未能解决，请联系客服。', f);
+			}
+			
+			
+			private function logonCallBack(pIClientSocket : IClientSocket,szErr : String = '') : void
+			{
+				trace('登录服务器连接成功,等待获取登录信息...');
+				if(pIClientSocket.GetConnectState() != enSocketState.en_Connected) {
+//					thelogonBtn.enable = true;
+//					stage.addEventListener(KeyboardEvent.KEY_UP,onKeyBoardEvent);
+//					theErrTxt.text = szErr;
+					var f:Function = function ():void
+					{
+//						btn_logon.setEnable(true);
+						
+						input_user.enabled = true;
+						input_pwd.enabled  = true;
+					}
+					MsgManager.getInstance().showMessage1(szErr, f);
+					BufferManager.getInstance().showBufferView(false);
+					return;
+				}
+				
+				isLogon = true;
+				TweenMax.killAll();
+				
+				
+				var SendLogon : CMD_GP_LogonByAccounts = new CMD_GP_LogonByAccounts();
+				SendLogon.dwPlazaVersion = TConst.VER_PLAZA_FRAME;
+//				SendLogon.szAccounts = theAccountTxt.text;
+//				SendLogon.szPassWord = MD5.hash(thePasswordTxt.text);
+				SendLogon.szAccounts = input_user.text;
+				SendLogon.szPassWord = MD5.hash(input_pwd.text);
+				var bytes : ByteArray = SendLogon.toByteArray();
+				var mac : String = SystemEx._clientSequence();
+				var wPacketSize : uint = SendPacketHelper._attachTCHAR(bytes,mac,33,enDTP.DTP_COMPUTER_ID);
+				
+				//添加用户名
+				UserModel._getInstance().selfInfo.szAccount = SendLogon.szAccounts;
+				UserModel._getInstance().selfInfo.szPassword = input_pwd.text;
+				
+				pIClientSocket.SendData(LGCmd.MDM_GP_LOGON,LGCmd.SUB_GP_LOGON_ACCOUNTS,bytes,SendLogon.size + wPacketSize);
+				Controller.addEventListener(CxEvent.CX_LOGON_FINISH,onLogonFinish);
+				Controller.addEventListener(CxEvent.CX_LOGON_ERR,onLogonError);
+//				theErrTxt.text = '登录服务器连接成功,等待获取登录信息...';
+			}
+			
+			private function onLogonFinish(e : TEvent) : void
+			{
+				BufferManager.getInstance().showBufferView(false);
+				input_pwd.addEventListener(KeyboardEvent.KEY_DOWN, pwd_keyDownHandler);
+				
+//				trace("登录成功。。。。。。。。。");
+				this.dispatchEvent(new Event("logonFinish") );
+			}
+			private function onLogonError(e : TEvent) : void
+			{
+				var err : CMD_GP_LogonError = e.nWParam as CMD_GP_LogonError;
+//				trace("登录失败......" + err.szErrorDescribe)
+				
+				if(err != null)
+				{
+//					theErrTxt.text = '!' + err.szErrorDescribe;
+					MsgManager.getInstance().showMessage1('!' + err.szErrorDescribe);
+				}else {
+//					theErrTxt.text = '!' + '登录服务器连接失败.';
+					MsgManager.getInstance().showMessage1('!' + '登录服务器连接失败.');
+				}
+//				thelogonBtn.enable = true;
+//				theAccountTxt.text = '';
+//				thePasswordTxt.text = '';
+//				stage.focus = theAccountTxt;
+				
+//				btn_logon.setEnable(true);
+				BufferManager.getInstance().showBufferView(false);
+				
+				input_user.enabled = true;
+				input_pwd.enabled  = true;
+				//input_user.text = '';
+				input_pwd.text  = '';
+				//input_user.setFocus();
+				input_pwd.setFocus();
+				
+				Controller.removeEventListener(CxEvent.CX_LOGON_FINISH,onLogonFinish);
+				Controller.removeEventListener(CxEvent.CX_LOGON_ERR,onLogonError);
+			}
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				loadMessage();
+				StaticVars.gameRollTextStr = TDas._getStringItem('gameRollString', 5120);
+				
+				NetConst.Init(this as IKernelSocket,this as IKernelFile,this as IKernelWin);
+				
+
+				input_user.setFocus();
+				input_pwd.addEventListener(KeyboardEvent.KEY_DOWN, pwd_keyDownHandler);
+				
+				var userRecord:String = TDas._getStringItem( 'user_name', 255);
+				if(userRecord != null && userRecord != '')
+				{
+					var ary:Array = userRecord.split(',');
+					input_user.text = ary[0];
+				}
+				else
+				{
+					_getRecord.selected   = false;
+					_clearRecord.selected = false;
+				}
+//				input_user.text = TDas._getStringItem('user_name', 255);
+				if(input_user.text.length)
+					input_pwd.setFocus();
+				
+				var rem:Number = rem = TDas._getDoubleItem( 'rem_pwd' );
+				_isRem = rem == 1 ? true : false;
+				
+				if(_isRem)
+					btn_rem.targetClass=SkinClass.logon_rem1;
+				else
+					btn_rem.targetClass=SkinClass.logon_rem;
+				
+				if(_isRem && input_user.text != '')
+					input_pwd.text = TDas._getStringItem('user_pwd', 255);
+				
+				
+				addNativeAdvert();
+				
+			//	_TuiGuang = 
+				
+			}
+			public function set TuiGuang(val : String) : void
+			{
+				_TuiGuang = val;
+				if(_TuiGuang == 'TSPlazaAir')
+				{
+					btn_regist.visible = false;
+					btn_froget.x = 230;
+				}
+			}
+			
+			private var html:IHtmlContiner;
+			private function addNativeAdvert():void
+			{
+				_gonggao.graphics.clear();
+				_gonggao.graphics.beginFill(0x666666, .6);
+				_gonggao.graphics.drawRect(0, 0, width, height);
+				_gonggao.graphics.endFill();
+				
+				
+				var ui:UIComponent = new UIComponent;
+				
+//				ui.graphics.clear();
+//				ui.graphics.beginFill(0xffffff, .6);
+//				ui.graphics.drawRect(0, 0, 570, 240);
+//				ui.graphics.endFill();
+				ui.x = 147;
+				ui.y = 84;
+				
+				html = new HtmlSprite;
+				html.SetWH(365, 204);
+				ui.addChild(html.GetDisplay());
+				
+				var _mask:Shape;
+				_mask = new Shape();
+				_mask.graphics.clear();
+				_mask.graphics.beginFill(0x000000,1.0);
+				_mask.graphics.drawRect(0,0,365,204);
+				_mask.graphics.endFill();
+				html.GetDisplay().mask = _mask;
+				
+				ui.addChild(_mask);
+				_gonggao.addElement(ui);
+				
+				var url:String = NavigateURL.plaza_navigate + '/news/ann';
+				html.SetHost(url, false, oncomp);
+//				html.SetHost('http://192.168.2.19:8009/AnnForGame/ann.html', false, oncomp);
+			}
+			
+			private function oncomp(w:Number, h:Number):void
+			{
+				html.SetWH(w, h);
+				addEventListener(Event.ENTER_FRAME,onEnterFrame);
+			}
+			
+			private function onEnterFrame(e : Event) : void
+			{
+				if(html!=null && html.GetDisplay()!=null) 
+				{
+					var sprite : Sprite = html.GetDisplay();
+					sprite.y -= 1;
+					if( (sprite.y + sprite.height)<=0) { sprite.y = 240; }
+				}
+			}
+			
+			
+			
+			public function reinit():void
+			{
+//				input_user.setFocus();
+				input_pwd.addEventListener(KeyboardEvent.KEY_DOWN, pwd_keyDownHandler);
+				
+				btn_logon.setEnable(true);
+				BufferManager.getInstance().showBufferView(false);
+				
+				input_user.enabled = true;
+				input_pwd.enabled  = true;
+				
+				
+//				var userRecord:String = TDas._getStringItem( 'user_name', 255);
+//				if(userRecord != null && userRecord != '')
+//				{
+//					var ary:Array = userRecord.split(',');
+//					input_user.text = ary[0];
+//				}
+//				input_user.text = TDas._getStringItem('user_name', 255);
+//				if(input_user.text.length)
+//					input_pwd.setFocus();
+				
+//				var rem:Number = rem = TDas._getDoubleItem( 'rem_pwd' );
+//				_isRem = rem == 1 ? true : false;
+//				
+//				if(_isRem)
+//					btn_rem.targetClass=SkinClass.logon_rem1;
+//				else
+//					btn_rem.targetClass=SkinClass.logon_rem;
+				
+			}
+			
+			
+			
+			private function pwd_keyDownHandler(e:KeyboardEvent):void
+			{
+				if(e.keyCode == 13)
+					btn_logon_clickHandler(null);
+					
+			}
+			
+			
+			
+			public function CxTcpClose():uint
+			{
+				return TcpClose();
+			}
+			
+			public function CxTcpConnect(cbVersion:uint):uint
+			{
+				return theTcpConnect(cbVersion);
+			}
+			
+			public function get theTcpConnect() : Function
+			{
+				return TcpConnect;
+			}
+			
+			public function CxTcpCrevasse(pData:ByteArray, wDataSize:uint):uint
+			{
+				pData.position = 0;
+				var bytesPtr:int = CModule.malloc(pData.bytesAvailable);
+				CModule.writeBytes(bytesPtr,pData.length,pData);
+				var result : uint = TcpCrevasse(bytesPtr,wDataSize);
+				pData.position = 0;
+				CModule.readBytes(bytesPtr,pData.bytesAvailable,pData);
+				CModule.free(bytesPtr);
+				return result;
+			}
+			
+			public function CxTcpEncrypt(wMainCMD:uint, wSubCMD:uint, pData:ByteArray, wDataSize:uint):uint
+			{
+				var pNewData : ByteArray = Memory._newLiEndianBytes();
+				pNewData.writeDouble(0);
+				Memory._copyMemory(pNewData,pData,wDataSize,8);
+				
+				pNewData.position = 0;
+				var bytesPtr:int = CCModule.malloc(pNewData.bytesAvailable);
+				
+				CCModule.writeBytes(bytesPtr,pNewData.bytesAvailable,pNewData);
+				pNewData.position = 0;
+				var result : uint = theTcpEncrypt(wMainCMD,wSubCMD,bytesPtr,pNewData.bytesAvailable);
+				CCModule.readBytes(bytesPtr,pNewData.bytesAvailable,pNewData);
+				CCModule.free(bytesPtr);
+				Memory._copyMemory(pData,pNewData,pNewData.length);
+				return result;
+			}
+			
+			protected function get theTcpEncrypt() : Function
+			{
+				return TcpEncrypt;
+			}
+			
+			protected function get CCModule() : Object
+			{
+				return CModule;
+			}
+			
+			
+			
+			protected function btn_forget_clickHandler(event:MouseEvent):void
+			{
+				navigateToURL(new URLRequest(NavigateURL.plaza_navigate + NavigateURL.logon_forgetUrl));
+			}
+			
+			protected function btn_regist_clickHandler(event:MouseEvent):void
+			{
+				if(_TuiGuang == 'TSPlazaAir')
+				{
+					navigateToURL(new URLRequest(NavigateURL.plaza_navigate + NavigateURL.logon_registUrl));
+				}else
+				{
+					var Str : String = NavigateURL.plaza_navigate;
+					Str = Str.replace("http://","");
+					Str = "http://" + _TuiGuang+'.'+Str;
+					navigateToURL(new URLRequest(Str + NavigateURL.logon_registUrl));
+				}
+				
+			}
+			
+			protected function mcbutton1_clickHandler(event:MouseEvent):void
+			{
+				Controller.dispatchEvent("close_window_over", 1);
+			}
+			
+			protected function mcbutton2_clickHandler(event:MouseEvent):void
+			{
+				Controller.dispatchEvent("control_window_status", 1);
+			}
+			
+			
+			
+			private var _isRem:Boolean;
+			protected function btn_rem_clickHandler(event:MouseEvent):void
+			{
+				_isRem = !_isRem;
+				if(_isRem)
+					btn_rem.targetClass=SkinClass.logon_rem1;
+				else
+					btn_rem.targetClass=SkinClass.logon_rem;
+				
+				TDas._setDoubleItem( 'rem_pwd', _isRem?1:0 );
+			}
+			
+			protected function image1_mouseDownHandler(event:MouseEvent):void
+			{
+				StaticVars.nativeWindow.startMove();
+			}
+			
+			protected function clear_clickHandler(event:MouseEvent):void
+			{
+				TDas._setStringItem('user_name', '', 255);
+				TDas._setStringItem('user_pwd', '', 255);
+				
+				input_user.text = '';
+				input_pwd.text  = '';
+				input_user.setFocus();
+				
+				_getRecord.selected = false;
+				_clearRecord.selected = false;
+			}
+			
+			protected function record_clickHandler(event:MouseEvent):void
+			{
+				if(_record.visible)
+				{
+					_record.visible = false;
+					return;
+				}
+				
+				
+				var userRecord:String = TDas._getStringItem( 'user_name', 255);
+				if(userRecord == '' || userRecord == null)	return;
+				var ary:Array = userRecord.split(',');
+				var recordNum:int = ary.length; 
+				_record.height = recordNum*20;
+				for(var i:int=0; i<recordNum; i++)
+				{
+					var item:SingleUserRecord = new SingleUserRecord;
+					item.setUserName(ary[i]);
+					item.addEventListener(MouseEvent.CLICK, record_itemClickHandler);
+					item.x = 0;
+					item.y = i*20;
+					_record.addElement(item);
+				}
+				
+				_record.visible = true;
+			}
+			
+			private function record_itemClickHandler(e:MouseEvent):void
+			{
+				var item:SingleUserRecord = e.currentTarget as SingleUserRecord;
+				if(item.getUserName() != input_user.text)
+					input_pwd.text  = '';
+				input_user.text = item.getUserName();
+				
+				_record.visible = false;
+			}
+			
+			protected function input_pwd_focusInHandler():void
+			{
+				if(_record)
+					_record.visible = false;
+			}
+			
+			
+			
+			protected function close_clickHandler(event:MouseEvent=null):void
+			{
+				_gonggao.visible = false;
+				_close.visible   = false;
+				
+				removeEventListener(Event.ENTER_FRAME,onEnterFrame);
+			}
+			
+			protected function serivce_clickHandler(event:MouseEvent):void
+			{
+//				var url:String = NavigateURL.plaza_navigate + '/Contact';
+				var url:String = 'http://messenger.providesupport.com/messenger/1qp1ybdwg0t1r1exprqt15mn06.html';
+				navigateToURL( new URLRequest(url) );
+			}
+			
+			protected function _swf_clickHandler(event:MouseEvent):void
+			{
+				var url:String = 'http://www.xpjpoker.com/';
+				navigateToURL( new URLRequest(url) );
+			}
+			
+		]]>
+	</fx:Script> 
+	<fx:Declarations>
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+	</fx:Declarations>
+	
+	<s:BitmapImage source="{SkinClass.logon_bg}" x="-4" y="-2"/>
+	<s:Image source="{SkinClass.logon_move}" x="0" y="0" mouseDown="image1_mouseDownHandler(event)"/>
+	
+	<s:SWFLoader source="@Embed('assets/swf/logo.swf')" x="6" y="39" id="_swf" click="_swf_clickHandler(event)" buttonMode="true"/>
+	
+	<com:MCButton targetClass="{SkinClass.logon_close}" x="475" y="5" click="mcbutton1_clickHandler(event)"/>
+	<com:MCButton targetClass="{SkinClass.logon_min}" x="434" y="5" click="mcbutton2_clickHandler(event)"/>
+	
+	
+	<s:TextInput  filters="{[gf01]}" id="input_user" x="250" y="140" width="123" height="25" borderVisible="false" color="#FFFFFF"
+				 contentBackgroundAlpha="0.0" fontFamily="微软雅黑" fontSize="14"/>
+	<s:TextInput  filters="{[gf01]}" id="input_pwd" x="250" y="180" width="147" height="28" borderVisible="false" color="#FFFFFF" 
+				 focusIn="input_pwd_focusInHandler()" click="input_pwd_focusInHandler()"
+				 contentBackgroundAlpha="0.0" displayAsPassword="true" fontFamily="黑体" fontSize="22"/>
+	
+	<s:Group x="247" y="164" width="130" height="60" id="_record" visible="false">
+		<s:Rect x="0" y="0" width="100%" height="100%">
+			<s:stroke>
+				<s:SolidColorStroke color="0x000000" weight="1"/>
+			</s:stroke>
+		</s:Rect>
+	</s:Group>
+	
+	<com:MCButton targetClass="{SkinClass.logon_getuser}" x="378" y="142" id="_getRecord" click="record_clickHandler(event)"/>
+	<com:MCButton targetClass="{SkinClass.logon_rem}" x="218" y="213" id="btn_rem" click="btn_rem_clickHandler(event)"/>
+	<com:MCButton targetClass="{SkinClass.logon_clear}" x="325" y="215" id="_clearRecord" click="clear_clickHandler(event)"/>
+	
+	<com:MCButton targetClass="{SkinClass.logon_service}" x="6" y="235" click="serivce_clickHandler(event)"/>
+	<com:MCButton targetClass="{SkinClass.logon_froget}" x="143" y="245" id="btn_froget" click="btn_forget_clickHandler(event)"/>
+	<com:MCButton targetClass="{SkinClass.logon_regist}" x="323" y="245" id="btn_regist" click="btn_regist_clickHandler(event)"/>
+	
+	<com:MCButton targetClass="{SkinClass.logon_btn}" x="408" y="120" buttonMode="true" id="btn_logon" click="btn_logon_clickHandler(event)"/>
+	
+	<!--
+	<s:Image horizontalCenter="0" verticalCenter="-40" id="img1" fillMode="clip"/>
+	<s:Image horizontalCenter="-115" verticalCenter="-140"  id="img"/>
+	<s:Image source="assets/logo/logo.png" horizontalCenter="300" verticalCenter="-320" id="img_logo"/>
+	<s:Group horizontalCenter="-20" verticalCenter="120" width="740" height="226">
+		<s:CheckBox label="记住帐号" x="40" y="78" fontFamily="微软雅黑" fontSize="14" id="check_name" color="0xffffff"/>
+		<s:CheckBox label="记住密码" x="130" y="78" fontFamily="微软雅黑" fontSize="14" id="check_pwd" color="0xffffff"/>
+		<com:MCButton x="567" y="32"  id="btn_logon" click="btn_logon_clickHandler(event)"/>
+		<com:MCButton x="695" y="140"  id="btn_regist" click="btn_regist_clickHandler(event)"/>
+	</s:Group>
+	-->
+	
+	<com:RollText x="205" y="85" rollWidth="315" labFontColor="#FFFFFF" labFontSize="16">
+	</com:RollText>
+	
+	<s:Group x="0" y="0" id="_gonggao">
+		<s:Image x="137" y="38" source="assets/back/gonggao.png"/>
+	</s:Group>
+	<com:MCButton x="445" y="40" targetClass="{sign_close}" click="close_clickHandler()" id="_close"/>
+	
+</s:Group>

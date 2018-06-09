@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark"  visible="false"
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="91" height="36">
+	<fx:Script>
+		<![CDATA[
+			import games.cowlord.model.CowModle;
+			private var _betScore : Number = 0;
+			public function get betScore():Number
+			{
+				return _betScore;
+			}
+
+			public function set betScore(value:Number):void
+			{
+				_betScore += value;
+				if(_betScore > 0){
+					this.visible = true;
+					socre.text = _betScore.toString();
+				}
+			}
+			public function Show(_score : uint) : void
+			{
+				betScore = CowModle._getInstance().m_wlChipScore[_score];
+			}
+			public function Hide() : void
+			{
+				_betScore = 0;
+				this.visible = false;
+				
+//				usersocre.text = '';
+//				usersocre.visible = false;
+//				lab_user.visible  = false;
+			}
+			
+			
+//			public function setUserAreaScore(value:String):void
+//			{
+//				usersocre.text = value;
+//				usersocre.visible = true;
+//				lab_user.visible  = true;
+//			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+		
+	</fx:Declarations>
+	<s:Label width="60" height="18" color="#CCFF00" fontSize="12" fontWeight="bold" text=" / " y="18" filters="{[gf01]}"
+			 textAlign="center" verticalAlign="middle" fontFamily="宋体"/>
+	<s:Label id="socre" x="45" y="20" width="46" height="18" color="#CCFF00" fontSize="16" filters="{[gf01]}"
+			 fontWeight="bold" textAlign="left" verticalAlign="middle"/>
+	<!--
+	<s:Label width="60" height="18" color="#ffff00" fontSize="12" fontWeight="bold" text="已投注 : " y="18" id="lab_user" visible="false"
+			 textAlign="center" verticalAlign="middle" fontFamily="宋体"/>
+	<s:Label id="usersocre" x="45" y="20" width="46" height="18" color="#ffff00" fontSize="16" visible="false"
+			 fontWeight="bold" textAlign="center" verticalAlign="middle"/>
+	-->
+</s:Group>

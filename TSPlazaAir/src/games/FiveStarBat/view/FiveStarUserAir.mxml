@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300"
+		 
+		 fontFamily="宋体"
+		 implements="cx.gamebase.Interface.IUserViewSink, cx.gamebase.Interface.IReadyGame, cx.gamebase.Interface.IDestroy"
+		 creationComplete = "group1_creationCompleteHandler(event)"
+		 width="230" height="100" xmlns:com="com.*"
+		 >
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import cx.gamebase.model.GameUserModel;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			
+			import games.FiveStarBat.model.FiveStarBatModel;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.controller.TEvent;
+			
+			protected var _user : GameUserModel;
+			protected var _model:FiveStarBatModel;
+			public function init():void
+			{
+				_user = GameUserModel.GetInstance();
+				_model= FiveStarBatModel._getInstance();
+			}
+			public function UpdateUserCome(userInfo:tagUserInfoHead, wViewChairID:uint):Boolean
+			{
+				
+			}
+			public function UpdateUserScore(userID:int, wViewChairID:uint, fScore:Number):Boolean
+			{
+				
+			}
+			public function UpdateUserStatus(userID:int, cbStatus:uint, wTableID:int, wViewChairID:uint):Boolean
+			{
+				
+			}
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				
+			}
+			public function ReadyGameEvent(e:TEvent):Boolean
+			{
+				return true;
+			}
+			
+			public function Destroy():Boolean
+			{
+				
+			}
+		]]>
+	</fx:Script>
+</s:Group>

@@ -1,0 +1,1406 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Window xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 implements="t.cx.Interface.ICxKernelClient, cx.net.Interface.IClientSocketSink"
+		 creationComplete="group1_creationCompleteHandler(event)"  
+		 xmlns:plaza="com.plaza.*" maximizable="false"
+		 systemChrome="none" showStatusBar="false"
+		 renderMode="direct"
+		 width="1024" height="703" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.IModuleGame;
+			import base.NavigateURL;
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import com.greensock.TweenMax;
+			import com.plaza.MsgManager;
+			
+			import cx.admin.AdminCMD;
+			import cx.admin.CMD_GF_AidePlay;
+			import cx.client.logon.model.GameFrameModel;
+			import cx.client.logon.model.MessageNet;
+			import cx.client.logon.model.ServerList;
+			import cx.client.logon.model.UserModel;
+			import cx.client.logon.model.events.MsgEvent;
+			import cx.client.logon.model.vo.KindOption;
+			import cx.gamebase.enum.enSmt;
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.events.TCPEvent;
+			import cx.gamebase.sturuct.CMD_GR_LogonByUserID;
+			import cx.gamebase.sturuct.CMD_GR_LogonError;
+			import cx.gamebase.sturuct.CMD_GR_LogonSuccess;
+			import cx.gamebase.sturuct.CMD_GR_Message;
+			import cx.gamebase.sturuct.CMD_GR_PlayWithFriend;
+			import cx.gamebase.sturuct.CMD_GR_QueueField;
+			import cx.gamebase.sturuct.CMD_GR_ServerInfo;
+			import cx.gamebase.sturuct.CMD_GR_SitFailed;
+			import cx.gamebase.sturuct.CMD_GR_TableInfo;
+			import cx.gamebase.sturuct.CMD_GR_TableStatus;
+			import cx.gamebase.sturuct.CMD_GR_UserQueue;
+			import cx.gamebase.sturuct.CMD_GR_UserScore;
+			import cx.gamebase.sturuct.CMD_GR_UserSitReq;
+			import cx.gamebase.sturuct.CMD_GR_UserStatus;
+			import cx.gamebase.sturuct.GameCmd;
+			import cx.gamebase.sturuct.tagOnLineCountInfo;
+			import cx.gamebase.sturuct.tagServerParmater;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			import cx.net.ClientSocket;
+			import cx.net.Interface.IClientSocket;
+			import cx.net.NetConst;
+			import cx.net.enum.enSocketState;
+			import cx.net.utils.NetWork;
+			
+			import flash.display.DisplayObject;
+			import flash.geom.Point;
+			import flash.utils.ByteArray;
+			
+			import mx.core.IVisualElement;
+			import mx.events.ColorPickerEvent;
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TDas;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.CType.TCHAR;
+			import t.cx.air.utils.MD5;
+			import t.cx.air.utils.SystemEx;
+			import t.cx.air.utils.serialization.json.JSON;
+			import t.cx.cmd.SendPacketHelper;
+			import t.cx.cmd.enum.enDTP;
+			import t.cx.cmd.struct.tagGameKind;
+			import t.cx.cmd.struct.tagGameServer;
+			
+			
+			
+			
+			
+			[Bindable]
+			[Embed(source="assets/swf/title_pujing.swf", symbol="status_close")]
+			public var status_close:Class;
+			[Bindable]
+			[Embed(source="assets/swf/title_pujing.swf", symbol="status_min")]
+			public var status_min:Class;
+			[Bindable]
+			[Embed(source="assets/swf/title_pujing.swf", symbol="status_voice")]
+			public var status_voice:Class;
+			[Bindable]
+			[Embed(source="assets/swf/title_pujing.swf", symbol="status_voiceoff")]
+			public var status_voiceoff:Class;
+			
+			
+			
+			private var obj:Object;
+			
+			private var _user 		: UserModel;
+			private var _queueTime  : Timer;
+			private var _queueCount : uint;
+			
+			private var _NetIndex 	: Number;
+			private var _serverList : ServerList;
+			private var _Server		: tagGameServer;
+			private var _Kind		: tagGameKind;
+			private var _KindOption : KindOption;
+			
+			
+			private var _GameSocket : ClientSocket;
+			private var _serverInfo	: CMD_GR_ServerInfo;
+			
+			private var _bContinueGame : Boolean;
+			private var _bCanLeave	   : Boolean;
+			private var _bDestroying   : Boolean;
+			
+			private var _gameModule:IModuleGame;
+			
+			private var onRestartGame:Boolean = false;
+			
+			public function set serverParam(val : tagServerParmater) : void
+			{
+				_Server = _serverList.GetServer(val.wServerID);
+				_Kind = _serverList.GetKind(_Server.wKindID);
+				_KindOption = _serverList.GetKindOption(_Server.wKindID);
+				//				SetWH(_KindOption.width,_KindOption.height);
+			}
+			
+			public function init(gameModule:IModuleGame):void
+			{
+				_serverList = ServerList._getInstance();
+				_NetIndex = TDas._getByteItem(TConst.PROXY)-1;
+				if(_NetIndex < 0) _NetIndex = 0;
+				
+				_gameModule = gameModule;
+				
+//				setDisplayPosition();
+			}
+			
+			private function setDisplayPosition():void
+			{
+				var voiceon:Number = TDas._getDoubleItem('gameVoice');
+				if(voiceon == 1)
+				{
+					StaticVars._isVoiceOn = true;
+				}
+				else if(voiceon == 0)
+				{
+					StaticVars._isVoiceOn = false;
+				}
+				else if(!voiceon)
+				{
+					TDas._setDoubleItem('gameVoice', 1);
+					StaticVars._isVoiceOn = true;
+				}
+				
+				if(StaticVars._isVoiceOn)
+				{
+					btn_voice.targetClass = status_voice;
+					setSound(1);
+				}
+				else
+				{
+					btn_voice.targetClass = status_voiceoff;
+					setSound(0);
+				}
+				
+				_info.visible = StaticVars.isMatch;
+			}
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				setDisplayPosition();
+				
+				ID_Background.nativeWindow = this.nativeWindow;
+				
+				
+				_queueCount=0;
+				_bCanLeave = true;
+				_user		= UserModel._getInstance(); 
+				
+				if(_Server != null && _Kind != null)
+				{
+					Controller.addEventListener(MsgEvent.MSG_OUTUSER,onOutUserEvent);
+					Controller.addEventListener(MsgEvent.MSG_MESSAGE,OnAdminMessgae);
+					
+					_serverList._bGameOpen = true;
+					showTip(_Server.szServerName + '启动,正在连接服务器...');
+					
+					if( TDas._getByteItem(TConst.PROXY) <= 0)
+						TDas._setByteItem(TConst.PROXY,1);
+					_NetIndex = TDas._getByteItem(TConst.PROXY)-1;
+					if(_NetIndex!=0&&_NetIndex!=1)_NetIndex = 0;
+					//选择电信  与 联通
+					var ip : String = _Server.szAreaString[_NetIndex];//NetWork._inetNtoa(
+					trace(' _Server.szAreaString[_NetIndex]', _Server.szAreaString[_NetIndex]);
+					
+					var port : int = _Server.wServerPort;
+					if(_GameSocket == null)
+					{
+						_GameSocket = new ClientSocket();
+						_GameSocket.SetSocketSink(this);
+						_GameSocket.Connect( ip,port );
+					}
+					else 
+					{
+						if(StaticVars.playWithFriend)
+						{
+							var playWithFriend:CMD_GR_PlayWithFriend = new CMD_GR_PlayWithFriend;
+							playWithFriend.dwUserID 	= StaticVars.tog_userID;
+							playWithFriend.dwFriendID	= StaticVars.tog_friendID; 
+							_GameSocket.SendData(GameCmd.MDM_GR_USER,GameCmd.SUB_GR_USER_WITHFRIEND,playWithFriend.toByteArray(),playWithFriend.size);
+							return;
+						}
+						else
+							onSendEnterTable();
+						
+						
+						
+						//						if(!_user.Aide || theAideManager == null) {
+						//							onSendEnterTable();
+						//						}else {
+						//							onAdminLogonFinish();
+						//						}
+					}
+				}else {
+					//					Message.show('没有找到该游戏服务,请联系客服.');
+					var val : uint = 0;
+					if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+						val = 1
+					MsgManager.getInstance().showMessage1('没有找到该游戏服务,请联系客服.',null,0,-50,false,val);
+					//					onExit(0);
+				}
+				
+				
+				var gamecolor:Number = TDas._getDoubleItem('gamecolor');
+				if(gamecolor && _gameModule)
+				{
+					_gameModule.changeBackground(gamecolor);
+				}
+			}
+			
+			private function onOutUserEvent(e : TEvent) : void
+			{
+				_bCanLeave = true;
+				if(_GameSocket != null && _GameSocket.GetConnectState() == enSocketState.en_Connected) {
+					_GameSocket.SendCmd(GameCmd.MDM_GR_USER,GameCmd.SUB_GR_USER_ADMIN_OUT);
+				}
+				_bContinueGame = false;
+				//				if(NetConst.pCxWin) { NetConst.pCxWin.CxExit(this,2); }
+				//				Message.show('您被管理员踢出游戏');
+				
+				okClick();
+				MsgManager.getInstance().showMessage1( '您已被管理员强制退出该房间！' );
+			}
+			
+			private function OnAdminMessgae(e : TEvent) : void
+			{
+				if(e.m_nMsg == 1)
+				{
+					StaticVars.gameRollTextStr = e.nWParam as String;
+					//					onHideGongGao();
+					//					theGongGao.htmlText = e.nWParam as String;
+					//					theGongGao.visible = true;
+					//					theGongGao.y = (this.height - theGongGao.height);
+					//					_gongGaotimer = new Timer(100,250);
+					//					_gongGaotimer.addEventListener(TimerEvent.TIMER,onGgTimerEvent);
+					//					_gongGaotimer.start();
+				}
+			}
+			
+			
+			public function SocketClose(pIClientSocket:IClientSocket, bCloseByServer:Boolean):Boolean
+			{
+				//				thePack.SetText('游戏服务关闭');
+				//				showTip('游戏服务关闭');
+				Controller.dispatchEvent(TCPEvent.SOCKET_SINK,TCPEvent.SOCKET_CLOSE,bCloseByServer);
+				if(bCloseByServer) {
+					//					Message.show("游戏服务器连接错误.");
+					var val : uint = 0;
+					if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+						val = 1
+					MsgManager.getInstance().showMessage1('与服务器连接断开，请检查您的网络！如未解决，请联系客服！', close_clickHandler,0,-50,false,val);
+				}
+				//				else
+				//				{
+				//					MsgManager.getInstance().showMessage1('服务器关闭，请稍后登陆.', close_clickHandler);
+				//				}
+				
+				StaticVars.playWithFriend = false;
+				StaticVars.enterRoom = false;
+				StaticVars.isPlayedWithFriend = false;
+				
+				_bCanLeave= true;
+				_bContinueGame = false;
+				if(!_bDestroying) { onExit(); }
+				
+				//				MsgManager.getInstance().showMessage('游戏服务关闭', close_clickHandler
+				
+				return true;
+			}
+			
+			public function SocketConnect(iErrorCode:int, szErrorDesc:String, pIClientSocket:IClientSocket):Boolean
+			{
+				if(iErrorCode != 0)
+				{
+					onStartTime(true);
+					//					Message.show(szErrorDesc);
+					var val : uint = 0;
+					if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+						val = 1
+					MsgManager.getInstance().showMessage1(szErrorDesc, close_clickHandler,0,-50,false,val);
+					return false;
+				}
+				showTip('游戏服务连接成功,开始登录服务器');
+				//发送游戏登陆消息
+				var logon : CMD_GR_LogonByUserID = new CMD_GR_LogonByUserID();
+				logon.dwUserID = _user.selfInfo.dwUserID;
+				logon.szPassWord = MD5.hash(_user.selfInfo.szPassword);
+				logon.dwPlazaVersion =  TConst.VER_PLAZA_FRAME;
+				logon.dwProcessVersion = 0;
+				var bytes : ByteArray = logon.Write();
+				var mac : String = SystemEx._clientSequence();
+				var wPacketSize : uint = SendPacketHelper._attachTCHAR(bytes,mac,33,enDTP.DTP_COMPUTER_ID);
+				pIClientSocket.SendData(GameCmd.MDM_GR_LOGON,GameCmd.SUB_GR_LOGON_USERID,bytes,logon.SIZE + wPacketSize);
+				return true;
+			}
+			
+			
+			private function onStartTime(bKill : Boolean = false) : void
+			{
+				if(bKill)
+				{
+					if(_queueTime != null)
+					{
+						_queueTime.stop();
+						_queueTime.removeEventListener(TimerEvent.TIMER_COMPLETE,onCheckQueueEvent);
+						_queueTime = null;
+					}
+					return;
+				}
+				_queueCount++;
+				onStartTime(true);
+				_queueTime = new Timer(10000,1);
+				_queueTime.addEventListener(TimerEvent.TIMER_COMPLETE,onCheckQueueEvent);
+				_queueTime.start();
+			}
+			private function onCheckQueueEvent(e : TimerEvent) : void
+			{
+				if( !(_GameSocket && _GameSocket.GetConnectState() == enSocketState.en_Connected) )
+				{
+					var val : uint = 0;
+					if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+						val = 1
+					MsgManager.getInstance().showMessage1('游戏断开重新连接',null,0,-50,false,val);
+					if(_GameSocket != null) {
+						_GameSocket.Connect(  NetWork._inetNtoa(_Server.dwServerAddr[ (_NetIndex+1)%2 ]),_Server.wServerPort );
+					}else {
+						_GameSocket = new ClientSocket();
+						_GameSocket.SetSocketSink(this);
+						_GameSocket.Connect(  NetWork._inetNtoa(_Server.dwServerAddr[ (_NetIndex+1)%2 ]),_Server.wServerPort );
+					}
+					return;
+				}
+				showTip('系统正在为您分配房间('+_queueCount+')....');
+				_GameSocket.SendCmd(GameCmd.MDM_GR_USER,GameCmd.SUB_GR_USER_QUEUE_REQ_AGAIN);
+				onStartTime();
+			}
+			
+			public function SocketRead(wMainCmdID:uint, wSubCmdID:uint, pBuffer:ByteArray, wDataSize:int, pIClientSocket:IClientSocket):Boolean
+			{
+				switch(wMainCmdID)
+				{
+					case GameCmd.MDM_GR_LOGON:			//登陆消息
+					{
+						return OnGameLogonEvent(wSubCmdID,pBuffer,wDataSize,pIClientSocket);
+					}
+					case GameCmd.MDM_GR_INFO:			//游戏信息消息
+					{
+						return OnGameInfoEvent(wSubCmdID,pBuffer,wDataSize,pIClientSocket);
+					}
+					case GameCmd.MDM_GR_USER:			//玩家消息
+					{
+						return OnGameUserEvent(wSubCmdID,pBuffer,wDataSize,pIClientSocket);
+					}
+					case GameCmd.MDM_GR_STATUS:			//游戏状态
+					{
+						return OnTableStatus(wSubCmdID,pBuffer,wDataSize,pIClientSocket);
+					}
+					case GameCmd.MDM_GR_SYSTEM:			//系统消息
+					{
+						return OnSystemEvent(wSubCmdID,pBuffer,wDataSize,pIClientSocket);
+					}
+					case GameCmd.MDM_GR_SERVER_INFO:	//服务消息
+					{
+						return OnServerInfoEvent(wSubCmdID,pBuffer,wDataSize,pIClientSocket);
+					}
+					case AdminCMD.MDM_GF_AIDE:
+					{
+						return OnServerAideEvent(wSubCmdID,pBuffer,wDataSize,pIClientSocket);
+					}
+				}
+				
+				if(onRestartGame)	return true;
+				return false;
+			}
+			
+			
+			//消息出来函数
+			protected function OnGameLogonEvent(wSubCmdID : int,pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				switch(wSubCmdID)
+				{
+					case GameCmd.SUB_GR_LOGON_SUCCESS:	//登陆成功
+					{
+						var logonSuccess : CMD_GR_LogonSuccess = CMD_GR_LogonSuccess._readBuffer(pBuffer);
+						if(_user.selfID != logonSuccess.dwUserID)	 {		//登陆获取ID与用户ID不符
+							//							Message.show('登陆获取ID与用户ID不符');
+							var val : uint = 0;
+							if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+								val = 1
+							MsgManager.getInstance().showMessage1('登陆获取ID与用户ID不符',null,0,-50,false,val);
+							//							thePack.SetText('登陆获取ID与用户ID不符('+_queueCount+')...');
+							return false;
+						}
+						//						thePack.SetText('游戏服务连接成功...');
+						showTip('游戏服务连接成功...');
+						return true;
+					}
+					case GameCmd.SUB_GR_LOGON_ERROR:	//登陆失败
+					{
+						//						thePack.SetText('游戏服务连接失败('+_queueCount+')...');
+						_bCanLeave= true;
+						var logonError : CMD_GR_LogonError = CMD_GR_LogonError._readBuffer(pBuffer);
+						//						Message.show(logonError.szErrorDescribe);
+						MsgManager.getInstance().showMessage1(logonError.szErrorDescribe,close_clickHandler);
+						onExit();
+						return true;
+					}
+					case GameCmd.SUB_GR_LOGON_FINISH:	//登陆完成
+					{
+						if(StaticVars.enterAppointRoom)
+						{
+							var sit : CMD_GR_UserSitReq = new CMD_GR_UserSitReq();
+							sit.wChairID = TConst.INVALID_CHAIR;
+							sit.wTableID = TConst.INVALID_CHAIR; 
+							sit.cbPassLen=TCHAR.getLength(StaticVars.enterAppointPwd);
+							sit.szTablePass = StaticVars.enterAppointPwd;
+							_GameSocket.SendData(GameCmd.MDM_GR_USER,GameCmd.SUB_GR_USER_SIT_REQ,sit.Write(),sit.size());
+							//							thePack.SetText('游戏服务登录成功,请求服务器上坐...');
+							showTip('申请进入指定房间...');
+							return true;
+						}
+						
+						if(StaticVars.playWithFriend)
+						{
+							var playWithFriend:CMD_GR_PlayWithFriend = new CMD_GR_PlayWithFriend;
+							playWithFriend.dwUserID 	= StaticVars.tog_userID;
+							playWithFriend.dwFriendID	= StaticVars.tog_friendID; 
+							_GameSocket.SendData(GameCmd.MDM_GR_USER,GameCmd.SUB_GR_USER_WITHFRIEND,playWithFriend.toByteArray(),playWithFriend.size);
+							return true;
+						}
+						
+						
+						//						if(_user.Aide && theAideManager != null) {
+						//							return onAdminLogonFinish();
+						//						}else {
+						return onSendEnterTable();
+						//						}
+					}
+				}
+				//				Message.show("数据未处理【wMainID】:" + 1 + '【wSubID】:' + wSubCmdID);
+				return false;
+			}
+			
+			
+			//服务配置消息
+			protected function OnGameInfoEvent(wSubCmdID : int,pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				switch(wSubCmdID)
+				{
+					case GameCmd.SUB_GR_SERVER_INFO:
+					{
+						_serverInfo = CMD_GR_ServerInfo._readBuffer(pBuffer);
+						return true;
+					}
+					case GameCmd.SUB_GR_COLUMN_INFO:
+					{
+						return true;
+					}
+					case GameCmd.SUB_GR_CONFIG_FINISH:
+					{
+						return true;
+					}
+				}
+				
+				//				thePack.SetText("数据未处理【wMainID】:" + 3 + '【wSubID】:' + wSubCmdID);
+				//				Message.show("数据未处理【wMainID】:" + 3 + '【wSubID】:' + wSubCmdID);
+				return false;
+			}
+			
+			//用户消息
+			protected function OnGameUserEvent(wSubCmdID : int,pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				try {
+					
+					var val : uint = 0;
+					switch(wSubCmdID)
+					{
+						case GameCmd.SUB_GR_USER_COME:
+						{
+							try {
+								var userHead : tagUserInfoHead = tagUserInfoHead._readBuffer(pBuffer);
+								if(userHead)
+								{
+									_user.InsertPlayer(userHead);
+									if(userHead.wTableID != TConst.INVALID_TABLE) {		//如果玩家在游戏内
+										if(_user.selfID == userHead.dwUserID) {			//如果是自己 
+											sendUserInfoToGame(userHead.wTableID);
+										}else if(_user.SelfHead.wTableID == userHead.wTableID) {
+											Controller.dispatchEvent(GameEvent.USER_COME,1,userHead.clone());
+										}
+									}
+									//									if( theAideManager!=null ) { Controller.dispatchEvent(GameEvent.USER_COME,3,userHead.clone()); }
+								}
+							}catch(e : Error) {
+								//								Message.show('OnGameUserEvent:' + wSubCmdID+'|'+pBuffer.bytesAvailable+'|'+wDataSize + '|' + e.toString(),3);
+								//								trace('OnGameUserEvent:' + wSubCmdID+'|'+pBuffer.bytesAvailable+'|'+wDataSize + '|' + e.toString(),3);
+								return true;
+							}
+							
+							return true;
+						}
+						case GameCmd.SUB_GR_USER_STATUS:		
+						{
+							return OnUserStatus(pBuffer,wDataSize,pIClientSocket);
+						}
+						case GameCmd.SUB_GR_USER_SCORE:			//用户积分变化
+						{
+							return OnUserScore(pBuffer,wDataSize,pIClientSocket);
+						}
+						case GameCmd.SUB_GR_SIT_FAILED:
+						{
+							var SitField : CMD_GR_SitFailed = CMD_GR_SitFailed._readBuffer(pBuffer);
+							//							Message.show(SitField.szFailedDescribe);
+							val = 0;
+							if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+								val = 1
+							MsgManager.getInstance().showMessage1(SitField.szFailedDescribe, close_clickHandler,0,-50,false,val);
+							onExit();
+							return true;
+						}
+						case GameCmd.SUB_GR_USER_QUEUE:			//游戏队列添加成功
+						{
+							var RecvQueueCom : CMD_GR_UserQueue = CMD_GR_UserQueue._readBuffer(pBuffer);
+							//							thePack.SetText('系统响应队列请求完成,正在为您自动分桌...');
+							showTip('系统响应队列请求完成,正在为您自动分桌...');
+							return true;
+						}
+						case GameCmd.SUB_GR_USER_QUEUE_COM:		//队列分配成功
+						{
+							_bCanLeave = true;
+							onStartTime(true);
+							//							thePack.SetText('系统自动分桌完成,正在进入游戏...');
+							showTip('系统自动分桌完成,正在进入游戏...');
+							return true;
+						}
+						case GameCmd.SUB_GR_USER_QUEUE_FIELD:
+						{
+							trace('排队失败------------d')
+							onStartTime(true);
+							_bCanLeave= true;
+							_bContinueGame = false;
+							var RecvQueueField : CMD_GR_QueueField = CMD_GR_QueueField._readBuffer(pBuffer);
+							//							Message.show(RecvQueueField.szFailedDescribe);
+							val = 0;
+							if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+								val = 1
+							MsgManager.getInstance().showMessage1(RecvQueueField.szFailedDescribe, close_clickHandler,0,-50,false,val);
+							onExit();
+							return true;
+						}
+						case GameCmd.SUB_GP_USER_WITHOUTROOM:
+						{
+							val = 0;
+							if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+								val = 1
+							MsgManager.getInstance().showMessage1('您的好友已离开房间，请点击确定离开房间！', close_clickHandler,0,-50,false,val);
+							return true;
+						}
+					}
+				}catch(e : Error) {
+					//					Message.show('OnGameUserEvent:' + wSubCmdID+'|'+pBuffer.bytesAvailable+'|'+wDataSize + '|' + e.toString(),3);
+					return true;
+				}
+				
+				return false;
+			}
+			
+			
+			//发送玩家本桌的用户
+			private function sendUserInfoToGame(tableID : int) : void
+			{
+				var arr : Array = _user.GetUsersByTable(tableID);
+				var self : tagUserInfoHead = _user.SelfHead;
+				Controller.dispatchEvent(GameEvent.USER_COME,1,self.clone());
+				for(var i : uint =0;i<arr.length;i++)
+				{
+					var userInfo : tagUserInfoHead = arr[i] as tagUserInfoHead;
+					if(self.dwUserID == userInfo.dwUserID) continue;
+					Controller.dispatchEvent(GameEvent.USER_COME,1,userInfo.clone());
+				}
+			}
+			
+			protected function OnUserStatus(pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				try {
+					var userStatus : CMD_GR_UserStatus = CMD_GR_UserStatus._readBuffer(pBuffer);
+					var oldStatus : CMD_GR_UserStatus = _user.UpdateStatus(userStatus);
+					if(userStatus.dwUserID != _user.SelfHead.dwUserID){				//其他人的状态消息
+						if(userStatus.cbUserStatus == TConst.US_NULL)	 {													//用户离开
+							_user.Remove(userStatus.dwUserID);
+							if(oldStatus!= null) {
+								if(oldStatus.wTableID == _user.SelfHead.wTableID) { Controller.dispatchEvent(GameEvent.USER_STATUS,1,userStatus,oldStatus);  }
+							}
+						}else {
+							if( (oldStatus == null || oldStatus.cbUserStatus <= TConst.US_FREE) && userStatus.cbUserStatus >= TConst.US_SIT)	{		//用户坐下
+								if(userStatus.wTableID == _user.SelfHead.wTableID) { sendUserInfoToGame(userStatus.wTableID); }
+							}
+						}
+					}else{
+						if(userStatus.cbUserStatus <= TConst.US_FREE)														//用户自己离开游戏
+						{
+							if(oldStatus != null && oldStatus.cbUserStatus > TConst.US_FREE && !_bContinueGame)
+							{
+								onExit(1);
+							}
+							return true;
+						}
+						if(userStatus.cbUserStatus>TConst.US_FREE)
+						{
+							var bStart : Boolean = false;
+							if(oldStatus == null) {
+								bStart = false;
+								oldStatus = userStatus.Clone();
+							}else if(oldStatus.cbUserStatus<=TConst.US_FREE) {
+								bStart = true;
+							}
+							if(bStart) {
+								//安装游戏
+								if(!OnInstallGame()) { onExit(1); }
+							}
+						}
+					}
+					//通知游戏
+					if(userStatus.wTableID == _user.SelfHead.wTableID) { Controller.dispatchEvent(GameEvent.USER_STATUS,1,userStatus,oldStatus); }
+				}catch(e : Error) {
+					trace('OnGameUserEvent:OnUserStatus:' + pBuffer.bytesAvailable+'|'+wDataSize + '|' + e.toString(),3);
+					return true;
+				}
+				return true;
+			}
+			
+			
+			//用户积分变化
+			protected function OnUserScore(pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				var RecvScore : CMD_GR_UserScore = CMD_GR_UserScore._readBuffer(pBuffer);
+				if(RecvScore.dwUserID == _user.selfID) { 
+					_user.selfInfo.lScore = RecvScore.UserScore.lScore; 
+				}
+				var userInfo : tagUserInfoHead = _user.GetUser(RecvScore.dwUserID);
+				if(userInfo) {
+					userInfo.UserScoreInfo.lScore = RecvScore.UserScore.lScore;
+					userInfo.UserScoreInfo.lDrawCount = RecvScore.UserScore.lDrawCount;
+					userInfo.UserScoreInfo.lExperience = RecvScore.UserScore.lExperience;
+					userInfo.UserScoreInfo.lFleeCount = RecvScore.UserScore.lFleeCount;
+					userInfo.UserScoreInfo.lLostCount = RecvScore.UserScore.lLostCount;
+					userInfo.UserScoreInfo.lWinCount = RecvScore.UserScore.lWinCount;
+				}
+				Controller.dispatchEvent(GameEvent.USER_SCORE,1,RecvScore);
+				return true;
+			}
+			
+			//桌子信息
+			protected function OnTableStatus(wSubCmdID : int,pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				
+				switch(wSubCmdID)
+				{
+					case GameCmd.SUB_GR_TABLE_INFO:
+					{
+						var tableInfo : CMD_GR_TableInfo = CMD_GR_TableInfo._readBuffer(pBuffer);
+						
+						return true;
+					}
+					case GameCmd.SUB_GR_TABLE_STATUS:						//桌子状态
+					{
+						var tableStatus : CMD_GR_TableStatus = CMD_GR_TableStatus._readBuffer(pBuffer);
+						
+						StaticVars.szGameNum = tableStatus.szTableNum;
+						if(tableStatus.wTableID == _user.SelfHead.wTableID&&_user.SelfHead.wTableID!=65535&&tableStatus.bPlayStatus>=TConst.US_PLAY)
+						{
+							trace('updateGameNum---------',tableStatus.wTableID,_user.SelfHead.wTableID,StaticVars.szGameNum)
+							if(_gameModule) _gameModule.updateGameNum();
+						}
+						
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			protected function OnSystemEvent(wSubCmdID : int,pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				switch(wSubCmdID)
+				{
+					case GameCmd.SUB_GR_MESSAGE:
+					{
+						var msg : CMD_GR_Message = CMD_GR_Message._readBuffer(pBuffer);
+						switch(msg.wMessageType)
+						{
+							case enSmt.INFO:			//信息消息
+							{
+								return true;
+							}
+							case enSmt.EJECT:			//弹出消息
+							case enSmt.GLOBAL:			//全局消息
+							{
+								return true;
+							}
+							case enSmt.CLOSE_GAME:		//关闭游戏
+							{
+								_bCanLeave= true;
+								//								Message.show(msg.szContent);
+								
+								var val : uint = 0;
+								if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+									val = 1
+								MsgManager.getInstance().showMessage1(msg.szContent,null,0,-50,false,val);
+								onExit(1);
+								return true;
+							}
+						}
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			//消息服务器
+			protected function OnServerInfoEvent(wSubCmdID : int,pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				switch(wSubCmdID)
+				{
+					case GameCmd.SUB_GR_ONLINE_COUNT_INFO:
+					{
+						var onLineInfo : tagOnLineCountInfo = tagOnLineCountInfo._readBuffer(pBuffer);
+						Controller.dispatchEvent(TCPEvent.TCP_SERVER_INFO,TCPEvent.TCP_ONLINE_COUNTINFO,onLineInfo);
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			//管理员
+			protected function OnServerAideEvent(wSubCmdID : int,pBuffer : ByteArray,wDataSize: int,pIClientSocket : IClientSocket) : Boolean
+			{
+				switch(wSubCmdID)
+				{
+					case AdminCMD.SUB_GF_AIDE_STATUS:
+					{
+						//						if( theAideManager != null ) 
+						//						{
+						//							Controller.dispatchEvent( "AIDE_USER_STATUS",1,CMD_GR_UserStatus._readBuffer(pBuffer) );
+						//							return true;
+						//						}
+						return false;
+					}
+					case AdminCMD.SUB_GF_AIDE_LEAVE:
+					{	
+						//						if( theAideManager != null ) 
+						//						{
+						//							var RecvLeaveID : uint = CMD_GF_AideLeave._readBuffer(pBuffer).dwUserID;
+						//							Controller.dispatchEvent( "AIDE_USER_LEAVE",1,RecvLeaveID );
+						//							return true;
+						//						}
+						return false;
+					}
+					case AdminCMD.SUB_GF_AIDE_PLAY:
+					{
+						var RecvAdminPlay : CMD_GF_AidePlay = CMD_GF_AidePlay._readBuffer(pBuffer);
+						var userInfo : tagUserInfoHead = _user.GetUser(RecvAdminPlay.dwUserID);
+						if( userInfo != null) {
+							userInfo.dwViewID = RecvAdminPlay.dwViewID;
+							//userInfo.AideIP = RecvAdminPlay.szViewIP;
+						}
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			public function CXShowed(bExitCode:uint):void
+			{
+				// TODO Auto Generated method stub
+				
+			}
+			
+			public function CxClientDestroy(cbDestroyCode:uint):Boolean
+			{
+				unListernController();
+				//				if(cbDestroyCode == 10) {
+				//					onExit(2); 
+				//					return false; 
+				//				}
+				_bDestroying = true;
+				onStartTime(true);
+				
+				//				if(_gameModule && cbDestroyCode!=5)
+				//				{
+				//					Controller.dispatchEvent(GameEvent.PRE_G_EXIT,1);
+				//					if(this.contains(_gameDisplay)) { this.removeChild(_gameDisplay); }
+				//					_gameModule = null;
+				//				}
+				
+				if( cbDestroyCode==2 || !_bContinueGame )
+				{
+					if(_user)
+					{
+						_user.Destroy();
+						_user = null;
+					}
+					if(_GameSocket)
+					{
+						_GameSocket.CloseSocket(false);
+						_GameSocket = null;
+					}
+					//					onHideGongGao();
+					//					if(theAideManager != null) { theAideManager.ResetList(); }
+				}else {
+					if(_user != null) {
+						_user.RemoveAll();
+					}
+				}
+				_queueCount = 0;
+				//				thePack.StopLoad();
+				//				theMsg.Hide();
+				
+				_bCanLeave = false;
+				
+				
+				//				unLoader();
+				Controller.removeEventListener(MsgEvent.MSG_OUTUSER,onOutUserEvent);
+				Controller.removeEventListener(MsgEvent.MSG_MESSAGE,OnAdminMessgae);
+				_bDestroying = false;
+				_serverList._bGameOpen = false;
+				TweenMax.killAll(true);
+				SystemEx._froceGC();
+				return true;
+			}
+			
+			public function CxGetDisplayObject(type:String="", bShow:Boolean=false):DisplayObject
+			{
+				// TODO Auto Generated method stub
+				return null;
+			}
+			
+			public function CxGetWH():Point
+			{
+				// TODO Auto Generated method stub
+				return null;
+			}
+			
+			public function CxIcon(size:uint=128):Array
+			{
+				// TODO Auto Generated method stub
+				return null;
+			}
+			
+			public function CxShowType(parent:*=null):String
+			{
+				// TODO Auto Generated method stub
+				return null;
+			}
+			
+			public function CxWindowTitle():String
+			{
+				// TODO Auto Generated method stub
+				return null;
+			}
+			
+			private function onSendEnterTable() : Boolean
+			{
+				//				thePack.SetText('游戏服务登录成功('+_queueCount+')...');
+				showTip('游戏服务登录成功('+_queueCount+')...');
+				if(!(_user && _user.selfInfo)) return false;
+				var myStatus : CMD_GR_UserStatus = _user.GetStatusByID(_user.selfID);
+				
+				if(myStatus == null )return false;
+				if(myStatus.cbUserStatus <= TConst.US_FREE || _bContinueGame)
+				{
+					if(_serverInfo.cbHideUserInfo!=0)	//防作弊房间
+					{
+						if(_Kind.wTypeID == 1)				//财富类游戏
+						{
+							var sit : CMD_GR_UserSitReq = new CMD_GR_UserSitReq();
+							sit.wChairID = TConst.INVALID_CHAIR;
+							sit.wTableID = TConst.INVALID_CHAIR; 
+							_GameSocket.SendData(GameCmd.MDM_GR_USER,GameCmd.SUB_GR_USER_SIT_REQ,sit.Write(),sit.size());
+							//							thePack.SetText('游戏服务登录成功,请求服务器上坐...');
+							showTip('游戏服务登录成功,请求服务器上坐...');
+							return true;
+						}else {
+							_queueCount = 0;
+							onStartTime();
+							var bReturn : Boolean = _GameSocket.SendCmd(GameCmd.MDM_GR_USER,GameCmd.SUB_GR_USER_QUEUE_REQ);
+							//							thePack.SetText('游戏服务登录成功,请求队列服务('+_queueCount+')...');
+							showTip('游戏服务登录成功,请求队列服务('+_queueCount+')...');
+							return bReturn;
+						}
+						return false;
+					}else							
+					{
+						//						Message.show("非防作弊模式未开启.");
+						//						thePack.SetText('游戏服务登录成功,房间为非防作弊，无法进入('+_queueCount+')...');
+						showTip('游戏服务登录成功,房间为非防作弊，无法进入('+_queueCount+')...');
+						_GameSocket.CloseSocket(false);
+						return true;
+					}
+				}else {
+					//					thePack.SetText('断线重入玩家...');
+					if(!OnInstallGame()) { onExit(1); }
+					return true;
+				}
+				return false;
+			}
+			
+			protected function OnInstallGame() : Boolean
+			{
+				//				var path : String = _KindOption.exe;
+				//				path += (TConst.TC_DEUBG==1)?'.swf':'.cxc';
+				//				path = TPather._fullPath(path);
+				//				if(!TPather._exist(path)) { 
+				//					Message.show("游戏尚未安装,请手动更新."); 
+				//					return false;  
+				//				}
+				//添加游戏部件加载完成监听
+				//				if(!Controller.hasEventListener(GameEvent.INIT_G_COMPLETE))
+				//					Controller.addEventListener(GameEvent.INIT_G_COMPLETE,OnGameInitCompleteEvent);
+				//				if(gameContinue)
+				//					OnGameInitCompleteEvent(null);
+				
+				onRestartGame = false;
+				
+				Controller.addEventListener(GameEvent.INIT_G_COMPLETE,OnGameInitCompleteEvent);
+				_gameModule.logonSuccess();
+				
+				//				Controller.addEventListener('AlterWindow',OnAlterWindow);
+				//加载游戏
+				//				OnLoaderGameByteArray(path);
+				
+				//				if(!this.contains(_gameModule as DisplayObject))
+				//					this.addElementAt(_gameModule as IVisualElement, 1);
+				
+				return true;
+			}
+			
+			protected function OnGameInitCompleteEvent(e : TEvent) : void
+			{
+				Controller.removeEventListener(GameEvent.INIT_G_COMPLETE,OnGameInitCompleteEvent);
+				//				Controller.removeEventListener('AlterWindow',OnAlterWindow);
+				_bContinueGame = false;
+				gameContinue = false;
+				Controller.dispatchEvent(TCPEvent.SOCKET_SINK,TCPEvent.SOCKET_INIT,_GameSocket as IClientSocket);
+				Controller.dispatchEvent(TCPEvent.GAME_ATTRIBUTE,0,_Server,_Kind);
+				//添加游戏内部事件监听
+				Controller.addEventListener(GameEvent.GAME_SEND_EXIT,OnGameReqExitEvent);
+				Controller.addEventListener(GameEvent.CLIENT_GAME_OFFLIE,OnGameOffLineEvent);
+				Controller.addEventListener(GameEvent.CONTINUE_GAME,OnContinueGameEvent);
+				Controller.addEventListener(GameEvent.GAME_LEAVE_ENABLE,OnLeaveEnableEvent);
+				Controller.addEventListener(GameEvent.USER_GAME_SCORE,OnUserGameScore);
+				
+				Controller.addEventListener("gameModuleExit",OnGameModuleExit);
+				Controller.addEventListener("exitSubGame", existCloseClickHandler);
+				
+				
+				
+				if(MessageNet._getInstance().gongGao != null) {
+					Controller.dispatchEvent(GameEvent.GAME_NOTICE_EVENT,0,MessageNet._getInstance().gongGao.MessageTxt);
+				}
+				//发送用户进入游戏
+				sendUserInfoToGame(_user.SelfHead.wTableID);
+				//隐藏掉加载界面
+				//				thePack.StopLoad();
+				
+				
+				hideTip();
+			}
+			
+			protected function OnGameReqExitEvent(e : TEvent) : void
+			{
+				unListernController();
+				if(e.m_nMsg == 2) { 
+					_bCanLeave = true;
+					if(_Kind.wTypeID == 1 || _Kind.wKindID == 2000 || _Kind.wKindID==2003) 
+					{ 
+						GameFrameModel._GetInstance().exit = false; 
+					}
+					onExit(2);
+				}else {
+					onExit(1);
+				}
+			}
+			
+			private var gameContinue:Boolean = false;
+			protected function OnContinueGameEvent(event : TEvent) : void
+			{
+				onRestartGame = true;
+				
+				
+				unListernController();
+				TConst.TC_AUTO_ENTER_GAME = _Server.wServerID;
+				_bContinueGame = true;
+				_bCanLeave = true;
+				
+				onExit(5);
+				Controller.dispatchEvent(GameEvent.PRE_G_EXIT,1);
+				CxClientDestroy(5);
+				
+				group1_creationCompleteHandler(null);
+			}
+			
+			
+			protected function OnGameOffLineEvent(e : TEvent) : void
+			{
+				OnGameReqExitEvent(e);
+				
+				Controller.addEventListener(GameEvent.CONTINUE_GAME,OnContinueGameEvent);
+				Controller.addEventListener("gameModuleExit",OnGameModuleExit);
+				
+				//				Message.show("您的网络断开,请检查网络后继续游戏!");
+				
+				MsgManager.getInstance().showMessage1('您当前的网络状况较差,可能会影响到您正常游戏,请及时检查网络或关闭下载后继续游戏!');
+			}
+			
+			protected function OnLeaveEnableEvent(e : TEvent) : void
+			{
+				_bCanLeave = e.m_nMsg==1;
+			}
+			
+			private function OnUserGameScore(e : TEvent) : void
+			{
+				if(!_user)	_user = UserModel._getInstance();
+				var userInfo : tagUserInfoHead = _user.SelfHead;
+				if(userInfo != null) {  _user.UpdateUserInfo( {score:e.nLParam} );  }
+			}
+			
+			private function unListernController() : void
+			{
+				Controller.removeEventListener(GameEvent.GAME_SEND_EXIT,OnGameReqExitEvent);
+				Controller.removeEventListener(GameEvent.CONTINUE_GAME,OnContinueGameEvent);
+				Controller.removeEventListener(GameEvent.GAME_LEAVE_ENABLE,OnLeaveEnableEvent);
+				Controller.removeEventListener(GameEvent.USER_GAME_SCORE,OnUserGameScore);
+				Controller.removeEventListener(GameEvent.CLIENT_GAME_OFFLIE,OnGameOffLineEvent);
+				
+				Controller.removeEventListener("gameModuleExit",OnGameModuleExit);
+				Controller.removeEventListener("exitSubGame", existCloseClickHandler);
+			}
+			
+			
+			private function OnGameModuleExit(e : TEvent) : void
+			{
+				_bCanLeave = true;
+				close_clickHandler();
+			}
+			
+			
+			
+			
+			private function onExit(bExitCode : uint = 0) : void
+			{
+				if(_bCanLeave){
+					if(bExitCode != 0) { sendLeaveReq(bExitCode); }
+					//					if(NetConst.pCxWin) { NetConst.pCxWin.CxExit(this,bExitCode); }
+					//					if(this)	CxClientDestroy(2);
+				}else {
+					//					theMsg.Show('游戏进行中,强行退出将视为逃跑并扣除部分金币,是否继续？');
+					//					trace('游戏进行中,强行退出将视为逃跑并扣除部分金币,是否继续？')
+					//					MsgManager.getInstance().showMessage2('游戏进行中,强行退出将视为逃跑并扣除部分金币,是否继续？', okClick);
+				}
+			}
+			
+			
+			private function sendLeaveReq(bExitCode : uint) : void
+			{
+				if(_GameSocket != null && _GameSocket.GetConnectState() == enSocketState.en_Connected) {
+					_GameSocket.SendCmd(GameCmd.MDM_GR_USER,GameCmd.SUB_GR_USER_LEFT_GAME_REQ);
+				}
+			}
+			
+			
+			private function onAdminLogonFinish() : Boolean
+			{
+				showTip('游戏服务登录成功('+_queueCount+')...');
+				if(!(_user && _user.selfInfo)) return false;
+				var myStatus : CMD_GR_UserStatus = _user.GetStatusByID(_user.selfID);
+				if(myStatus == null )return false;
+				
+				
+				if(myStatus.cbUserStatus <= TConst.US_FREE || _bContinueGame)
+				{
+					if(_Kind.wTypeID == 1)				//财富类游戏
+					{
+						return onSendEnterTable();
+					}else {
+						if(!_bContinueGame) {
+							_GameSocket.SendCmd(AdminCMD.MDM_GF_AIDE,AdminCMD.SUB_GF_AIDE_USERLIST);
+						}
+					}
+					return true;
+				}else{
+					//					thePack.SetText('断线重入玩家...');
+					//					if(!OnInstallGame()) { onExit(1); }
+					return true;
+				}
+				return false;
+			}
+			
+			
+			
+			
+			protected function sendMessage(msg:String):void
+			{
+				var val : uint = 0;
+				if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+					val = 1
+				MsgManager.getInstance().showMessage1(msg,null,0,-50,false,val);
+			}
+			
+			
+			public function get fullscreenBitmap():Bitmap
+			{
+				return new Bitmap;
+			}
+			
+			
+			protected function showTip(tip:String):void
+			{
+				gp_tip.visible = true;
+				if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+				{
+					gp_tip.horizontalCenter="-115";
+					gp_tip.verticalCenter="-50";
+				}else
+				{
+					gp_tip.horizontalCenter="0";
+					gp_tip.verticalCenter="-10";
+				}
+				//				lab_tip.text = tip;
+				
+				//				lab_tip.addEventListener(MouseEvent.CLICK,  function (e:MouseEvent):void
+				//				{
+				//					hideTip();
+				//				});
+			}
+			
+			protected function hideTip():void
+			{
+				gp_tip.visible = false;
+			}
+			
+			
+			private function existCloseClickHandler(e:TEvent=null):void
+			{
+				if(_bCanLeave)
+					close_clickHandler();
+				else
+				{
+					if( _Kind.wKindID == 1003)								//if(_Kind.wKindID == 1000 || _Kind.wKindID == 1003)
+					{
+						okClick();
+						return;
+					}
+					var val : uint = 0;
+					if(_Kind.wKindID == 1000||_Kind.wKindID == 1003)
+						val = 1;
+					
+					if(nativeWindow)
+						nativeWindow.orderToFront();
+					MsgManager.getInstance().showMessage2('游戏进行中,强行退出将视为逃跑并扣除部分金币,是否继续？', okClick,null,0,-50,val);
+				}
+				
+				
+					
+			}
+			
+			private function okClick():void
+			{
+				_bCanLeave = true;
+				//GameFrameModel._GetInstance().exit = true;
+				close_clickHandler();
+			}
+			
+			protected function close_clickHandler():void
+			{
+				_gameModule.onDestroyAllDos();
+				onExit(2);
+				Controller.dispatchEvent(GameEvent.PRE_G_EXIT,1);
+				
+				//if(!_bCanLeave)
+				//	GameFrameModel._GetInstance().exit = true;
+				
+				Controller.dispatchEvent("exit_game");
+				
+				nativeWindow.close();
+			}
+			
+			
+			protected function voice_clickHandler(event:MouseEvent):void
+			{
+				if(StaticVars._isVoiceOn)
+				{
+					btn_voice.targetClass = status_voiceoff;
+					TDas._setDoubleItem('gameVoice', 0);
+					StaticVars._isVoiceOn = false;
+					setSound(0);
+				}
+				else
+				{
+					btn_voice.targetClass = status_voice;
+					TDas._setDoubleItem('gameVoice', 1);
+					StaticVars._isVoiceOn = true;
+					setSound(1);
+				}
+				
+			}
+			
+			private function setSound(value:int):void
+			{
+				var sound:SoundTransform = new SoundTransform;
+				sound.volume = value;
+				SoundMixer.soundTransform = sound;
+			}
+			
+			
+			protected function min_clickHandler(event:MouseEvent):void
+			{
+				nativeWindow.minimize();
+			}
+			
+			protected function mcbutton1_clickHandler(event:MouseEvent):void
+			{
+				color_select.visible = !color_select.visible;
+			}
+			
+			protected function mcbutton2_clickHandler(e:MouseEvent):void
+			{
+				var str:String = e.currentTarget.id;
+				var index:int  = parseInt(str.substr(str.length-1));
+				if(_gameModule)
+					_gameModule.changeBackground(index);
+				color_select.visible = false;
+				
+				TDas._setDoubleItem('gamecolor', index);
+			}
+			
+			protected function button1_rollOverHandler(event:MouseEvent):void
+			{
+				_matchInfo.visible = true;
+				//_info.source = 'assets/ui/matchBtn_1.png';
+				getMatchInfo();
+			}
+			
+			protected function button1_rollOutHandler(event:MouseEvent):void
+			{
+				_matchInfo.visible = false;
+				//_info.source = 'assets/ui/matchBtn_0.png';
+			}
+			
+			
+			private function getMatchInfo():void
+			{
+				var urlloader:URLLoader = new URLLoader;
+				var str:String = '/gameapi/GetMatchRank?serverid=' + StaticVars.serverID + '&userid=' + _user.selfID;
+				var url:String = NavigateURL.plaza_navigate + str;
+				var request:URLRequest = new URLRequest(url); 
+				//提交的方式
+				request.method=URLRequestMethod.POST;
+				
+				urlloader.addEventListener(Event.COMPLETE, loadCompleteHandelr);
+				urlloader.addEventListener(IOErrorEvent.IO_ERROR, ioerrorHandler);
+				urlloader.load(new URLRequest(url));
+			}
+			
+			private function loadCompleteHandelr(evt:Event):void
+			{
+				var str:String = evt.target.data;
+				var obj:Object = t.cx.air.utils.serialization.json.JSON.decode(str);
+				if(obj['Data'].length)
+				{
+					str = ''; 
+					var playerCountAry:Array = obj['Data'] as Array;
+					var num:int = playerCountAry.length-1;
+					for(var i:int=0; i<num; i++)
+					{
+						str += getSpaceText(playerCountAry[i].RankNum, 8) + getSpaceText(playerCountAry[i].Account, 14) + getSpaceText(playerCountAry[i].TMScore, 14);
+						str += '\n';
+					}
+					lab.text = str;
+					num = playerCountAry.length - 1;
+					if(playerCountAry[num].TMUserID == _user.selfID)
+						self.text = getSpaceText(playerCountAry[num].RankNum, 8) + getSpaceText(playerCountAry[num].Account, 14) + getSpaceText(playerCountAry[num].TMScore, 14);
+					else
+						self.text = '';
+				}
+			}
+			
+			private function ioerrorHandler(error:IOErrorEvent):void
+			{
+				
+			}
+			
+			
+			private function getSpaceText(val:String, len:int):String
+			{
+				var str:String = '';
+				var i:int = 0;
+				var spaceNum:int = len - val.length;
+				for(i=0; i<spaceNum; i++)
+					str += ' ';
+				str += val;
+				return str;
+			}
+			
+			
+			
+			protected function cutScreen_clickHandler(event:MouseEvent):void
+			{
+				//				var bitmapData:BitmapData = new BitmapData(1024,703,false,0x000000);
+				//				bitmapData.draw( stage, new Matrix, null, null, new Rectangle(0, 0, 1024, 703), false);
+				//				var byteArray:ByteArray = new ByteArray();
+				//				bitmapData.encode(new Rectangle(0,0,1024,703), new flash.display.JPEGEncoderOptions(), byteArray);
+				//				new FileReference().save(byteArray);
+				
+				var bitmap:BitmapData = new BitmapData(1024,703,true,0x000000);
+				bitmap.draw( stage, new Matrix, null, null, new Rectangle(0, 0, 1024, 703), true);
+				var jpeg:JPEGEncoderNew = new JPEGEncoderNew(80);
+				var byAry:ByteArray = jpeg.encode(bitmap);
+				
+				var date:Date = new Date;
+				var str:String = '[' + UserModel._getInstance().selfInfo.szAccount + ']_';
+				str += '[' + (date.month+1) + date.date + ']_[' + date.hours + date.minutes + date.seconds + ']';
+				str += '.jpg';
+				
+				
+				var f:File = new File(File.applicationDirectory.nativePath+'/GameImage');
+				f.createDirectory();
+				f.save(byAry, str);
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<!--<com:TSBackground id="ID_Background" width="100%" height="100%" />-->
+	<com:PJBackground x="0" y="0" id="ID_Background"/>
+
+	<com:MCButton targetClass="{status_voice}" right="123" top="6" buttonMode="true" id="btn_voice" click="voice_clickHandler(event)"/>
+	<com:MCButton targetClass="{status_min}" right="84" top="6" buttonMode="true" click="min_clickHandler(event)"/>
+	<com:MCButton targetClass="{status_close}" right="45" top="6" buttonMode="true" click="existCloseClickHandler()"/>
+	
+	<com:MCButton targetClass="{SkinClass.select_btn}" x="815" y="6" buttonMode="true" click="mcbutton1_clickHandler(event)"/>
+	<s:Group x="680" y="6" width="128" height="24" id="color_select" visible="false">
+		<s:Image x="0" y="0" source="{SkinClass.select_bg}"/>
+		<com:MCButton x="2" y="1" targetClass="{SkinClass.select_col3}" click="mcbutton2_clickHandler(event)" id="_col1"/>
+		<com:MCButton x="33" y="1" targetClass="{SkinClass.select_col4}" click="mcbutton2_clickHandler(event)" id="_col2"/>
+		<com:MCButton x="64" y="1" targetClass="{SkinClass.select_col1}" click="mcbutton2_clickHandler(event)" id="_col3"/>
+		<com:MCButton x="95" y="1" targetClass="{SkinClass.select_col2}" click="mcbutton2_clickHandler(event)" id="_col4"/>
+	</s:Group>
+	
+	<com:MCButton targetClass="{SkinClass.JiePingBtn}" x="850" y="6" buttonMode="true" click="cutScreen_clickHandler(event)"/>
+	
+	<s:Image top="0" left="150" id="_info" visible="true" buttonMode="true" source="assets/ui/matchBtn_0.png" rollOver="button1_rollOverHandler(event)" rollOut="button1_rollOutHandler(event)"/>
+	
+	<s:Group top="52" left="100" width="300" height="310" id="_matchInfo" visible="false">
+		
+		<s:Image x="0" y="0" source="assets/ui/matchBg.png"/>
+		
+		<s:Label id="lab" x="0" y="40" width="340" height="230" fontFamily="宋体" fontSize="14" color="0xFFFFFF" lineHeight="22"/>
+		<s:Label id="self" x="0" y="265" width="340" height="30" fontFamily="宋体" color="0xFF0000d" fontSize="14" lineHeight="20"/>
+	</s:Group>
+	<s:Image source="{SkinClass.wait_seat}" horizontalCenter="0" verticalCenter="-10" visible="false" id="gp_tip" mouseChildren="false" mouseEnabled="false"/>
+	
+	
+</s:Window>

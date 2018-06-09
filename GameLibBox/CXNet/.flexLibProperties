@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="true" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="cx.net.Interface.IClientSocket"/>
+    <classEntry path="cx.net.Interface.IClientSocketSink"/>
+    <classEntry path="cx.net.Interface.IClientSocketRecvSink"/>
+    <classEntry path="cx.net.enum.enSocketState"/>
+    <classEntry path="cx.net.utils.NetWork"/>
+    <classEntry path="cx.net.utils.KernelCmd"/>
+    <classEntry path="cx.net.ClientSocket"/>
+    <classEntry path="cx.net.NetConst"/>
+    <classEntry path="cx.net.Interface.IAdminAide"/>
+    <classEntry path="cx.net.Interface.IAdminViewSink"/>
+    <classEntry path="cx.web.TWebService"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>

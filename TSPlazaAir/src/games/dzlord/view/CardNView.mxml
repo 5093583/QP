@@ -1,0 +1,828 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 width="800" height="600" xmlns:user="games.dzlord.user.*" xmlns:view="games.dzlord.view.*" 
+		 
+		 xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import com.greensock.TweenLite;
+			import com.greensock.TweenMax;
+			import com.greensock.plugins.AutoAlphaPlugin;
+			import com.greensock.plugins.TweenPlugin;
+			
+			import gameAssets.DDZhouHL.DDZhouHLSkinClass;
+			import gameAssets.card.YBCardEmbed;
+			
+			import games.cowlord.view.CardView;
+			import games.dzlord.model.DeZhouModel;
+			import games.dzlord.utils.DZFor_9CMDconst;
+			
+			import mx.controls.Alert;
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			private var _themodel : DeZhouModel;
+			private var _handCards: Array;
+			private var _cardPointArrs : Array;
+			private var _cardTypeArrs : Array;
+			public  var _LS : int;
+			private var _centerCardValue:Array;
+			TweenPlugin.activate([AutoAlphaPlugin]);
+			
+			private var endArray:Array;
+			private var endIndex:int = 0;
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				_themodel = DeZhouModel._getInstance();
+				//	SendCentreCard([1,2,3,0,0]);
+			}
+			public function init() : void
+			{
+				if(_themodel == null)	_themodel = DeZhouModel._getInstance();
+				hide();
+				CardPoint();
+				_LS = 4;
+				endArray = new Array();
+			}
+			public function InitCardList(cbCards : Array,bAn : Boolean = true):Number
+			{
+				_themodel = DeZhouModel._getInstance();
+				var count : uint = _themodel.GetPlayerCountArray.length;
+				_handCards = new Array(count);
+				var i : uint = 0,j : uint = 0,wViewChairID : uint,_wCardID:uint;
+				var num : uint = 0;
+				for( i = 0;i<count;i++) { _handCards[i] = new Array(2) }
+				for( i = 0;i < count; i++)
+				{
+					wViewChairID = _themodel.GetPlayerCountArray[i];
+					for(j = 0;j < 2;j++)
+					{
+						_wCardID = _themodel.ViewChairID(wViewChairID);
+						if(_wCardID == 0)
+						{
+							this['Card_'+_wCardID+j].source = YBCardEmbed.GetCard(cbCards[wViewChairID][j],67, 91, "b2");
+						}else{
+							this['Card_'+_wCardID+j].source = YBCardEmbed.GetCard2(cbCards[wViewChairID][j],30, 41, "b2");
+						}
+						this['Card_'+_wCardID+j].visible = !bAn;
+						var delay : Number= j*count + i*1;
+						if( bAn ){
+							TweenMax.delayedCall(num*.2,onShowCardAn,[_wCardID,j]);
+						}else {
+							onShowCardAn(_wCardID,j,false);					
+							
+							//断线重连
+						}
+						num ++ ;
+					}
+				}
+				return num*.2;
+			}
+			private function onShowCardAn(wViewChairID:uint, j:uint, bool:Boolean = true):void
+			{
+//				if(_themodel)
+//					_themodel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'SendCard');
+				playSoundEffect(TConst.INVALID_CHAIR,'SendCard');
+				
+				var img:CardImage = this['Card_'+wViewChairID+j];
+				img.visible = true;
+				img.top 			= undefined;
+				img.bottom 			= undefined;
+				img.left 			= undefined;
+				img.right 			= undefined;
+				img.horizontalCenter= undefined;
+				img.verticalCenter 	= undefined;
+				TweenMax.from(this['Card_'+wViewChairID+j],.5,
+					
+					{x:gp_center.x,y:gp_center.y,alpha:1,
+						onComplete:SetCardPoint,onCompleteParams:
+						
+						[wViewChairID,j]});
+			}
+			/**
+			 * 发中心牌
+			 **/
+			private function nnn(Card : CardImage,index : uint,value : uint) : void
+			{
+				this['Center_'+index].transformX = 34;
+				TweenMax.to(Card,0.2,{rotationY:180,onComplete:RotationCard,onCompleteParams:[index,value]});
+			}
+			public function SendCentreCard(cards:Array,bAn : Boolean = true) : void
+			{
+				_centerCardValue = new Array();
+				_centerCardValue = cards;
+				var startIndex:int = 1;
+				var start:int = -1;
+				for(var i:uint = 0;i<5;i++){
+					if(this['Center_'+i].visible == true)continue;
+					this['Center_'+i].source = YBCardEmbed.GetCard(0,67, 91, "b2");
+					if(cards[i] > 0)
+					{
+//						if(this['Center_'+i].visible == true)continue;
+						onCentreCardAnimation(i);
+						TweenMax.delayedCall(0.2*startIndex,nnn,[this['Center_'+i],i,cards[i]]);
+						startIndex++;
+					}
+//					if(cards[i] > 0)
+//					{
+//						if(this['Center_'+i].visible == true)continue;
+//						
+//						start++;
+//						
+//						if( bAn ){
+//							TweenMax.delayedCall(start * 0.5,onCentreCardAnimation,[i]);//发牌动画
+//						}
+//						else
+//						{
+//							onCentreCardAnimation(i);
+//						}
+//					}
+				}
+			}
+			
+			/**
+			 * 游戏结束显示所有玩家手牌
+			 **/
+			public function ShowHandCard(cbCardData:Array):void
+			{
+				var i:int = 0 , j:int = 0 ,count:int = _themodel.GetPlayerCountArray.length;
+				var wCardViewID : uint;
+				var lPlayCount : uint= 0;
+				for(i = 0;i < _themodel.m_playerStatus.length;i++)
+				{
+					if(_themodel.m_playerStatus[i] == 1)lPlayCount++;
+				}
+				for(i = 0;i<cbCardData.length;i++)
+				{
+					for(j = 0;j<count;j++)
+					{
+						if(_themodel.GetPlayerCountArray[j] == i && cbCardData[i][0] > 0 && cbCardData[i][1] > 0)
+//						if(cbCardData[i][0] > 0 && cbCardData[i][1] > 0)
+						{
+							wCardViewID = _themodel.ViewChairID(i);
+							if(wCardViewID == 0)
+							{
+								if(_themodel.m_winUser[0] != 255)
+								{
+									this["black_00"].visible = false;
+								}else{
+									this["black_00"].visible = true;
+									this["black_00"].horizontalCenter = 73+11;
+									this["black_00"].bottom = 90;
+								}
+							} 
+							else 
+							{
+								if(lPlayCount <=1) return;
+//								trace("-------",wCardViewID,_themodel.m_playerStatus[wCardViewID]);
+//								if(_themodel.m_playerStatus[wCardViewID] == 0)
+//									return;
+//								if(_themodel.m_winUser[wCardViewID] == 255)
+//								{
+//									UserGiveUP(wCardViewID);
+//									return;
+//								}
+								this['Card_'+wCardViewID+0].source = YBCardEmbed.GetCard(cbCardData[i][0],67, 91, "b2");
+								this['Card_'+wCardViewID+1].source = YBCardEmbed.GetCard(cbCardData[i][1],67, 91, "b2");
+								switch(wCardViewID)
+								{
+									case 1:
+									{
+										Card_10.right = 278;Card_10.verticalCenter = 80;
+										Card_11.right = 253;Card_11.verticalCenter = 80;
+										if(_themodel.m_winUser[1] != 255)
+										{
+											this["black_10"].visible = false;
+										}else{
+											this["black_10"].visible = true;
+											this["black_10"].right = 216;
+											this["black_10"].verticalCenter = 103;
+										}
+										break;
+									};
+									case 2:
+									{
+										Card_20.right = 164;Card_20.verticalCenter = 30;
+										Card_21.right = 139;Card_21.verticalCenter = 30;
+										if(_themodel.m_winUser[2] != 255)
+										{
+											this["black_20"].visible = false;
+										}else{
+											this["black_20"].visible = true;
+											this["black_20"].right = 102;
+											this["black_20"].verticalCenter = 54;
+										}
+										break;
+									};
+									case 3:
+									{
+										Card_30.right = 164;Card_30.verticalCenter = -116;
+										Card_31.right = 139;Card_31.verticalCenter = -116;
+										if(_themodel.m_winUser[3] != 255)
+										{
+											this["black_30"].visible = false;
+										}else{
+											this["black_30"].visible = true;
+											this["black_30"].right = 102;
+											this["black_30"].verticalCenter = -92;
+										}
+										break;
+									};
+									case 4:
+									{
+										Card_40.right = 280;Card_40.verticalCenter = -186;
+										Card_41.right = 255;Card_41.verticalCenter = -186;
+										if(_themodel.m_winUser[4] != 255)
+										{
+											this["black_40"].visible = false;
+										}else{
+											this["black_40"].visible = true;
+											this["black_40"].right = 217;
+											this["black_40"].verticalCenter = -161;
+										}
+										break;
+									};
+									case 5:
+									{
+										Card_50.left = 257;Card_50.verticalCenter = -186;
+										Card_51.left = 282;Card_51.verticalCenter = -186;
+										if(_themodel.m_winUser[5] != 255)
+										{
+											this["black_50"].visible = false;
+										}else{
+											this["black_50"].visible = true;
+											this["black_50"].left = 257;
+											this["black_50"].verticalCenter = -163;
+										}
+										break;
+									};
+									case 6:
+									{
+										Card_60.left = 145;Card_60.verticalCenter = -116;
+										Card_61.left = 170;Card_61.verticalCenter = -116;
+										if(_themodel.m_winUser[6] != 255)
+										{
+											this["black_60"].visible = false;
+										}else{
+											this["black_60"].visible = true;
+											this["black_60"].left = 145;
+											this["black_60"].verticalCenter = -91;
+										}
+										break;
+									};
+									case 7:
+									{
+										Card_70.left = 145;Card_70.verticalCenter = 30;
+										Card_71.left = 170;Card_71.verticalCenter = 30;
+										if(_themodel.m_winUser[7] != 255)
+										{
+											this["black_70"].visible = false;
+										}else{
+											this["black_70"].visible = true;
+											this["black_70"].left = 145;
+											this["black_70"].verticalCenter = 54;
+										}
+										break;
+									};
+									case 8:
+									{
+										Card_80.left = 258;Card_80.verticalCenter = 80;
+										Card_81.left = 283;Card_81.verticalCenter = 80;
+										if(_themodel.m_winUser[8] != 255)
+										{
+											this["black_80"].visible = false;
+										}else{
+											this["black_80"].visible = true;
+											this["black_80"].left = 258;
+											this["black_80"].verticalCenter = 103;
+										}
+										break;
+									};	
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			private function onCentreCardAnimation(index : uint) : void 
+			{
+				var img:CardImage = this['Center_'+index];
+//				if(_themodel)	
+//					_themodel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'SendCard');
+				playSoundEffect(TConst.INVALID_CHAIR,'SendCard');
+				
+				//if(img.visible == true) continue;
+				img.visible = true;
+				img.top 			= undefined;
+				img.bottom 			= undefined;
+				img.left 			= undefined;
+				img.right 			= undefined;
+				img.horizontalCenter= undefined;
+				img.verticalCenter 	= undefined;
+				img.alpha = 1;
+//				TweenMax.from(this['Center_'+index],.5,{x:gp_center.x,y:gp_center.y,alpha:0,
+//					onComplete:SetCentreCardPoint,onCompleteParams:[index]});
+				SetCentreCardPoint(index);
+			}
+			private function SetCardPoint(wViewChairID:uint, j:uint):void
+			{
+				switch(wViewChairID)
+				{
+					case 0:
+					{
+						if(j == 0){Card_00.bottom = 90;Card_00.horizontalCenter = 73;}
+						if(j == 1){Card_01.bottom = 90;Card_01.horizontalCenter = 98;}
+						break;
+					}
+					case 1:
+					{
+						if(j == 0){Card_10.right = 268;Card_10.verticalCenter = 100;}
+						if(j == 1){Card_11.right = 253;Card_11.verticalCenter = 100;}
+						break;
+					}
+					case 2:
+					{
+						if(j == 0){Card_20.right = 154;Card_20.verticalCenter = 30;}
+						if(j == 1){Card_21.right = 139;Card_21.verticalCenter = 30;}
+						break;
+					}
+					case 3:
+					{
+						if(j == 0){Card_30.right = 154;Card_30.verticalCenter = -116;}
+						if(j == 1){Card_31.right = 139;Card_31.verticalCenter = -116;}
+						break;
+					}
+					case 4:
+					{
+						if(j == 0){Card_40.right = 270;Card_40.verticalCenter = -186;}
+						if(j == 1){Card_41.right = 255;Card_41.verticalCenter = -186;}
+						break;
+					}
+					case 5:
+					{
+						if(j == 0){Card_50.left = 257;Card_50.verticalCenter = -186;}
+						if(j == 1){Card_51.left = 272;Card_51.verticalCenter = -186;}
+						break;
+					}
+					case 6:
+					{
+						if(j == 0){Card_60.left = 145;Card_60.verticalCenter = -116;}
+						if(j == 1){Card_61.left = 160;Card_61.verticalCenter = -116;}
+						break;
+					}
+					case 7:
+					{
+						if(j == 0){Card_70.left = 145;Card_70.verticalCenter = 30;}
+						if(j == 1){Card_71.left = 160;Card_71.verticalCenter = 30;}
+						break;
+					}
+					case 8:
+					{
+						if(j == 0){Card_80.left = 258;Card_80.verticalCenter = 100;}
+						if(j == 1){Card_81.left = 273;Card_81.verticalCenter = 100;}
+						break;
+					}
+				}
+			}
+			private function SetCentreCardPoint(index : uint) : void
+			{
+				_LS--;
+				switch(index)
+				{
+					case 0 :
+					{
+						if(endArray.indexOf(0) == -1)
+							Center_0.verticalCenter 	= -30;
+						else
+							Center_0.verticalCenter 	= -30 + endIndex;
+						Center_0.horizontalCenter 	= -150;
+						break;
+					}
+					case 1 :
+					{
+						if(endArray.indexOf(1) == -1)
+							Center_1.verticalCenter 	= -30;
+						else
+							Center_1.verticalCenter 	= -30 + endIndex;
+						Center_1.horizontalCenter 	= -75;
+						break;
+					}
+					case 2 :
+					{
+						if(endArray.indexOf(2) == -1)
+							Center_2.verticalCenter 	= -30;
+						else
+							Center_2.verticalCenter 	= -30 + endIndex;
+						Center_2.horizontalCenter 	= 0;
+						break;
+					}
+					case 3 :
+					{
+						if(endArray.indexOf(3) == -1)
+							Center_3.verticalCenter 	= -30;
+						else
+							Center_3.verticalCenter 	= -30 + endIndex;
+						Center_3.horizontalCenter 	= 75;
+						break;
+					}
+					case 4 :
+					{
+						if(endArray.indexOf(4) == -1)
+							Center_4.verticalCenter 	= -30;
+						else
+							Center_4.verticalCenter 	= -30 + endIndex;
+						Center_4.horizontalCenter 	= 150;
+						break;
+					}
+				}
+			}
+			private function RotationCard(_index:uint,value:uint):void
+			{
+				this['Center_'+_index].rotationY = 0;
+				this['Center_'+_index].source = YBCardEmbed.GetCard(value,67, 91, "b2");
+			}
+			private function hide() : void
+			{
+				for(var i:int = 0; i<2;i++)
+				{
+					for(var j:int = 0;j<DZFor_9CMDconst.GAME_PLAYER;j++)
+					{
+						this['Card_'+j+i].visible = false;
+					}
+				}
+			}
+			public function UserGiveUP(wCardViewID : uint) : void
+			{
+				if(wCardViewID == 0)
+				{
+//					this['Card_'+wCardViewID+0].addFilter(true);
+//					this['Card_'+wCardViewID+1].addFilter(true);
+					this["black_00"].visible = true;
+					this["black_00"].horizontalCenter = 73+11;
+					this["black_00"].bottom = 90;
+				}
+				else 
+				{
+					this['Card_'+wCardViewID+0].source = YBCardEmbed.GetCard2(200,30, 41, "b2");
+					this['Card_'+wCardViewID+1].source = YBCardEmbed.GetCard2(200,30, 41, "b2");
+				}
+				
+			}
+			/**
+			 * 大牌起立
+			 * */
+			public function WinUp(centerArray:Array):void
+			{
+				updateCard();
+				if(_centerCardValue == null)	return;
+				var i:int = 0,j:int = 0;
+				for(i = 0;i<5;i++)
+				{
+					if(centerArray[i] == 0)
+						return;
+				}
+				for(i = 0;i<5;i++)
+				{
+					if(_centerCardValue[i] == 0) continue;
+					if(centerArray.indexOf(_centerCardValue[i])==-1){
+						//card.shade = false;
+						this["Center_"+i].verticalCenter = -10;
+						this['black_'+i].visible = true;
+						endIndex = 20;
+						endArray.push(i);
+					}else{
+						this['light_'+i].visible = true;
+					}
+				}
+			}
+			//重置亮暗扑克牌
+			private function updateCard():void
+			{
+				var i:int = 0;
+				for(i = 0;i<5;i++)
+				{
+					this["Center_"+i].verticalCenter = -30;
+					this['black_'+i].visible = false;
+					this['light_'+i].visible = false;
+				}
+			}
+			/**
+			 * 赢家牌型
+			 **/
+			public function WinCardType(stutas : uint,wCardID : uint) : void
+			{
+				if(_cardTypeArrs == null)
+				{
+					_cardTypeArrs = new Array();
+				}
+				var ui : UIComponent = new UIComponent();
+				ui.name = 'ui_'+wCardID;
+				var mc : MovieClip = DDZhouHLSkinClass.GetWinCardType() as MovieClip;
+				mc.gotoAndStop(stutas);
+				ui.addChild(mc);
+				this.addElement(ui);
+				//_cardTypeArrs.push(ui);
+				switch(wCardID)
+				{
+					case 0:
+					{
+						ui.x = this['Card_'+wCardID+1].x+25;
+						ui.y = this['Card_'+wCardID+1].y + this['Card_'+wCardID+1].height / 2+10;
+						TweenMax.from(ui,1,{y:this['Card_'+wCardID+1].y + this['Card_'+wCardID+1].height / 2+50,onComplete:CardTypeHandler,onCompleteParams:[ui,wCardID]});
+						break;
+					}
+					case 2:
+					{
+						ui.x = this['Card_'+wCardID+1].x+10;
+						ui.y = this['Card_'+wCardID+1].y + this['Card_'+wCardID+1].height / 2+50;
+						TweenMax.from(ui,1,{y:this['Card_'+wCardID+1].y + this['Card_'+wCardID+1].height / 2+80,onComplete:CardTypeHandler,onCompleteParams:[ui,wCardID]});
+						break;
+					}
+					case 1:
+					case 3:
+					case 4:
+					case 5:
+					case 6:
+					case 7:
+					case 8:
+					{
+						ui.x = this['Card_'+wCardID+1].x+10;
+						ui.y = this['Card_'+wCardID+1].y + this['Card_'+wCardID+1].height / 2+50;
+						TweenMax.from(ui,1,{y:this['Card_'+wCardID+1].y + this['Card_'+wCardID+1].height / 2+80,onComplete:CardTypeHandler,onCompleteParams:[ui,wCardID]});
+						break;
+					}
+				}
+			}
+			public function WinNer(wCardID:uint):void
+			{
+//				winNer.visible = true;
+//				winNer.top = undefined;
+//				winNer.bottom = undefined;
+//				winNer.left = undefined;
+//				winNer.right = undefined;
+//				winNer.horizontalCenter = undefined;
+//				winNer.verticalCenter = undefined;
+				switch(wCardID)
+				{
+					case 0:
+					{
+						winNer_0.horizontalCenter = -5;
+						winNer_0.bottom = 160;
+						winNer_0.visible = true;
+						break;
+					}
+					case 1:
+					{
+						winNer_1.right = 230;
+						winNer_1.verticalCenter = 50;
+						winNer_1.visible = true;
+						break;
+					}
+					case 2:
+					{
+						winNer_2.right = 15;
+						winNer_2.verticalCenter = -10;
+						winNer_2.visible = true;
+						break;
+					}
+					case 3:
+					{
+						winNer_3.right = 30;
+						winNer_3.verticalCenter = -190;
+						winNer_3.visible = true;
+						break;
+					}
+					case 4:
+					{
+						winNer_4.right = 330;
+						winNer_4.verticalCenter = -260;
+						winNer_4.visible = true;
+						break;
+					}
+					case 5:
+					{
+						winNer_5.left = 160;
+						winNer_5.verticalCenter = -260;
+						winNer_5.visible = true;
+						break;
+					}
+					case 6:
+					{
+						winNer_6.left = 30;
+						winNer_6.verticalCenter = -190;
+						winNer_6.visible = true;
+						break;
+					}
+					case 7:
+					{
+						winNer_7.left = 10;
+						winNer_7.verticalCenter = -10;
+						winNer_7.visible = true;
+						break;
+					}
+					case 8:
+					{
+						winNer_8.left = 260;
+						winNer_8.verticalCenter = 50;
+						winNer_8.visible = true;
+						break;
+					}	
+				}
+			}
+			private function CardTypeHandler(cardTypeUI : UIComponent,wViewChairID:uint) : void
+			{
+				cardTypeUI.top 			    = undefined;
+				cardTypeUI.bottom 			= undefined;
+				cardTypeUI.left 			= undefined;
+				cardTypeUI.right 			= undefined;
+				cardTypeUI.horizontalCenter = undefined;
+				cardTypeUI.verticalCenter 	= undefined;
+				cardTypeUI.visible = true;
+				switch(wViewChairID)
+				{
+					case 0:
+					{
+						cardTypeUI.x = this['Card_'+wViewChairID+1].x+25;
+						cardTypeUI.y = this['Card_'+wViewChairID+1].y + this['Card_'+wViewChairID+1].height / 2+10;
+						break;
+					}
+					case 2:
+					{
+						cardTypeUI.x = this['Card_'+wViewChairID+1].x+10;
+						cardTypeUI.y = this['Card_'+wViewChairID+1].y + this['Card_'+wViewChairID+1].height / 2+50;
+						break;
+					}
+					case 1:
+					case 3:
+					case 4:
+					case 5:
+					case 6:
+					case 7:
+					case 8:
+					{
+						cardTypeUI.x = this['Card_'+wViewChairID+1].x+10;
+						cardTypeUI.y = this['Card_'+wViewChairID+1].y + this['Card_'+wViewChairID+1].height / 2+50;
+						break;
+					}
+				}
+				
+			}
+			private function CardPoint():void
+			{
+				if(_cardPointArrs == null) _cardPointArrs = new Array(9);
+				var obj:Object ;
+				for(var i:int = 0; i<2;i++)
+				{
+					
+					for(var j:int = 0;j<DZFor_9CMDconst.GAME_PLAYER;j++)
+					{
+						_cardPointArrs[j] = new Array(2);
+						obj = new Object();
+						obj.top 			= this['Card_'+j+i].top;
+						obj.bottom 			= this['Card_'+j+i].bottom;
+						obj.left 			= this['Card_'+j+i].left;
+						obj.right 			= this['Card_'+j+i].right;
+						obj.horizontalCenter= this['Card_'+j+i].horizontalCenter;
+						obj.verticalCenter 	= this['Card_'+j+i].verticalCenter;
+						_cardPointArrs[j][i] = obj;
+					}
+				}
+			}
+			public function Destory() : void
+			{
+				var i : int,j : int;
+				var img : CardImage;
+				var ui : UIComponent;
+				_LS = 4;
+				for(i = 0; i < 5;i++)
+				{
+					this['Center_' + i].visible = false;
+					this["light_"+i].visible = false;
+					this["black_"+i].visible = false;
+				}
+				for(i = 0; i < DZFor_9CMDconst.GAME_PLAYER;i++)
+				{
+					if(this['Card_'+i+0] != null) 
+					{
+						this['Card_'+i+0].visible = false;
+						this['Card_'+i+0].removeFilter();
+					}
+					if(this['Card_'+i+1] != null) 
+					{
+						this['Card_'+i+1].visible = false;
+						this['Card_'+i+1].removeFilter();
+					}
+					if(this.getChildByName('ui_'+i) !=null)
+					{
+						ui = this.getChildByName('ui_'+i) as UIComponent;
+						if(this.containsElement(ui))
+						{
+							this.removeElement(ui);
+						}
+					}
+					this['black_'+i+0].visible = false;
+					this['winNer_' + i].visible = false;
+				}
+				endIndex = 0;
+				if(endArray != null)
+				{
+					for(i = endArray.length-1;i>=0;i--)
+					{
+						endArray[i] = null;
+						endArray.splice(i,1);
+					}
+					endArray = new Array();
+				}
+			}
+			
+			
+			private function playSoundEffect(wChairID : uint,action : String, type : int=-1,value : int=-1,rand : int = -1):void
+			{
+				if(_themodel == null)	return;
+				try
+				{
+					_themodel.m_Sound.PlayEffect(wChairID, action, type, value, rand);
+				}
+				catch(e:Error){};
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<!--<s:Image x="0" y="0" source="assets/图像 1.png" />-->
+	
+	<s:Group id="gp_center" horizontalCenter="120" verticalCenter="-200"/>
+	
+	<com:CardImage   id="Card_00" width="67" height="91" bottom="90" horizontalCenter="73"/>
+	<com:CardImage   id="Card_01" width="67" height="91" bottom="90" horizontalCenter="98"/>
+	
+	<com:CardImage   id="Card_10" width="30" height="41" right="268" verticalCenter="100"/>
+	<com:CardImage   id="Card_11" width="30" height="41" right="253" verticalCenter="100"/>
+	
+	<com:CardImage   id="Card_20" width="30" height="41" right="154" verticalCenter="30"/>
+	<com:CardImage   id="Card_21" width="30" height="41" right="139" verticalCenter="30"/>
+	
+	<com:CardImage   id="Card_30" width="30" height="41" right="154" verticalCenter="-116"/>
+	<com:CardImage   id="Card_31" width="30" height="41" right="139" verticalCenter="-116"/>
+	
+	<com:CardImage   id="Card_40" width="30" height="41" right="270" verticalCenter="-186"/>
+	<com:CardImage   id="Card_41" width="30" height="41" right="255" verticalCenter="-186"/>
+	
+	<com:CardImage   id="Card_50" width="30" height="41" left="257" verticalCenter="-186" />
+	<com:CardImage   id="Card_51" width="30" height="41" left="272" verticalCenter="-186" />
+	
+	<com:CardImage   id="Card_60" width="30" height="41" left="145" verticalCenter="-116" />
+	<com:CardImage   id="Card_61" width="30" height="41" left="160" verticalCenter="-116"/>
+	
+	<com:CardImage   id="Card_70" width="30" height="41" left="145" verticalCenter="30"/>
+	<com:CardImage   id="Card_71" width="30" height="41" left="160" verticalCenter="30"/>
+	
+	<com:CardImage   id="Card_80" width="30" height="41" left="258" verticalCenter="100"/>
+	<com:CardImage   id="Card_81" width="30" height="41" left="273" verticalCenter="100"/>
+	
+	
+	
+	<com:CardImage   id="Center_0" width="67" height="91" verticalCenter="-30" horizontalCenter="-150" visible="false" cardValue="1"/>
+	<com:CardImage   id="Center_1" width="67" height="91" verticalCenter="-30" horizontalCenter="-75" visible="false"  cardValue="5" />
+	<com:CardImage   id="Center_2" width="67" height="91" verticalCenter="-30" horizontalCenter="0" visible="false"  cardValue="13"/>
+	<com:CardImage   id="Center_3" width="67" height="91" verticalCenter="-30" horizontalCenter="75" visible="false"   cardValue="18"/>
+	<com:CardImage   id="Center_4" width="67" height="91" verticalCenter="-30" horizontalCenter="150" visible="false"  cardValue="34"/>
+	
+	<s:Image   id="light_0" verticalCenter="-30" horizontalCenter="-150" visible="false" source="{DDZhouHLSkinClass.dz_light}"/>
+	<s:Image   id="light_1" verticalCenter="-30" horizontalCenter="-75" visible="false" source="{DDZhouHLSkinClass.dz_light}"/>
+	<s:Image   id="light_2" verticalCenter="-30" horizontalCenter="0" visible="false" source="{DDZhouHLSkinClass.dz_light}"/>
+	<s:Image   id="light_3" verticalCenter="-30" horizontalCenter="75" visible="false" source="{DDZhouHLSkinClass.dz_light}"/>
+	<s:Image   id="light_4" verticalCenter="-30" horizontalCenter="150" visible="false" source="{DDZhouHLSkinClass.dz_light}"/>
+	
+	<s:Image   id="black_0" verticalCenter="-10" horizontalCenter="-150" visible="false" source="{DDZhouHLSkinClass.dz_black}"/>
+	<s:Image   id="black_1" verticalCenter="-10" horizontalCenter="-75" visible="false" source="{DDZhouHLSkinClass.dz_black}"/>
+	<s:Image   id="black_2" verticalCenter="-10" horizontalCenter="0" visible="false" source="{DDZhouHLSkinClass.dz_black}"/>
+	<s:Image   id="black_3" verticalCenter="-10" horizontalCenter="75" visible="false" source="{DDZhouHLSkinClass.dz_black}"/>
+	<s:Image   id="black_4" verticalCenter="-10" horizontalCenter="150" visible="false" source="{DDZhouHLSkinClass.dz_black}"/>
+	
+	<s:Image   id="black_00" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="black_10" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="black_20" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="black_30" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="black_40" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="black_50" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="black_60" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="black_70" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="black_80" visible="false" source="{DDZhouHLSkinClass.dz_lose}"/>
+	<s:Image   id="winNer_0" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+	<s:Image   id="winNer_1" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+	<s:Image   id="winNer_2" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+	<s:Image   id="winNer_3" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+	<s:Image   id="winNer_4" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+	<s:Image   id="winNer_5" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+	<s:Image   id="winNer_6" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+	<s:Image   id="winNer_7" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+	<s:Image   id="winNer_8" visible="false" source="{DDZhouHLSkinClass.MineWin}"/>
+</s:Group>

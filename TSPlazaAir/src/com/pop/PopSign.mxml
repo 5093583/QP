@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:com="com.*"
+		 xmlns:pop="com.pop.*"
+		 width="413" height="462" creationComplete="group1_creationCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.PopManager;
+			import com.plaza.MsgManager;
+			
+			import cx.client.logon.model.LogonNet;
+			import cx.client.logon.model.UserModel;
+			import cx.client.logon.model.struct.CMD_GP_RefurbishSignIn;
+			import cx.client.logon.model.struct.LGCmd;
+			import cx.net.Interface.IClientSocket;
+			import cx.net.enum.enSocketState;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			
+			
+			[Bindable]
+			[Embed(source="assets/swf/pujing_sign.swf", symbol="sign_bg")]
+			public static var sign_bg:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_sign.swf", symbol="sign_close")]
+			public static var sign_close:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_sign.swf", symbol="sign_btn")]
+			public static var sign_btn:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_sign.swf", symbol="sign_now")]
+			public static var sign_now:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_sign.swf", symbol="sign_old")]
+			public static var sign_old:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_sign.swf", symbol="sign_signed")]
+			public static var sign_signed:Class;
+			
+			
+			
+			private var firstDay:int;
+			private var today:int;
+			private var monthDay:int;
+			
+			
+			private var curMC:SingleDate;
+			
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				Controller.addEventListener('userSignedResult', userSignedResultHandler);
+			}
+			
+			private function userSignedResultHandler(e:TEvent):void
+			{
+				//100 成功101玩家今日已经签到102插入/更新记录表失败103更新玩家金币失败104插入金币记录失败105活动未开放
+				if(e.nWParam.bSignInresult == 100)
+				{
+					if(curMC)
+					{
+						curMC.img.source = sign_signed;
+						curMC.lab.visible= false;
+						curMC.removeEventListener(MouseEvent.CLICK, mc_clickHandler);
+					}
+					if(_signBtn)
+						_signBtn.selected = true;
+					
+					Controller.removeEventListener('userSignedResult', userSignedResultHandler);
+					
+					if(e.nWParam.lMoney > 0)	
+						MsgManager.getInstance().showMessage1('恭喜您签到获得 ' + TScore.toStringEx(e.nWParam.lMoney) + ' 金币，已存入您的保险柜。');
+					else
+						MsgManager.getInstance().showMessage1('签到成功!', close_clickHandler);
+				}
+				else
+					MsgManager.getInstance().showMessage1('签到失败!请稍后尝试，如未解决，请联系客服！');
+			}
+			
+			
+			
+			public function setServiceTime(value:int):void
+			{
+				var date:Date = new Date(value * 1000);
+				firstDay = date.day + 8 - date.date%7;
+				firstDay = firstDay%7 + 1;
+				today	 = date.date;
+				if(date.month == 1)
+					monthDay = 28;
+				else if(date.month==0 || date.month==2 || date.month==4 || date.month==6 || date.month==7 || date.month==9 || date.month==11)
+					monthDay = 31;
+				else if(date.month==3 || date.month==5 || date.month==8 || date.month==10)
+					monthDay = 30;
+			}
+			
+			public function setSignData(value:int):void
+			{
+				for(var i:int=1; i<=monthDay; i++)
+				{
+					var mc:SingleDate = new SingleDate;
+					mc.lab.text = i.toString();
+					if(i<today)
+					{
+						if(getIsSigned(i, value))
+						{
+							mc.img.source = sign_signed;
+							mc.lab.visible= false;
+						}
+						else
+							mc.img.source = sign_old;
+					}
+					else
+						mc.img.source = sign_old;
+					mc.x = 5+(i+firstDay-2)%7*51;
+					mc.y = 2+int((i+firstDay-2)/7)*51;
+					mc.mouseChildren = false;
+					
+					if(i == today)
+					{
+						if(getIsSigned(i, value))
+						{
+							mc.img.source = sign_signed;
+							mc.lab.visible= false;
+							_signBtn.selected = true;
+							Controller.removeEventListener('userSignedResult', userSignedResultHandler);
+						}
+						else
+						{
+							mc.img.source = sign_now;
+							mc.lab.setStyle('color', 0xe2d2a2);
+							mc.buttonMode = true;
+							mc.addEventListener(MouseEvent.CLICK, mc_clickHandler);
+							
+							curMC = mc;
+						}
+					}
+					
+					_gp.addElement(mc);
+				}
+			}
+			
+			
+			private function mc_clickHandler(event:MouseEvent):void
+			{
+				LogonNet._getInstance().SendCallbackMessage("signin", signinFunc);
+			}
+			
+			private function signinFunc(pIClientSocket : IClientSocket,szErr : String=''):void
+			{
+				if(pIClientSocket.GetConnectState() == enSocketState.en_Connected) {
+					var signin : CMD_GP_RefurbishSignIn = new CMD_GP_RefurbishSignIn();
+					signin.dwUserID = UserModel._getInstance().selfInfo.dwUserID;
+					pIClientSocket.SendData(LGCmd.MDM_GP_USER,LGCmd.SUB_GP_RECORDSIGNIN,signin.toByteArray(),signin.size);
+				}
+				else 
+				{
+					MsgManager.getInstance().showMessage1(szErr);
+				}
+			}
+			
+			
+			
+			
+			protected function getIsSigned(day:uint, value:uint):Boolean
+			{
+				var result:uint = value;
+				return Boolean((result>>(day-1))&1);
+			}
+			
+			protected function setSigned(day:uint, value:uint):uint
+			{
+				return value|(1<<(day-1));
+			}
+			
+			protected function setUnSigned(day:uint, value:uint):uint
+			{
+				return value&~(1<<(day-1));
+			}
+			
+			
+			
+			
+			
+			protected function close_clickHandler(event:MouseEvent=null):void
+			{
+				PopManager.getInstance().removePop();
+			}
+			
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Image x="0" y="0" source="{sign_bg}"/>
+	<s:Image x="0" y="0" />
+	<com:MCButton x="320" y="16" targetClass="{sign_close}" click="close_clickHandler()"/>
+	<com:MCButton x="112" y="387" targetClass="{sign_btn}" click="mc_clickHandler(event)" id="_signBtn"/>
+	<s:Group x="24" y="77" width="365" height="308" id="_gp">
+		<!--
+		<pop:SingleDate x="5" y="12"/>
+		<pop:SingleDate x="56" y="12"/>
+		<pop:SingleDate x="5" y="71"/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		-->
+	</s:Group>
+	
+	<!--
+	<s:Group x="24" y="77" width="365" height="308" id="_gp">
+		<s:layout>
+			<s:TileLayout horizontalGap="2" paddingLeft="5" paddingTop="12" verticalGap="10"/>
+		</s:layout>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+		<pop:SingleDate/>
+	</s:Group>
+	-->
+</s:Group>

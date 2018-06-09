@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:com="com.*"
+		 creationComplete="group1_creationCompleteHandler(event)" currentState="update" 
+		 width.logon="522" height.logon="350"
+		 width.plaza="1024" height.plaza="703" 
+		 contentBackgroundAlpha="0.0" contentBackgroundColor="0xFFFFFF">
+
+	<fx:Script>
+		<![CDATA[
+			import air.net.URLMonitor;
+			
+			import base.StaticVars;
+			
+			import com.plaza.CloseWindow;
+			import com.plaza.MsgManager;
+			import com.plaza.PopMessage;
+			
+			import event.ChangeMinSizeEvent;
+			
+			import mx.core.FlexGlobals;
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			
+			import t.cx.air.TDas;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			
+			private var updateUI:UIComponent;
+			private var closewin:CloseWindow;
+			
+			
+			
+			private const SCREEN_WIDTH	:uint	= 1008;
+			private const SCREEN_HEIGHT	:uint	= 730;
+			
+			private const LOGON_WIDTH	:uint 	= 522;
+			private const LOGON_HEIGHT	:uint	= 350;
+			
+			private const PLAZA_WIDTH	:uint 	= 1024;
+			private const PLAZA_HEIGHT	:uint	= 703;
+			
+			
+			private var monitor:URLMonitor;
+			
+			private var updateUI1:UIComponent;
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+//				NetConnect.getInstance().init();
+				
+				updateUI = new UIComponent;
+				var update:CheckAndUpdate = new CheckAndUpdate;
+				updateUI.addChild(update);
+				this.addElement(updateUI);
+				
+				updateUI1 = new UIComponent;
+				var logonui : TSLogon = new TSLogon;
+				updateUI1.addChild(logonui);
+				updateUI1.visible = false;
+				this.addElement(updateUI1);
+				
+				
+				
+				var popGP:Group = new Group;
+				popGP.top		= 0;
+				popGP.bottom	= 0;
+				popGP.left		= 0;
+				popGP.right		= 0;
+				popGP.depth		= 99;
+				this.addElement(popGP);
+				
+				PopManager.getInstance().init(popGP);
+				
+				var msgGP:Group = new Group;
+				msgGP.top		= 0;
+				msgGP.bottom	= 0;
+				msgGP.left		= 0;
+				msgGP.right		= 0;
+				msgGP.depth		= 100;
+				this.addElement(msgGP);
+				
+				MsgManager.getInstance().init(msgGP);
+				
+				var bufGP:Group = new Group;
+				bufGP.top		= 0;
+				bufGP.bottom	= 0;
+				bufGP.left		= 0;
+				bufGP.right		= 0;
+				bufGP.depth		= 101;
+				this.addElement(bufGP);
+				
+				BufferManager.getInstance().init(bufGP);
+				
+				
+				
+				this.dispatchEvent( new ChangeMinSizeEvent(ChangeMinSizeEvent.SET_MINSIZE, new Point(522, 350)) );
+				
+//				this.dispatchEvent( new ChangeMinSizeEvent(ChangeMinSizeEvent.SET_MINSIZE, new Point(400, 300)) );
+//				(update as Sprite).addEventListener("checkUpdateComplete", checkUpdateComplete);
+				Controller.addEventListener("checkUpdateComplete", checkUpdateComplete);
+				
+				Controller.addEventListener("close_window", closeWindowHandler);
+				Controller.addEventListener("close_window_over", closeWindowOverHandler);
+				
+				this.changeState('update');
+//				NativeApplication.nativeApplication.addEventListener(Event.NETWORK_CHANGE, onNetworkChange);
+			}
+			
+//			private function onNetworkChange(e:Event):void
+//			{
+//				//监视网络状态
+//				var url:URLRequest=new URLRequest(TDas._getStringItem('ip_url', 256));
+//				url.method = URLRequestMethod.HEAD;
+//				monitor = new URLMonitor(url);
+//				monitor.addEventListener(StatusEvent.STATUS, onMonitor);
+//				monitor.start();
+//			}
+//			
+//			private function onMonitor(event:Event):void
+//			{
+//				monitor.removeEventListener(StatusEvent.STATUS, onMonitor);
+//				trace("连接"+monitor.available);
+//				if(monitor.available){//网络连接可用
+//				
+//					trace("111111111111111111111111111")
+//					//处理联网操作
+//				}
+//				else
+//				{
+//					trace('网络连接不可用，相关处理');
+//				}
+//			}
+			
+			private var	popmsg:PopMessage;
+			private function breakGame():void
+			{
+				PopUpManager.removePopUp(popmsg);
+			}
+			
+			private function closeWindowHandler(e:TEvent):void
+			{
+				if(currentState == 'plaza')
+				{
+					if(StaticVars.enterRoom) 
+					{
+						popmsg = new PopMessage;
+						popmsg.init('您正在游戏中，请先退出游戏！', breakGame);
+						PopUpManager.addPopUp(popmsg, FlexGlobals.topLevelApplication as DisplayObject, true);
+						PopUpManager.centerPopUp(popmsg);
+						
+						Controller.dispatchEvent('disappearMainWindow', 1);
+						return;
+					}
+					if(!closewin)	closewin = new CloseWindow;
+					
+					ZoomMove.play([closewin]);
+					if(closewin.closed)
+					{
+						closewin.closed = false;
+						PopUpManager.addPopUp(closewin, FlexGlobals.topLevelApplication as DisplayObject, true);
+						PopUpManager.centerPopUp(closewin);
+					}
+				}
+				else
+				{
+					Controller.dispatchEvent("close_window_over", 1);
+				}
+			}
+			
+			private function closeWindowOverHandler(e:TEvent):void
+			{
+				if(e.m_nMsg == 2)
+				{
+					PopManager.getInstance().removePop();
+					this.changeState('logon');
+				}
+			}
+			
+			
+			/**	
+			 * 	修改状态
+			 *@param name 状态名称（update，logon，hall）
+			 */
+			protected function changeState(name:String):void
+			{
+				this.currentState = name;
+			}
+			
+			private function checkUpdateComplete(e:TEvent=null):void
+			{
+				if(updateUI && updateUI.parent)
+					this.removeElement(updateUI);
+				updateUI = null;
+				this.changeState('logon');
+				
+			}
+			
+			protected function state1_enterStateHandler(event:FlexEvent):void
+			{
+				_logon.addEventListener("logonFinish", logon_finishHandler);
+				
+				_logon.reinit();
+				_logon.TuiGuang = FlexGlobals.topLevelApplication.applicationID;
+				this.dispatchEvent( new ChangeMinSizeEvent(ChangeMinSizeEvent.SET_MINSIZE, new Point(LOGON_WIDTH, LOGON_HEIGHT)) );
+				ZoomMove.play([_logon]);
+				
+			}
+			
+			protected function logon_finishHandler(event:Event):void
+			{
+				
+				BufferManager.getInstance().showBufferView(true);
+//				this.dispatchEvent( new ChangeMinSizeEvent(ChangeMinSizeEvent.SET_MINSIZE, new Point(0, 0)) );
+				this.changeState('plaza');
+				_hall.reinit();
+				//this.dispatchEvent( new ChangeMinSizeEvent(ChangeMinSizeEvent.SET_MINSIZE, new Point(PLAZA_WIDTH, PLAZA_HEIGHT)) );
+			}
+			
+			protected function state2_enterStateHandler(event:FlexEvent):void
+			{
+//				_hall.addEventListener("exitLogon", logon_exitHandler);
+				
+				Controller.dispatchEvent("updateUserInfo");
+				this.dispatchEvent( new ChangeMinSizeEvent(ChangeMinSizeEvent.SET_MINSIZE, new Point(PLAZA_WIDTH, PLAZA_HEIGHT)) );
+				ZoomMove.play([_hall]);
+				
+			}
+			
+			protected function logon_exitHandler(event:Event):void
+			{
+				this.changeState('logon');
+			}
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="update"/>
+		<s:State name="logon" enterState="state1_enterStateHandler(event)"/>
+		<s:State name="plaza" enterState="state2_enterStateHandler(event)"/>
+		
+		
+	</s:states>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		
+		<mx:Fade id="myFadeOut" alphaFrom="0.0" alphaTo="1.0" duration="200">
+		</mx:Fade>
+		
+		<mx:Zoom id="ZoomMove" zoomHeightFrom="0" zoomWidthFrom="0" duration="300">
+		</mx:Zoom>
+	</fx:Declarations>
+	
+	<com:TSLogon includeIn="logon" x="0" y="0" id="_logon"/>
+	<com:TSPlaza includeIn="plaza" x="0" y="0" id="_hall"/>
+	<s:BorderContainer  borderVisible="false">
+		<s:backgroundFill>
+			<s:SolidColor 
+				color="0xffffff" 
+				alpha="0"/>
+		</s:backgroundFill>
+	</s:BorderContainer>
+</s:Group>

@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+					   xmlns:s="library://ns.adobe.com/flex/spark"
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   xmlns:com="com.*" showStatusBar="false"
+					   minWidth="522" minHeight="350" backgroundColor="0xFFFFFF" backgroundAlpha="0.0"
+					   creationComplete="windowedapplication1_creationCompleteHandler(event)"
+					   >
+	<fx:Script>
+		<![CDATA[
+			import base.StaticVars;
+			import event.ChangeMinSizeEvent;
+			 
+			import mx.core.FlexGlobals;
+			import mx.core.IUIComponent;
+			import mx.events.FlexEvent;
+			import mx.formatters.DateFormatter;
+			
+			import spark.formatters.DateTimeFormatter;
+			
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			[Embed(source="assets/logo/48x48.png")]
+			private var _icon48 : Class;
+			private var _trayIcon		: SystemTrayIcon;				//系统托盘
+			
+			
+			protected function windowedapplication1_creationCompleteHandler(event:FlexEvent):void
+			{
+				this.onSetIcon();
+				this.centerWindow(this, new Point(522, 350) );
+				StaticVars.nativeWindow = this.nativeWindow;
+				
+				_mainStage.addEventListener(ChangeMinSizeEvent.SET_MINSIZE, changeHandler);
+				this.addEventListener(Event.CLOSING, closingHandler);
+				
+				Controller.addEventListener("checkUpdateComplete", checkUpdateComplete);
+				
+				Controller.addEventListener("close_window_over", closeWindowOverHandler);
+				Controller.addEventListener('disappearMainWindow', disappearWindow);
+				
+				Controller.addEventListener('control_window_status', controlWindowStatus);
+				
+				
+				this.addEventListener(FocusEvent.FOCUS_IN, isFocusCancle);
+				
+				//gp_status.addEventListener(MouseEvent.MOUSE_DOWN, gpstatus_mouseDownHandler);
+				//this.visible = false;
+				this.orderToFront();
+			}
+			private function controlWindowStatus(e:TEvent):void
+			{
+				if(e.m_nMsg == 1)
+					nativeWindow.minimize();
+				else if(e.m_nMsg == 1)
+					nativeWindow.startMove();
+			}
+			private function disappearWindow(e:TEvent):void
+			{
+				this.visible = e.m_nMsg == 0 ? false : true;
+				
+				if(e.m_nMsg == 1)
+					this.orderToFront();
+			}
+			/* 
+			private function gpstatus_mouseDownHandler(e:MouseEvent):void
+			{
+				this.nativeWindow.startMove();
+			}
+			 */
+			private function  isFocusCancle(event:FocusEvent):void 
+			{
+				this.focusManager.hideFocus();
+			}
+			
+			
+			
+			private function checkUpdateComplete(e:TEvent=null):void
+			{
+//				var posX:int = FlexGlobals.topLevelApplication.width > 1008 ? FlexGlobals.topLevelApplication.width : 1008;
+//				var posY:int = FlexGlobals.topLevelApplication.height > 730 ? FlexGlobals.topLevelApplication.height : 730;
+//				this.centerWindow(this, new Point(posX, posY) );
+//				this.maximize();
+				
+//				this.centerWindow(this, new Point(522, 350) );
+				
+				Controller.removeEventListener("checkUpdateComplete", checkUpdateComplete);
+			}
+			
+			
+			private function closingHandler(e:Event):void
+			{
+				e.preventDefault();
+				
+//				Controller.addEventListener("close_window_over", closeWindowOverHandler);
+				Controller.dispatchEvent("close_window");
+				
+//				CloseWindowTip.getInstance().showCloseWindow();
+//				this.restore();
+			}
+			
+			private function closeWindowOverHandler(e:TEvent):void
+			{
+				if(e.m_nMsg == 1)
+					stage.nativeWindow.close();
+			}
+			
+			
+			protected function onSetIcon() : void
+			{
+				NativeApplication.nativeApplication.icon.bitmaps = [producticon];
+				
+				var iconMenu:NativeMenu = new NativeMenu(); 
+				var exitCommand:NativeMenuItem = iconMenu.addItem(new NativeMenuItem("退出(Exit)")); 
+				exitCommand.addEventListener(Event.SELECT, function(event:Event):void 
+				{ 
+					if(nativeApplication.openedWindows.length > 1)
+					{
+						Controller.dispatchEvent( 'exitSubGame' );
+						return;
+					}
+					
+					NativeApplication.nativeApplication.icon.bitmaps = []; 
+					NativeApplication.nativeApplication.exit(); 
+				}); 
+				
+				if( NativeApplication.supportsSystemTrayIcon )
+				{
+					_trayIcon 		= NativeApplication.nativeApplication.icon as SystemTrayIcon;
+					_trayIcon.menu = iconMenu;
+					_trayIcon.tooltip = '新葡京棋牌';
+					_trayIcon.addEventListener(ScreenMouseEvent.CLICK, function(event:Event):void 
+					{
+						stage.nativeWindow.activate();
+						stage.nativeWindow.orderToFront();
+					});
+				}
+				
+				
+				this.titleIcon = _icon48;
+			}
+			
+			protected function get producticon() : BitmapData
+			{
+				var bitmap16 : Bitmap = new _icon48;
+				return bitmap16.bitmapData;
+			}
+			
+			
+			
+			
+			
+			private function changeHandler(evt:ChangeMinSizeEvent):void
+			{
+				this.minWidth = evt.getMinSize().x;
+				this.minHeight = evt.getMinSize().y;
+				
+				this.maxWidth = evt.getMinSize().x;
+				this.maxHeight = evt.getMinSize().y;
+				this.centerWindow(this, new Point(evt.getMinSize().x, evt.getMinSize().y) );
+//				if(flash.system.Capabilities.screenResolutionY <= 768)
+//				{
+//					this.minHeight = 650;
+//					this.maxHeight = 690;
+//					
+//					this.width = 660;
+//				}
+				
+//				var posX:int = FlexGlobals.topLevelApplication.width > evt.getMinSize().x ? FlexGlobals.topLevelApplication.width : evt.getMinSize().x;
+//				var posY:int = FlexGlobals.topLevelApplication.height > evt.getMinSize().y ? FlexGlobals.topLevelApplication.height : evt.getMinSize().y;
+//				this.centerWindow(this, new Point(posX, posY) );
+			}
+			private var ptT : Point = new Point(0,0);
+			public function centerWindow(window:IUIComponent, pt:Point):void
+			{
+				
+				var Stageheight:Number = flash.system.Capabilities.screenResolutionY;  
+				var Stagewidth:Number = flash.system.Capabilities.screenResolutionX; 
+				 
+				if(ptT.x == 0)
+				{
+					MoveW.xTo = Stagewidth/2-pt.x/2;
+					MoveW.xFrom = Stagewidth/2;
+				}else
+				{
+					MoveW.xTo = Stagewidth/2-pt.x/2;
+					MoveW.xFrom = ptT.x;
+				}
+				if(ptT.y == 0)
+				{
+					MoveW.yFrom = Stageheight/2;
+					MoveW.yTo = Stageheight/2-pt.y/2;
+				}else
+				{
+					MoveW.yFrom = ptT.y;
+					MoveW.yTo = Stageheight/2-pt.y/2;
+				}
+//				window.width = pt.x;
+//				window.height = pt.y;
+//				window.move(Stagewidth/2-pt.x/2,Stageheight/2-pt.y/2); 
+				MoveW.play([window]);
+				ptT.x = Stagewidth/2-pt.x/2;
+				ptT.y = Stageheight/2-pt.y/2;
+
+				//ZoomMove.play([window]);
+				 
+			}
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+//				this.maximize();
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		
+		<mx:Zoom id="ZoomMove" zoomHeightFrom="0" zoomWidthFrom="0"  duration="400">
+		</mx:Zoom>
+		<mx:Move id="MoveW" duration="100">
+		</mx:Move>
+	</fx:Declarations>
+	<com:MainStage id="_mainStage" x="0" y="0"/>
+	
+	<!--
+	<s:Group y="0" left="0" right="0" id="gp_status" height="30">
+		<s:Rect y="0" left="0" right="0" height="30">
+			<s:fill>
+				<s:SolidColor color="0xcccccc"/>
+			</s:fill>
+		</s:Rect>
+		
+		<s:Button right="0" y="0" click="button1_clickHandler(event)"/>
+	</s:Group>
+	-->
+	<s:BorderContainer  borderVisible="false">
+		<s:backgroundFill>
+			<s:SolidColor 
+				color="0xffffff" 
+				alpha="0"/>
+		</s:backgroundFill>
+	</s:BorderContainer>
+</s:WindowedApplication>

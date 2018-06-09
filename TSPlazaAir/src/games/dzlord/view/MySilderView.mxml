@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="35" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import gameAssets.DDZhouHL.DDZhouHLSkinClass;
+			
+			import mx.events.FlexEvent;
+			
+			import spark.primitives.Rect;
+			
+			import t.cx.air.TScore;
+			
+			private var rect : Rectangle;
+			public  var _score : Number;
+			private var _MaxNumber : Number;
+			private var _MinNumber : Number;
+			public  var _value : Number;
+			
+			public function SilderShow(max : Number = 100,min : Number = 1) : void
+			{
+				_MaxNumber = max;
+				_MinNumber = min;
+				rect = new Rectangle(theLine.x,theDragBtn.y,theLine.width-theDragBtn.width,0);
+				this.visible = true;
+				value = min;
+				BtnAddEvent();
+				theJiaBtn.visible = false;
+				theJianBtn.visible = false;
+			}
+			public function SilderHide() : void
+			{
+				BtnRemoveEvent();
+				this.visible = false;
+			}
+			public function set value(val: Number) : void
+			{
+				if(val<_MinNumber) {
+					val = _MinNumber;
+				}else if(val>_MaxNumber)
+				{
+					val = _MaxNumber;
+				}
+				theDragBtn.x = ( (val - _MinNumber)/(_MaxNumber-_MinNumber) ) * rect.width + rect.x;
+				if(theDragBtn.x < 38){
+					theDragBtn.x = 38;
+				}
+				_value = val;
+				theAmount.text = _value.toFixed(2);
+			}
+			public function get value() : Number
+			{
+				return _value;
+			}
+			protected function onBtnClickHandler(e:MouseEvent):void
+			{
+				switch(e.currentTarget.name)
+				{
+					case 'theJiaBtn':
+					{
+						value++;
+						break;
+					}
+					case 'theJianBtn':
+					{
+						value--;
+						break;
+					}
+					case 'theDragBtn':
+					{
+						var btn : GameMCButton = e.currentTarget as GameMCButton;
+						if(e.type == MouseEvent.MOUSE_DOWN){
+							btn.addEventListener(Event.ENTER_FRAME,onEnterFrameHandler);
+							stage.addEventListener(MouseEvent.MOUSE_UP,onStageMouseUp);
+							btn.startDrag(false,rect);
+						}else{
+							stage.removeEventListener(Event.ENTER_FRAME,onEnterFrameHandler);
+						}
+						break;
+					}
+					case 'theLine':
+					{
+						theDragBtn.x = mouseX;
+						updateValue();
+						break;
+					}
+				}
+			}
+			protected function onStageMouseUp(event:MouseEvent):void
+			{
+				theDragBtn.stopDrag();
+				theDragBtn.removeEventListener(Event.ENTER_FRAME,onEnterFrameHandler);
+				stage.removeEventListener(MouseEvent.MOUSE_UP,onStageMouseUp);
+			}
+			private function updateValue() : void
+			{
+				_value = (theDragBtn.x - theLine.x) / (theLine.width - theDragBtn.width) * (_MaxNumber - _MinNumber) + _MinNumber;
+				theAmount.text = _value.toFixed(2);
+			}
+			protected function onEnterFrameHandler(event:Event):void
+			{
+				updateValue()
+			}
+			private function BtnAddEvent() : void
+			{
+				if(!theJiaBtn.hasEventListener(MouseEvent.MOUSE_UP))
+				{
+					theJiaBtn.addEventListener(MouseEvent.MOUSE_UP,onBtnClickHandler);
+				}
+				if(!theJianBtn.hasEventListener(MouseEvent.MOUSE_UP))
+				{
+					theJianBtn.addEventListener(MouseEvent.MOUSE_UP,onBtnClickHandler);
+				}
+				if(!theDragBtn.hasEventListener(MouseEvent.MOUSE_DOWN))
+				{
+					theDragBtn.addEventListener(MouseEvent.MOUSE_DOWN,onBtnClickHandler);
+				}
+				if(!theLine.hasEventListener(MouseEvent.CLICK))
+				{
+					theLine.addEventListener(MouseEvent.MOUSE_DOWN,onBtnClickHandler);
+				}
+			}
+			public function BtnRemoveEvent() : void
+			{
+				if(theJiaBtn.hasEventListener(MouseEvent.MOUSE_UP))
+				{
+					theJiaBtn.removeEventListener(MouseEvent.MOUSE_UP,onBtnClickHandler);
+				}
+				if(theJianBtn.hasEventListener(MouseEvent.MOUSE_UP))
+				{
+					theJianBtn.removeEventListener(MouseEvent.MOUSE_UP,onBtnClickHandler);
+				}
+				if(theDragBtn.hasEventListener(MouseEvent.MOUSE_DOWN))
+				{
+					theDragBtn.removeEventListener(MouseEvent.MOUSE_DOWN,onBtnClickHandler);
+				}
+				if(theDragBtn.hasEventListener(Event.ENTER_FRAME))
+				{
+					theDragBtn.removeEventListener(MouseEvent.MOUSE_DOWN,onBtnClickHandler);
+				}
+				if(theLine.hasEventListener(MouseEvent.CLICK))
+				{
+					theLine.removeEventListener(MouseEvent.MOUSE_DOWN,onBtnClickHandler);
+				}
+				value = 0;
+			}
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				SilderShow();
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<com:GameMCButton id="theJianBtn" name="theJianBtn" x="0"   y="0" targetClass="{DDZhouHLSkinClass.jian}"/>
+	<com:GameMCButton id="theJiaBtn"  name="theJiaBtn"  x="280" y="0" targetClass="{DDZhouHLSkinClass.jia}"/>
+	<s:Image id="theLine" x="38" y="15" name="theLine" source="{DDZhouHLSkinClass.line}" width="200"/>
+	<com:GameMCButton id="theDragBtn" x="38" name="theDragBtn" y="5" targetClass="{DDZhouHLSkinClass.DragBtn}"/>
+	<s:Label id="theAmount" x="282" y="15" name="theAmount" color="0xFFFFFF" fontSize="14"/>
+</s:Group>

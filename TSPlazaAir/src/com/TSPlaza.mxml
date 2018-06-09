@@ -1,0 +1,1219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 width="1024" height="706" 
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 xmlns:com="com.*" xmlns:table="com.table.*" 		 
+		 >
+	
+	<fx:Script>
+		<![CDATA[
+			import base.IModuleGame;
+			import base.NavigateURL;
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import com.greensock.TweenMax;
+			import com.html.HtmlSprite;
+			import com.html.IHtmlContiner;
+			import com.plaza.MsgManager;
+			import com.pop.PopBank;
+			import com.pop.PopBind;
+			import com.pop.PopSign;
+			
+			import cx.client.logon.model.GameFrameModel;
+			import cx.client.logon.model.LogonModel;
+			import cx.client.logon.model.LogonNet;
+			import cx.client.logon.model.ServerList;
+			import cx.client.logon.model.UserModel;
+			import cx.client.logon.model.events.MsgEvent;
+			import cx.client.logon.model.struct.CMD_GP_BankCheck;
+			import cx.client.logon.model.struct.CMD_GP_RefurbishSignIn;
+			import cx.client.logon.model.struct.LGCmd;
+			import cx.client.logon.model.vo.KindOption;
+			import cx.client.logon.model.vo.UserInfo;
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.sturuct.tagServerParmater;
+			import cx.net.Interface.IClientSocket;
+			import cx.net.enum.enSocketState;
+			
+			import flash.net.navigateToURL;
+			
+			import gamesOther.GameFrameOther;
+			
+			import mx.controls.Alert;
+			import mx.core.FlexGlobals;
+			import mx.core.IFlexDisplayObject;
+			import mx.core.IUIComponent;
+			import mx.core.IVisualElement;
+			import mx.core.UIComponent;
+			import mx.events.EffectEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ModuleEvent;
+			import mx.managers.PopUpManager;
+			import mx.modules.IModuleInfo;
+			import mx.modules.ModuleManager;
+			
+			import spark.components.TextInput;
+			import spark.components.Window;
+			import spark.effects.Move;
+			import spark.effects.animation.MotionPath;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TDas;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.file.TPather;
+			import t.cx.air.utils.IDConvert;
+			import t.cx.air.utils.MD5;
+			
+			protected var m_serverList 	: ServerList;
+			
+			private var imodule:IModuleInfo;
+			private var _mc:IVisualElement;
+			
+			
+			private var mcfresh:MovieClip;
+			private var mcfresh1:MovieClip;
+			private var IsFirstLogon : Boolean;
+			
+			private var m_pLazaonlineMov : MovieClip;
+			private var m_pLazaonlineMov1 : MovieClip;
+			private var m_pLazaonlineMov2 : MovieClip;
+			
+			[Embed(source="assets/pujing_fish.swf", symbol="fishLoad_DR")]
+			private var buffer : Class;
+			
+			[Embed(source="assets/pujing_fish.swf", symbol="fishLoad_JC")]
+			private var buffer1 : Class;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				LogonModel._GetInstance().Init();
+				IsFirstLogon = false;
+				LogonModel._GetInstance().msgNet.Connect();
+				
+				Controller.addEventListener(MsgEvent.MSG_MESSAGE, OnWebMessgae);
+				
+				
+				Controller.addEventListener("join_game", joinGameHandler);
+				Controller.addEventListener("exit_game", exitGameHandler);
+				
+				
+				Controller.addEventListener('msgConnectError', msgConnectErrHandler);
+				
+				
+				if(!Controller.hasEventListener(GameEvent.USER_SCORE))
+					Controller.addEventListener(GameEvent.USER_SCORE, initUserinfo);
+				
+				Controller.addEventListener("updateUserInfo", initUserinfo);
+				Controller.addEventListener("RefreshUserInfo", refreshUserinfo);
+				
+				LogonNet._getInstance().SendCallbackMessage("issignin", issigninFunc);
+				Controller.addEventListener("userSignin", signinHandler);
+				
+				
+				initUserinfo();
+				
+				addSystemMessage();
+				
+				
+				if(!ui_moviceOnline.numChildren)
+				{
+					m_pLazaonlineMov = new SkinClass.PlazaMoviceOline() as MovieClip;
+					m_pLazaonlineMov.gotoAndPlay(1);
+					m_pLazaonlineMov.visible = true;
+					ui_moviceOnline.addChild(m_pLazaonlineMov);
+					ui_moviceOnline.visible = true;
+				}
+				if(!ui_moviceOnline1.numChildren)
+				{
+					m_pLazaonlineMov1 = new SkinClass.PlazaMoviceOline1() as MovieClip;
+					m_pLazaonlineMov1.gotoAndPlay(1);
+					m_pLazaonlineMov1.visible = true;
+					ui_moviceOnline1.addChild(m_pLazaonlineMov1);
+					ui_moviceOnline1.visible = true;
+				}
+				if(!ui_moviceOnline2.numChildren)
+				{
+					m_pLazaonlineMov2 = new SkinClass.PlazaMoviceOline2() as MovieClip;
+					m_pLazaonlineMov2.gotoAndPlay(1);
+					m_pLazaonlineMov2.visible = true;
+					ui_moviceOnline2.addChild(m_pLazaonlineMov2);
+					ui_moviceOnline2.visible = true;
+				}
+			}
+			
+			private function issigninFunc(pIClientSocket : IClientSocket,szErr : String=''):void
+			{
+				if(pIClientSocket.GetConnectState() == enSocketState.en_Connected) {
+					var signin : CMD_GP_RefurbishSignIn = new CMD_GP_RefurbishSignIn();
+					signin.dwUserID = UserModel._getInstance().selfInfo.dwUserID;
+					pIClientSocket.SendData(LGCmd.MDM_GP_USER,LGCmd.SUB_GP_REFURBISHSIGNIN,signin.toByteArray(),signin.size);
+				}
+				else 
+				{
+					MsgManager.getInstance().showMessage1(szErr);
+				}
+			}
+			
+			
+			private var _sign:PopSign;
+			
+			private function signinHandler(e:TEvent):void
+			{
+				if(e.nWParam.bSignInresult == 105)		//活动未开启
+				{
+//					btn_signup.mouseEnabled = false;
+//					btn_signup.mouseChildren = false;
+//					btn_signup.enabled = false;
+//					btn_signup.targetMc.gotoAndStop(4);
+				}
+				else
+				{
+					if(_sign == null) 	_sign = new PopSign;
+					else				return;
+					_sign.setServiceTime(e.nWParam.dwServiceTime);
+					_sign.setSignData(e.nWParam.dwSignData);
+				}
+				
+				
+				Controller.removeEventListener("userSignin", signinHandler);
+			}
+			
+			
+			
+			
+			
+			private function setMoveHtml(e:MouseEvent) : void
+			{
+				_IsMove = !_IsMove;
+			}
+			private var _IsMove : Boolean;
+			private var html:IHtmlContiner;
+			private function addSystemMessage():void
+			{
+				html = new HtmlSprite as IHtmlContiner;
+				html.SetWH(200, 410);
+				_msg.addChild(html.GetDisplay());
+				_IsMove = true;
+				var _mask:Shape;
+				_mask = new Shape();
+				_mask.graphics.clear();
+				_mask.graphics.beginFill(0x000000,1.0);
+				_mask.graphics.drawRect(0,0,200,410);
+				_mask.graphics.endFill();
+				html.GetDisplay().mask = _mask;
+				_msg.addChild(_mask);
+				
+				
+				var url:String = NavigateURL.plaza_navigate + '/news/ann';
+				html.SetHost(url, false, oncomp);
+				
+				
+				
+//				html.SetHost('http://192.168.2.19:8011/news/ann', false, oncomp);
+			}
+			
+			private function oncomp(w:Number, h:Number):void
+			{
+				html.SetWH(w, h);
+				(html as Sprite).addEventListener(MouseEvent.MOUSE_OVER,setMoveHtml);
+				(html as Sprite).addEventListener(MouseEvent.MOUSE_OUT,setMoveHtml);
+//				if(h>_msg.height) { addEventListener(Event.ENTER_FRAME,onEnterFrmae); }
+				addEventListener(Event.ENTER_FRAME,onEnterFrame);
+			}
+			
+			private function onEnterFrame(e : Event) : void
+			{
+				if(html!=null && html.GetDisplay()!=null) 
+				{
+					if(_IsMove)
+					{
+						var sprite : Sprite = html.GetDisplay();
+						sprite.y -= 1;
+						if( (sprite.y + sprite.height)<=0) { sprite.y = _msg.height; }
+					}
+				}
+			}
+			
+			
+			private function refreshUserinfo(e:TEvent = null):void
+			{
+				refresh_clickHandler(null);
+			}
+			
+			
+			public function initUserinfo(e:TEvent=null):void
+			{
+				var user : UserInfo = UserModel._getInstance().selfInfo;
+				lab_id.text = IDConvert.Id2View(user.dwUserID).toString();
+				lab_username.text = user.szAccount;
+//				lab_userid.text = 'ID: ' + IDConvert.Id2View(user.dwUserID).toString();
+				
+				
+				showUserHead( user.cbGender );
+				if(!ui_refresh.numChildren)
+				{
+					mcfresh = new SkinClass.mc_refresh() as MovieClip;
+					mcfresh.gotoAndStop(1);
+					mcfresh.visible = false;
+					ui_refresh.addChild(mcfresh);
+				}
+				if(!ui_refresh1.numChildren)
+				{
+					mcfresh1 = new SkinClass.mc_refresh() as MovieClip;
+					mcfresh1.gotoAndStop(1);
+					mcfresh1.visible = false;
+					ui_refresh1.addChild(mcfresh1);
+				}
+				btn_refresh.enabled = false;
+				if(IsFirstLogon == false)
+					updateUserscore(e);
+				else
+					TweenMax.delayedCall(1.3, updateUserscore,[e]);
+				
+				
+				_WebContiner.Hide();
+				
+				
+			
+			}
+			private function updateUserscore(e : Event) : void
+			{
+				var user : UserInfo = UserModel._getInstance().selfInfo;
+				lab_id.text = IDConvert.Id2View(user.dwUserID).toString();
+				lab_username.text = user.szAccount;
+				lab_bankscore.text = TScore.toStringEx(user.lBankScore);
+				lab_score.text = TScore.toStringEx(user.lScore);
+				if(user.lScore < 0)
+					lab_score.text = '0';
+				btn_refresh.enabled = true;
+				
+				myFadeOut.play([lab_id]);
+				myFadeOut.play([lab_username]);
+				myFadeOut.play([lab_score]);
+				myFadeOut.play([lab_bankscore]);
+				
+				IsFirstLogon = true;
+			}
+			protected function showUserHead(wFaceID : uint) : void
+			{
+				if(wFaceID == 2)
+					img_userhead.source = 'assets/back/female.png';
+				else
+					img_userhead.source = 'assets/back/male.png';;
+			}
+			
+			protected function refresh_clickHandler(event:MouseEvent):void
+			{
+				LogonModel._GetInstance().MainNet.Refresh();
+				mcfresh.visible = true;
+				mcfresh.play();
+				mcfresh.addEventListener(Event.ENTER_FRAME, refresh_enterFrameHandler);
+				
+				mcfresh1.visible = true;
+				var n : Function = function() : void
+				{
+					mcfresh1.play();
+					mcfresh1.addEventListener(Event.ENTER_FRAME, refresh_enterFrameHandler);
+				};
+				TweenMax.delayedCall(0.3, n);
+				
+				btn_refresh.enabled = false;
+				var f:Function = function():void
+				{
+					btn_refresh.enabled = true;
+				};
+				TweenMax.delayedCall(1.3, f);
+//				ui_moviceOnline.visible = true;
+//				m_pLazaonlineMov.visible = true;
+//				m_pLazaonlineMov.gotoAndPlay(1);
+			}
+			
+			private function refresh_enterFrameHandler(event:Event):void
+			{
+				if(mcfresh.currentFrame == mcfresh.totalFrames)
+				{
+					mcfresh.gotoAndStop(1);
+					mcfresh.visible = false;
+					mcfresh.removeEventListener(Event.ENTER_FRAME, refresh_enterFrameHandler);
+				}
+				if(mcfresh1.currentFrame == mcfresh1.totalFrames)
+				{
+					mcfresh1.gotoAndStop(1);
+					mcfresh1.visible = false;
+					mcfresh1.removeEventListener(Event.ENTER_FRAME, refresh_enterFrameHandler);
+				}
+				
+			}
+			
+			
+			private function OnWebMessgae(e : TEvent) : void
+			{
+				if(e.m_nMsg == 1)			//紧急公告
+				{
+					MsgManager.getInstance().showMessage1( (e.nWParam as String) );
+				}
+				else if(e.m_nMsg == 0)		//普通公告
+				{
+					StaticVars.hallRollTextStr = e.nWParam as String;
+					trace('StaticVars.hallRollTextStr',StaticVars.hallRollTextStr);
+				}
+			}
+			
+			
+			
+			
+			private function msgConnectErrHandler(e:TEvent):void
+			{
+				MsgManager.getInstance().showMessage1(e.nWParam);
+			}
+			
+			public function reinit():void
+			{
+//				_user.initUserinfo();
+				initData();
+				
+//				_partcenter.reinit();
+//				_partleft.reinit();
+//				_partright.reinit();
+				
+				BufferManager.getInstance().showBufferView(false);
+				
+				LogonModel._GetInstance().Init();
+				LogonModel._GetInstance().msgNet.Connect();
+			}
+			
+			
+			
+			private var frame:GameFrameOther;
+			private var nat:NativeWindow;
+			
+			private function loadMameGame():void
+			{
+				
+				var _KindOption:KindOption = m_serverList.GetKindOption(StaticVars.kindID);
+				var path : String = _KindOption.exe;
+				var _zipPath:String;
+				if(StaticVars.kindID >= 1004 && StaticVars.kindID <= 1008)
+				{
+					path += (TConst.TC_DEUBG==1)?'.swf':'.cxc';
+					path = TPather._fullPath(path);
+					
+					var zipName:String = '';
+					var exeName:String = '';
+					if(StaticVars.kindID == 1004)
+					{
+						zipName = 'FishPC_JC.zip';
+						exeName = '金蟾捕鱼';
+					}
+					else if(StaticVars.kindID == 1008)
+					{
+						zipName = 'FishPC_DR.zip';
+						exeName = '捕鱼达人';
+					}
+					//_zipPath = TPather._fullPath('FishPC_V2.zip');
+					_zipPath = TPather._fullPath(zipName);
+					if( !TPather._exist(_zipPath) )
+					{
+						if(!TPather._exist(path)) 
+						{ 
+							Controller.dispatchEvent("exit_game");
+							MsgManager.getInstance().showMessage2('您尚未安装' + exeName + '游戏客户端，是否立即下载？', yesClickHandler);
+							return;
+						}					
+					}
+				}
+				
+				
+				if( StaticVars.enterGameLessScore > UserModel._getInstance().selfInfo.lScore )
+				{
+					MsgManager.getInstance().showMessage1('您的金币不足，请取金币！');
+					return;
+				}
+				
+				if(StaticVars.kindID == 1202)
+				{
+					exeName == '经典水果机';
+				}
+				
+				
+				
+				frame = new GameFrameOther(); 
+				frame.serverParam = new tagServerParmater(StaticVars.serverID);
+				frame.addEventListener('exitOtherGame', nat_closeHandler);
+				
+				var option:NativeWindowInitOptions = new NativeWindowInitOptions();
+				option.systemChrome = 'none';
+				option.renderMode  = 'direct';
+				option.resizable   = false;
+				option.maximizable = false;
+//				option.transparent = false;
+				
+				nat = new NativeWindow(option);
+				
+				nat.stage.scaleMode = StageScaleMode.NO_SCALE;
+				nat.stage.align     = StageAlign.TOP_LEFT;
+				
+				if(StaticVars.kindID == 1202)
+				{
+					nat.width  = 926;
+					nat.height = 718;
+					nat.maxSize  = new Point(926, 718);
+					
+					var Stageheight:Number = flash.system.Capabilities.screenResolutionY;  
+					var Stagewidth:Number = flash.system.Capabilities.screenResolutionX; 
+					nat.x = Stagewidth/2-926/2;
+					nat.y = Stageheight/2-718/2 - 20;
+					
+					nat.stage.frameRate = 50;
+				}
+				else
+				{
+//					nat.width  = Screen.mainScreen.visibleBounds.width;
+//					nat.height = Screen.mainScreen.visibleBounds.height;
+//					nat.maxSize  = new Point(Screen.mainScreen.visibleBounds.width, Screen.mainScreen.visibleBounds.height);
+					
+				}
+				
+				var _screenBounds : Rectangle;
+				
+				_screenBounds = Screen.mainScreen.visibleBounds;
+				if(StaticVars.kindID == 1004||StaticVars.kindID == 1008)
+				{
+					nat.width  = Screen.mainScreen.visibleBounds.width > 1440?1440:Screen.mainScreen.visibleBounds.width;
+					nat.height = Screen.mainScreen.visibleBounds.height > 900?900:Screen.mainScreen.visibleBounds.height;
+					if(_screenBounds.width < nat.width)
+					{
+						nat.width = _screenBounds.width;
+					}
+					if(_screenBounds.height < nat.height)
+					{
+						nat.height = _screenBounds.height;
+					}
+					nat.maxSize  = new Point(nat.width, nat.height);
+					if(_screenBounds.width > nat.width)	{nat.x = (_screenBounds.width-nat.width) * .5 ; } else	{	
+						nat.x = 0;
+					}
+					if(_screenBounds.height > nat.height)	{nat.y = (_screenBounds.height-nat.height) * .5 ; } else	{	
+						nat.y = 0;
+					}
+				}
+//				nat.maxSize  = new Point(Screen.mainScreen.visibleBounds.width, Screen.mainScreen.visibleBounds.height);
+				
+				nat.title = exeName;
+				
+				var Stageh:Number = nat.height;  
+				var Stagew:Number = nat.width;
+				
+				var sp:Sprite = new Sprite;
+				sp.graphics.clear();
+				sp.graphics.beginFill(0x000000, .6);
+				sp.graphics.drawRect(0, 0, Stagew, Stageh);
+				sp.graphics.endFill();
+				var mc:Bitmap;
+				
+				if(StaticVars.kindID == 1004)
+				{
+					mc = new buffer1() as Bitmap;
+				}else
+				{
+					mc = new buffer() as Bitmap;
+				}
+				mc.height = Stageh;
+				mc.width = Stagew;
+				sp.addChild(mc);
+				frame.addChild(sp);
+				
+				
+				//nat.title = '金蟾捕鱼';
+				//nat.alwaysInFront = true;
+				nat.orderToFront();
+				
+				nat.stage.addChild(frame);
+				nat.activate();
+//				nat.x=Screen.mainScreen.visibleBounds.width/2-nat.width/2;  
+//				nat.y=Screen.mainScreen.visibleBounds.height/2-nat.height/2; 
+				
+				nat.addEventListener(Event.CLOSE, nat_closeHandler);
+				nat.addEventListener(Event.CLOSING, nat_closingHandler);
+				Controller.addEventListener('mema_serverClose', serverCloseHandler);
+				Controller.dispatchEvent('disappearMainWindow', 0);
+			}
+			
+			private var _down:DownloadCatchFish;
+			private function yesClickHandler():void
+			{
+				_down = new DownloadCatchFish;
+				PopUpManager.addPopUp(_down, FlexGlobals.topLevelApplication as DisplayObject, true);
+				PopUpManager.centerPopUp(_down);
+				
+				_down.startDownload(StaticVars.kindID);
+			}
+			
+			
+			
+			
+			private function serverCloseHandler(e:TEvent):void
+			{
+				nat_closeHandler(null);
+				
+				if(e.m_nMsg)
+					MsgManager.getInstance().showMessage1('游戏服务器连接断开，请稍后尝试重新进入游戏！如未解决，请联系客服！');
+			}
+			
+			private function nat_closeHandler(e:Event):void
+			{
+				if(StaticVars.kindID == 1202)
+				{
+					nat.stage.frameRate = 24;
+				}
+				
+				if(!nat.closed)
+				{
+					nat.removeEventListener(Event.CLOSE, nat_closeHandler);
+					nat.visible = false;
+					nat.close();
+				}
+				
+				if(frame)
+				{
+					frame.CxClientDestroy(2);
+					
+					frame.removeEventListener('exitOtherGame', nat_closeHandler);
+					frame = null;
+				}
+				
+				nat.removeEventListener(Event.CLOSE, nat_closeHandler);
+				nat.removeEventListener(Event.CLOSING, nat_closingHandler);
+				
+				Controller.removeEventListener('mema_serverClose', serverCloseHandler);
+				
+				Controller.dispatchEvent("RefreshUserInfo");
+				Controller.dispatchEvent('disappearMainWindow', 1);
+				Controller.dispatchEvent("selectGame", 0);
+				
+				_loadComplete = false;
+				Controller.addEventListener(GameEvent.INIT_G_COMPLETE,OnGameInitCompleteEvent);
+				
+				System.gc();
+			}
+			
+			
+			private var _firstLoad:Boolean = false;
+			private var _loadComplete:Boolean;
+			private function OnGameInitCompleteEvent(e:TEvent):void
+			{
+				Controller.removeEventListener(GameEvent.INIT_G_COMPLETE,OnGameInitCompleteEvent);
+				_loadComplete = true;
+				_firstLoad	  = true;
+			}
+			
+			private function nat_closingHandler(e:Event):void
+			{
+				Controller.removeEventListener(GameEvent.INIT_G_COMPLETE,OnGameInitCompleteEvent);
+				if(!_loadComplete && _firstLoad)
+					return;
+				
+//				if(StaticVars.kindID == 1202 && frame.CanLeaveGame())
+//				{
+//					Controller.dispatchEvent(GameEvent.GAME_SEND_EXIT,1);
+//					return;
+//				}
+				
+				e.preventDefault();
+				
+				Controller.dispatchEvent('popup_event',1,'endBtn');
+			}
+			
+			
+			
+			
+			
+			private function joinGameHandler(event:TEvent):void
+			{
+				if(!GameFrameModel._GetInstance().CanEnter())
+				{
+					//					Message.show("您从上一房间强制退出,请等待 [" +GameFrameModel._GetInstance().GetLeaveTime()+']秒后再进入.'); 
+					
+					StaticVars.playWithFriend = false;
+					StaticVars.enterRoom = false;
+					StaticVars.isPlayedWithFriend = false;
+					MsgManager.getInstance().showMessage1("您从上一房间强制退出,请等待 [" +GameFrameModel._GetInstance().GetLeaveTime()+']秒后再进入.'); 
+					return;
+				}
+				
+				if(StaticVars.kindID == 1004 || StaticVars.kindID == 1008)
+				{
+					loadMameGame();
+					return;
+				}
+				
+				if( StaticVars.kindID == 1202 )
+				{
+					loadMameGame();
+					return;
+				}
+				
+				if(!_mc)
+				{
+					var m_kindOption:KindOption = m_serverList.GetKindOption(StaticVars.kindID);
+					imodule = ModuleManager.getModule('games/game' + m_kindOption.exe + '.swf');
+					imodule.addEventListener(ModuleEvent.READY, module_readyHandler);
+					imodule.load();
+				}
+			}
+			
+			
+			
+			private function module_readyHandler(e:Event):void
+			{
+				StaticVars.enterRoom = true;
+				
+				openGameFrame();
+			}
+			
+			
+			private function openGameFrame():void
+			{
+				var _win:WinGameFrame = new WinGameFrame;
+				
+				_mc = imodule.factory.create() as IVisualElement;
+				_mc.top = 100;
+				_mc.bottom = 0;
+				_mc.left = 0;
+				_mc.right = 0;
+				
+				_mc.horizontalCenter	= 0;
+				_mc.verticalCenter		= 0;
+				
+				_win.init(_mc as IModuleGame);
+				_win.serverParam = new tagServerParmater(StaticVars.serverID);
+				
+				_win.addElementAt(_mc, 1);
+				//this.addElement(gameFrame);
+				_win.addEventListener(MouseEvent.CLICK, gameFrame_clickHandler);
+				
+				_win.open();
+				_win.activate();
+				
+				centerWindow(_win, new Point(1024, 703) );
+				
+				_win.addEventListener(Event.CLOSING, win_closingHandler);
+				_win.addEventListener(Event.CLOSE, win_closeHandler);
+				
+				var msgGP:Group = new Group;
+				msgGP.top		= 0;
+				msgGP.bottom	= 0;
+				msgGP.left		= 0;
+				msgGP.right		= 0;
+				msgGP.depth		= 100;
+				MsgManager.getInstance().setPopgp(msgGP);
+				_win.addElement(msgGP);
+				
+				if(stage.nativeWindow)
+				{
+					stage.nativeWindow.visible = false;
+				}
+			}
+			
+			public function centerWindow(window:IFlexDisplayObject, pt:Point):void
+			{
+				var Stageheight:Number = flash.system.Capabilities.screenResolutionY;  
+				var Stagewidth:Number = flash.system.Capabilities.screenResolutionX; 
+				window.move(Stagewidth/2-pt.x/2,Stageheight/2-pt.y/2); 
+			}
+			
+		
+			
+			private function win_closingHandler(e:Event):void
+			{
+				e.preventDefault();
+				
+				Controller.dispatchEvent( 'exitSubGame' );
+			}
+			
+			
+			private function win_closeHandler(e:Event):void
+			{
+				if(stage.nativeWindow)
+				{
+					stage.nativeWindow.visible = true;
+					stage.nativeWindow.orderToFront();
+				}
+				
+				var _win:WinGameFrame = e.target as WinGameFrame;
+//				_win.close();
+				
+				if(_mc && _win.contains(_mc as DisplayObject) )
+					_win.removeElement(_mc);
+				_mc = null;
+				
+				_win.gp_tip.visible	 = false;
+//				_win.gp_display.visible = false;
+				_win.CxClientDestroy(2);
+				
+//				_win.destroy();
+				_win.removeEventListener(Event.CLOSE, win_closeHandler);
+				_win = null;
+				
+				MsgManager.getInstance().remPopgp();
+				
+				System.gc();
+			}
+			
+			
+			
+			
+			private function exitGameHandler(event:TEvent):void
+			{
+				removeGameFrame();
+				
+				StaticVars.isTryPlayed  = false;
+				StaticVars.tryPlayScore = 0;
+			}
+			
+			private function removeGameFrame():void
+			{
+				if(StaticVars.enterAppointRoom)
+					StaticVars.enterAppointRoom = false;
+				if(StaticVars.playWithFriend)
+					StaticVars.playWithFriend = false;
+				
+				StaticVars.enterRoom = false;
+				StaticVars.isPlayedWithFriend = false;
+				
+
+				MsgManager.getInstance().remPopgp();
+				System.gc();
+			}
+			
+			
+			private function removeEffectEnd(event:EffectEvent):void
+			{
+				//				if(this.contains(_mc as DisplayObject))
+				//					this.removeElement(_mc);
+				
+				Controller.dispatchEvent("selectGame", 0);
+				
+				System.gc();
+			}
+			
+			private function gameFrame_clickHandler(e:MouseEvent):void
+			{
+				Controller.dispatchEvent('hideVsWindow');
+			}
+			
+			
+			
+			private function initData():void
+			{
+				m_serverList		= ServerList._getInstance();
+				var ary:Array = m_serverList.kindOption;
+				var m_listCount:int 		= ary.length;
+				
+				var m_data:Vector.<Object> = new Vector.<Object>;
+				for(var i : uint = 0; i<m_listCount;i++) 
+				{
+					var kind : KindOption = ary[i];
+					if(kind) {
+						var obj : Object= new Object;
+						obj.index 		= kind.index;
+						obj.kindName	= kind.name;
+						obj.kindID 		= kind.wKindID;
+						obj.status		= kind.status;
+						obj.path 		= kind.exe;
+						obj.bitmapData  = kind.iconBitmapData;
+						m_data.push(obj);
+					}
+				}
+				m_data.sort(onSortData);
+			}
+			
+			private function onSortData(obj1 : Object,obj2 : Object) : int
+			{
+				if(obj1.index > obj2.index)  {
+					return 1;
+				}else if(obj1.index < obj2.index) {
+					return -1;
+				}
+				return 0;
+			}
+			
+			
+			
+			
+			
+			
+			protected function navigate_clickHandler(e:MouseEvent):void
+			{
+//				var val : String = NavigateURL.plaza_navigate;
+//				switch(e.currentTarget.id)
+//				{
+//					case 'navigate0':
+//					{
+//						val+="//Tab_MatchCenter.html";
+//						_WebContiner.Show(val,true);
+//						break;
+//					}
+//					case 'navigate1':
+//					{
+//						val+= "//Tab_PersonalInfo.html";
+//						_WebContiner.Show(val,true);
+//						break;
+//					}
+//					case 'navigate2':
+//					{
+//						val+= "//Tab_PayCentre.html";
+//						_WebContiner.Show(val,true);
+//						break;
+//					}
+//					case 'navigate3':
+//					{
+//						val+="//Tab_GoldTrading.html";
+//						_WebContiner.Show(val,true);
+//						break;
+//					}
+//					case 'navigate4':
+//					{
+//						val+="//Tab_InningsReward.html";
+//						_WebContiner.Show(val,true);
+//						break;
+//					}
+//					case 'navigate5':
+//					{
+//						val = "http://www.baidu.com";
+//						_WebContiner.Show(val,true);
+//						break;
+//					}
+//					case 'navigate99':
+//					{
+//						_WebContiner.Hide();
+//						break;
+//					}
+//				}
+//				var ranMove : uint = Math.random()*100;
+//				if(ranMove > 50)
+//				{
+//					myFadeOut.play([_WebContiner]);
+//				}
+//				else
+//				{
+//					ZoomMove.play([_WebContiner])
+//				}
+//				
+				var val : String = NavigateURL.plaza_navigate;
+				switch(e.currentTarget.id)
+				{
+					case 'navigate99':
+					{
+						Controller.dispatchEvent("selectGame", 0);
+						//_WebContiner.Hide();
+						return;
+					}
+				}
+				
+				
+				var netinfo:NetworkInfo=NetworkInfo.networkInfo;
+				var interfaces:Vector.<NetworkInterface>=netinfo.findInterfaces();
+				var address:String = interfaces[0].addresses[0].address;
+				
+				var tagID:String = e.currentTarget.id;
+				var str:String = "&%$*#";
+				var userid:uint = UserModel._getInstance().selfInfo.dwUserID;
+				var szPassWord:String = MD5.hash(UserModel._getInstance().selfInfo.szPassword);
+				var sid:String = MD5.hash(userid + '&%' + address + '$*#' + szPassWord);
+				var tag:String = tagID.charAt(tagID.length-1);
+				
+				var url:String = NavigateURL.plaza_navigate + '/GameRoute/Transfer?uname=' + userid + '&pwd=' + szPassWord + 
+					'&sid=' + sid.toLowerCase() + '&tag=' + tag;
+				navigateToURL(new URLRequest(url));
+			} 
+			
+			
+			
+			
+			
+			protected function quit_clickHandler(event:MouseEvent):void
+			{
+				MsgManager.getInstance().showMessage2('确定要退出游戏，返回登录界面吗？', quitSure_clickHandler);
+			}
+			
+			private function quitSure_clickHandler():void
+			{
+				Controller.dispatchEvent("close_window_over", 2);
+				Controller.dispatchEvent("exit_game");
+			}
+			
+			
+			
+			
+			
+			protected function navigate7_clickHandler(event:MouseEvent):void
+			{
+				var netinfo:NetworkInfo=NetworkInfo.networkInfo
+				var interfaces:Vector.<NetworkInterface>=netinfo.findInterfaces();
+				var address:String = interfaces[0].addresses[0].address;
+				
+				var str:String = "&%$*#";
+				var userid:uint = UserModel._getInstance().selfInfo.dwUserID;
+				var szPassWord:String = MD5.hash(UserModel._getInstance().selfInfo.szPassword);
+				var sid:String = MD5.hash(userid + '&%' + address + '$*#' + szPassWord);
+				var act:String = '8';
+				var tag:String = '4';
+				
+				var url:String = NavigateURL.plaza_navigate + '/GameRoute/Transfer?uname=' + userid + '&pwd=' + szPassWord + 
+					'&sid=' + sid.toLowerCase() + '&tag=' + tag + '&activtype=' + act;
+				navigateToURL(new URLRequest(url));
+			}
+			
+			private function min_clickHandler(event:MouseEvent):void
+			{
+				Controller.dispatchEvent("control_window_status", 1);
+			}
+			
+			private function existCloseClickHandler():void
+			{
+				Controller.dispatchEvent("close_window");
+			}
+			
+			
+			protected function image1_rollOverHandler(e:MouseEvent):void
+			{
+				e.target.alpha = .8;
+			}
+			
+			protected function image1_rollOutHandler(e:MouseEvent):void
+			{
+				e.target.alpha = 1;
+			}
+			
+			protected function image2_mouseDownHandler(event:MouseEvent):void
+			{
+				StaticVars.nativeWindow.startMove();
+			}
+			
+			
+			private var _bind:PopBind;
+			
+			protected function bind_clickHandler(event:MouseEvent):void
+			{
+				if(_bind == null)
+					_bind = new PopBind;
+				_bind.reinit();
+				PopManager.getInstance().addPop(_bind, new Point(305, 150));
+				var ranMove : uint = Math.random()*100;
+				if(ranMove > 50)
+				{
+					myFadeOut.play([_bind]);
+				}
+				else
+				{
+					ZoomMove.play([_bind])
+				}
+			}
+			
+			
+			private var _bank:PopBank;
+			
+			protected function bank_clickHandler(event:MouseEvent):void
+			{
+				LogonModel._GetInstance().MainNet.SendBankCheckIsEnble(CheckBack);
+			}
+			private function CheckBack(pClientSocket : IClientSocket,szErr : String='') : void
+			{
+				if( pClientSocket.GetConnectState() == enSocketState.en_Connected ) {
+					var BankCheckRec : CMD_GP_BankCheck = new CMD_GP_BankCheck();
+					BankCheckRec.dwUserID = UserModel._getInstance().selfInfo.dwUserID;
+					pClientSocket.SendData(LGCmd.MDM_GP_BANK,LGCmd.SUB_GP_BANK_CHECK,BankCheckRec.toByteArray(),BankCheckRec.size);
+					
+					
+					if( !Controller.hasEventListener('bank_Check_Result') )
+						Controller.addEventListener('bank_Check_Result', onShowBank);
+					
+				}else {
+//					//					Message.show(szErr);
+					MsgManager.getInstance().showMessage1(szErr);
+				}
+			}
+			protected function onShowBank(e : TEvent) : void
+			{
+				if(e.nWParam == 1)
+				{
+					_bank = new PopBank;
+					_bank.reinit();
+					PopManager.getInstance().addPop(_bank, new Point(305, 150));
+					
+					var ranMove : uint = Math.random()*100;
+					if(ranMove > 50)
+					{
+						myFadeOut.play([_bank]);
+					}
+					else
+					{
+						ZoomMove.play([_bank])
+					}
+				}else
+				{
+					MsgManager.getInstance().showMessage1('您没有权限使用银行功能！');
+				}
+				
+			}
+			
+			protected function sign_clickHandler(event:MouseEvent):void
+			{
+				if(!_sign)
+				{
+					var f:Function = function():void
+					{
+//						LogonNet._getInstance().SendCallbackMessage("issignin", issigninFunc);
+					}
+					MsgManager.getInstance().showMessage1('正在接收服务器消息，请稍后尝试....', f);
+					return;
+				}
+				PopManager.getInstance().addPop(_sign, new Point(305, 99));
+				
+				var ranMove : uint = Math.random()*100;
+				if(ranMove > 50)
+				{
+					myFadeOut.play([_sign]);
+				}
+				else
+				{
+					ZoomMove.play([_sign])
+				}
+			}
+			
+			protected function image1_clickHandler(event:MouseEvent):void
+			{
+				var url:String = 'http://xpj.pjqp777.com/spread';
+				navigateToURL( new URLRequest(url) );
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+		<mx:Fade id="myFadeOut" alphaFrom="0.0" alphaTo="1.0" duration="400">
+		</mx:Fade>
+		
+		<mx:Zoom id="ZoomMove" zoomHeightFrom="0" zoomWidthFrom="0" duration="400">
+		</mx:Zoom>
+	</fx:Declarations>
+	
+	
+	<s:Image source="{SkinClass.hall_bg}" x="0" y="36"/>
+	<s:Image source="{SkinClass.hall_top}" x="0" y="0" mouseDown="image2_mouseDownHandler(event)"/>
+	
+	<com:MCButton targetClass="{SkinClass.status_min}" x="930" y="5" buttonMode="true" click="min_clickHandler(event)"/>
+	<com:MCButton targetClass="{SkinClass.status_close}" x="970" y="5" buttonMode="true" click="existCloseClickHandler()"/>
+	
+	<!--	下面中间部分	-->
+	<table:GameSelected x="245" y="136"/>
+	<!--	上面导航	-->
+	<s:Image source="{SkinClass.hall_nav_bg}" x="0" y="37"/>
+	<s:SWFLoader source="@Embed('assets/swf/logo1.swf')" x="50" y="31"/>
+	<s:Image source="{SkinClass.hall_nav_home}" x="340" y="40"/>
+	
+	<s:HGroup x="340" y="40" height="85" width="600" gap="95">
+		
+		<!--<com:MCButton targetClass="{SkinClass.hall_nav_game}" visible="false"/>-->
+		<com:MCButton targetClass="{SkinClass.hall_nav_game}" id="navigate99" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_nav_info}" id="navigate1" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_nav_onsail}" id="navigate4" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_nav_match}" id="navigate0" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_nav_recharge}" id="navigate2" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_nav_exchange}" id="navigate3" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_nav_service}" id="navigate5" click="navigate_clickHandler(event)"/>
+		
+		
+	</s:HGroup>
+	<s:HGroup x="360" y="100" height="20" width="660" gap="39" mouseChildren="false" mouseEnabled="false">
+	<s:Label  filters="{[gf01]}" text="游戏大厅" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF"/>
+	<s:Label filters="{[gf01]}"  text="个人信息" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF"/>
+	<s:Label filters="{[gf01]}"  text="优惠中心" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF"/>
+	<s:Label filters="{[gf01]}"  text="比赛中心" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF"/>
+	<s:Label filters="{[gf01]}"  text="游戏充值" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF"/>
+	<s:Label filters="{[gf01]}"  text="在线提款" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF"/>
+	<s:Label filters="{[gf01]}"  text="客服中心" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF"/>
+	</s:HGroup>
+	
+	
+	<!--	左侧上面部分	-->
+	<s:Group x="15" y="135" width="223" height="298">
+		<s:Image source="{SkinClass.hall_userinfo_bg}" x="0" y="0"/>
+		<s:Image source="{SkinClass.hall_head_bg}" x="4" y="-8"/>
+		<s:Image source="{SkinClass.hall_head}" x="26" y="4" id="img_userhead"/>
+		
+		<com:MCButton targetClass="{SkinClass.hall_sign}" x="111" y="13" click="sign_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_bind}" x="111" y="53" click="bind_clickHandler(event)"/>
+		
+		<s:Image source="{SkinClass.hall_user_id}" x="16" y="132"/>
+		<s:Image source="{SkinClass.hall_user_account}" x="16" y="108"/>
+		<s:Image source="{SkinClass.hall_user_score}" x="16" y="156"/>
+		<s:Image source="{SkinClass.hall_user_bank}" x="16" y="180"/>
+		
+		
+		<mx:UIComponent x="69" y="156" id="ui_refresh"/>
+		<mx:UIComponent x="69" y="180" id="ui_refresh1"/>
+		
+		<com:MCButton targetClass="{SkinClass.hall_refresh}" x="156" y="178"  id="btn_refresh" click="refresh_clickHandler(event)"/>
+		
+		
+		<s:Label filters="{[gf01]}"  x="70" y="136" fontFamily="宋体" fontSize="14" color="0xFFCC00" id="lab_id"/>
+		<s:Label filters="{[gf01]}"  x="70" y="112" fontFamily="宋体" fontSize="14" color="0xFFCC00" id="lab_username"/>
+		<s:Label  filters="{[gf01]}" x="70" y="161" fontFamily="宋体" fontSize="14" color="0xFFCC00" id="lab_score"/>
+		<s:Label  filters="{[gf01]}" x="70" y="185" fontFamily="宋体" fontSize="14" color="0xFFCC00" id="lab_bankscore"/>
+		
+		<s:Image source="{SkinClass.hall_bank_bg}" x="7" y="193"/>
+		<com:MCButton targetClass="{SkinClass.hall_user_info}" x="17" y="205" id="_web1" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_left_change}" x="17" y="249" click="bank_clickHandler(event)"/>
+		
+		
+	</s:Group>
+	
+	
+	<!--	中间左侧下面部分	-->
+	<s:Group x="16" y="435" width="221" height="209">
+		<s:Image source="{SkinClass.hall_left_bg}" x="0" y="0"/>
+		<!--
+		<s:Image source="{SkinClass.hall_price_active}" x="-2" y="2" buttonMode="true" rollOver="image1_rollOverHandler(event)" rollOut="image1_rollOutHandler(event)"
+				 id="_web4" click="navigate_clickHandler(event)"/>
+		<s:Image source="{SkinClass.hall_price_time}" x="-2" y="52" buttonMode="true" rollOver="image1_rollOverHandler(event)" rollOut="image1_rollOutHandler(event)"
+				 id="_web44" click="navigate_clickHandler(event)"/>
+		<s:Image source="{SkinClass.hall_price_allday}" x="-2" y="102" buttonMode="true" rollOver="image1_rollOverHandler(event)" rollOut="image1_rollOutHandler(event)"
+				 id="_web0" click="navigate_clickHandler(event)"/>
+		<s:Image source="{SkinClass.hall_price_agent}" x="-2" y="152" buttonMode="true" rollOver="image1_rollOverHandler(event)" rollOut="image1_rollOutHandler(event)"
+				 click="image1_clickHandler(event)"/>
+		-->
+		<com:MCButton targetClass="{SkinClass.hall_price_active}" x="-2" y="2" id="_web6" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_price_time}" x="-2" y="52" id="_web4" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_price_allday}" x="-2" y="102" id="_web0" click="navigate_clickHandler(event)"/>
+		<com:MCButton targetClass="{SkinClass.hall_price_agent}" x="-2" y="152" click="image1_clickHandler(event)"/>
+	</s:Group>
+	
+	<!--	下面右侧部分	-->
+	<s:Group x="785" y="135" width="223" height="511">
+		<s:Image source="{SkinClass.hall_msg}" x="0" y="0"/>
+		<mx:UIComponent x="12" y="60" width="200" height="410" id="_msg" />
+	</s:Group>
+	
+	<!--	下面公告			-->
+	<s:Image source="{SkinClass.hall_bottom_msg}" x="20" y="645"/>
+	<com:RollText x="220" y="660" rollWidth="660" labFontColor="0xFFFFFF" labFontSize="16">
+	</com:RollText>
+	
+	
+	<com:WebContiner  x="245" y="100" id="_WebContiner"/>
+	
+	
+	<mx:UIComponent x="390" y="55" id="ui_moviceOnline" depth="255" mouseChildren="false" mouseEnabled="false"/>
+	<mx:UIComponent x="167" y="156" id="ui_moviceOnline2" depth="256" mouseChildren="false" mouseEnabled="false"/>
+	<mx:UIComponent x="76" y="352" id="ui_moviceOnline1" depth="257" mouseChildren="false" mouseEnabled="false"/>
+	
+</s:Group>

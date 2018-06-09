@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" alpha="0" 
+		 creationComplete="group1_creationCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import base.StaticVars;
+			
+			import com.greensock.TweenMax;
+			import com.plaza.MsgManager;
+			
+			import gameAssets.baccarat.BaccaratSkinClass;
+			import gameAssets.card.YBCardEmbed;
+			
+			import games.baccarat.model.BaccaratModel;
+			import games.baccarat.model.HistoryModel;
+			import games.baccarat.struct.tagServerGameRecord;
+			import games.gameBaccarat;
+			
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.utils.Memory;
+			
+			private var _theModel : BaccaratModel;
+			private var _recordArrs : Array;
+			private var _xNum : uint;
+			private var _zNum : uint;
+			
+			private var _cardNumCount:int;
+			private var _cardValue:Array;
+			
+			private var _cardCounts : Array;
+			private var _cards		: Array;
+			
+			private var mc_xian:MovieClip;
+			private var mc_zhuang:MovieClip;
+			
+			
+			public function Show():void
+			{
+				_openCard.visible = true;
+				_cardNumCount = 0;
+				_cardValue = new Array(2);
+				
+				_cardCounts = _theModel.m_lastGameEnd.cbCardCount;
+				_cards = _theModel.m_lastGameEnd.cbTableCardArray;
+				initWinUI();
+				TweenMax.to(this,0.5,{autoAlpha:1 ,onComplete:CreateCardHandler});
+			}
+			public function HideOpenCard(all:Boolean=true) : void
+			{
+				if(all){
+					TweenMax.to(this,1,{autoAlpha:0});
+				}
+				_openCard.visible = false;
+				xCount.text = '';
+				zCount.text = '';
+				_xNum = 0;
+				_zNum = 0;
+				_cardValue = new Array(2);
+				
+//				mc_xian.gotoAndStop(1);
+//				mc_zhuang.gotoAndStop(1);
+				//ping.visible = false;
+				
+				if(_recordArrs == null || _recordArrs.length <= 0)return;
+				
+				gp_cards.removeAllElements();
+				_recordArrs = [];
+			}
+			private function CreateCardHandler() : void
+			{
+				var count : Array = _theModel.m_lastGameEnd.cbCardCount;
+				var cbCards : Array = _theModel.m_lastGameEnd.cbTableCardArray;
+				var num : uint = 0;
+				var i : uint,j : uint,delay:Number;
+				var img : CardImage;
+				if(_recordArrs != null)
+				{
+					_recordArrs = null;
+				}
+				_recordArrs = new Array();
+				
+				for(i = 0; i < 2 ; i++)
+				{
+					for(j = 0; j < count[i];j++)
+					{
+						img = new CardImage();
+						img.source = YBCardEmbed.GetCard(0,82,115,'b2');
+						gp_cards.addElement(img);
+						img.visible = false;
+						img.depth = num+10*(3-i);
+						_recordArrs.push(img);
+						img.x = this.width - 400;
+						img.y = bgImg.y-198;
+						var fx : Number = this.width-400;
+						if(j == 2)
+						{
+							TweenMax.from(img,0.4,{delay:parseFloat((i*0.5 + j*1+.5).toFixed(1)),x:fx,y:0,
+								onStart:StartHandler,onStartParams:[img],
+								onComplete:SendCardHandler,onCompleteParams:[img,cbCards[i][j],i,j]});
+						}else
+						{
+							TweenMax.from(img,0.4,{delay:parseFloat((i*0.5 + j*1).toFixed(1)),x:fx,y:0,
+								onStart:StartHandler,onStartParams:[img],
+								onComplete:SendCardHandler,onCompleteParams:[img,cbCards[i][j],i,j]});
+						}
+						
+						num ++ ;
+					}
+				}
+			}
+			private function StartHandler(img : CardImage) : void
+			{
+				img.visible = true;
+			}
+			private function SendCardHandler(img : CardImage,val : uint,bIndex : uint,bcount : uint) : void
+			{
+//				_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'SendCard');
+				playSoundEffect(TConst.INVALID_CHAIR,'sendcard');
+				var tx : Number = this.width/2 - img.width;
+				switch(bIndex)
+				{
+					case 0:
+					{
+						
+						TweenMax.to(img,0.3,{x:bgImg.x + -132 + bcount*24,
+							onComplete:DisCardHandler,
+							onCompleteParams:[img,val,bIndex,bcount]});
+						
+						break;
+					}
+					case 1:
+					{
+						
+						TweenMax.to(img,0.3,{x:bgImg.x + 38 + bcount*24,
+							onComplete:DisCardHandler,
+							onCompleteParams:[img,val,bIndex,bcount]});
+						
+						break;
+					}
+				}
+			}
+			private function DisCardHandler(img : CardImage,val : uint,bIndex : uint,bcount : uint) : void
+			{
+				img.source = YBCardEmbed.GetCard(val,82,115,'b2');
+				img.top 			= undefined;
+				img.bottom 			= undefined;
+				img.left 			= undefined;
+				img.right 			= undefined;
+				img.horizontalCenter= undefined;	
+				img.verticalCenter 	= undefined;
+				var str : String = ' 点';
+				switch(bIndex)
+				{
+					case 0:
+					{
+						img.horizontalCenter = -220 + bcount*24 ; 
+						img.verticalCenter = -95 ; 
+						_xNum +=  _theModel.m_Logic.GetCardPip(val);
+						if(_theModel.m_lastGameEnd.cbCardCount[0] == 2 && bcount == 1)
+						{
+							if(_theModel.m_Logic.IsTwoPair(2,_theModel.m_lastGameEnd.cbTableCardArray[0]) == 1)
+							{
+								str = '点对子';
+							}
+						}
+						if(_xNum%10 >= 8)
+						{
+							str = '点天王';
+						}
+						xCount.text = _xNum%10 + str;
+						_cardValue[0] = _xNum%10;
+						break;
+					}
+					case 1:
+					{
+						img.horizontalCenter =  -50 + bcount*24;
+						img.verticalCenter = -95 ;
+						_zNum +=  _theModel.m_Logic.GetCardPip(val);
+						if(_theModel.m_lastGameEnd.cbCardCount[1] == 2 && bcount == 1)
+						{
+							if(_theModel.m_Logic.IsTwoPair(2,_theModel.m_lastGameEnd.cbTableCardArray[1]) == 1)
+							{
+								str = '点对子';
+							}
+						}
+						if(_zNum%10 >= 8)
+						{
+							str = '点天王';
+						}
+						zCount.text = _zNum%10 + str;
+						_cardValue[1] = _zNum%10;
+						break;
+					}
+				}
+				
+				_cardNumCount++;
+				if(_cardNumCount == (_theModel.m_lastGameEnd.cbCardCount[0] + _theModel.m_lastGameEnd.cbCardCount[1]) )
+				{
+					//					var winner:String = _cardValue[0]>_cardValue[1]?"闲赢":(_cardValue[0]==_cardValue[1]?"平局":"庄赢");
+//					onShowWinner();
+					TweenMax.delayedCall( 0.1, onShowWinner );
+				}
+				
+			}
+			
+			private function onShowWinner() : void
+			{
+				var ServerRecord : tagServerGameRecord = new tagServerGameRecord();
+				var model : BaccaratModel = BaccaratModel._getInstance();
+				var val : uint = 0;
+				ServerRecord.bBankerTwoPair = model.m_Logic.IsTwoPair(model.m_lastGameEnd.cbCardCount[1],model.m_lastGameEnd.cbTableCardArray[1]);
+				if(ServerRecord.bBankerTwoPair == 1)
+				{
+					Controller.dispatchEvent('ShowGameEndWinArea',1,8);
+				}
+				ServerRecord.bPlayerTwoPair = model.m_Logic.IsTwoPair(model.m_lastGameEnd.cbCardCount[0],model.m_lastGameEnd.cbTableCardArray[0]);
+				if(ServerRecord.bPlayerTwoPair == 1)
+				{
+					Controller.dispatchEvent('ShowGameEndWinArea',1,7);
+				}
+				if(_cardValue[0] < _cardValue[1]) {
+					val = 0;
+					//					theZhuangMC.gotoAndPlay(1);
+					mc_xian.gotoAndStop(1);
+					mc_zhuang.gotoAndPlay(1);
+					mc_zhuang.addEventListener(Event.ENTER_FRAME, win_enterFrameHandler);
+					Controller.dispatchEvent('ShowGameEndWinArea',1,3);
+					
+					
+					if(_cardValue[1] > 7) { 
+						ServerRecord.cbKingWinner = 5; 
+						Controller.dispatchEvent('ShowGameEndWinArea',1,5);
+					}
+				}else if(_cardValue[0] > _cardValue[1]) {
+					val = 1;
+					//					theXianMC.gotoAndPlay(1);
+					mc_zhuang.gotoAndStop(1);
+					mc_xian.gotoAndPlay(1);
+					mc_xian.addEventListener(Event.ENTER_FRAME, win_enterFrameHandler);
+					Controller.dispatchEvent('ShowGameEndWinArea',1,1);
+					
+					if(_cardValue[0]>7) {
+						ServerRecord.cbKingWinner = 4;
+						
+						Controller.dispatchEvent('ShowGameEndWinArea',1,4);
+					}
+				}else {
+					val = 2;
+					//ping.visible = true;
+					
+					model.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'hwinner');
+					playSoundEffect(TConst.INVALID_CHAIR,'hwinner');
+					Controller.dispatchEvent('ShowGameEndWinArea',1,2);
+					if(_cardCounts[0] == _cardCounts[1] ) {
+						var pTemp : int = 0;
+						ServerRecord.cbKingWinner = 6;
+						for ( var i : uint = 0; i < _cardCounts[0]; i++ )
+						{
+							if ( model.m_Logic.GetCardValue(_cards[0][i]) != model.m_Logic.GetCardValue(_cards[1][i]) ) 
+							{
+								ServerRecord.cbKingWinner = 0;
+								break;
+							}
+						}
+						if(ServerRecord.cbKingWinner ==1)Controller.dispatchEvent('ShowGameEndWinArea',1,6);
+					}
+				}
+				ServerRecord.cbBankerCount = _cardValue[1];
+				ServerRecord.cbPlayerCount = _cardValue[0];
+				
+				//				onShowAccount(ServerRecord);
+				if(model.m_lastGameEnd.lUserScore == 0)
+				{
+					playSoundEffect(TConst.INVALID_CHAIR,'GameOver');
+				}
+				TweenMax.delayedCall(3, onShowAccount, [ServerRecord,val]);
+				
+				
+				
+				TweenMax.delayedCall(8, exitGame);
+			}
+			
+			private function exitGame():void
+			{
+				if(StaticVars.isTryPlayed)
+				{
+					if(TScore.toFloatEx(StaticVars.tryPlayScore) < 1)
+					{
+						Controller.dispatchEvent('gameModuleExit');
+						
+						MsgManager.getInstance().showMessage1('您的金币不足！请取金币！',null,0,-50,false,1);
+					}
+				}
+				else
+				{
+					if(StaticVars.enterGameLessScore > _theModel.m_User.GetSelfData().UserScoreInfo.lScore)
+					{
+						Controller.dispatchEvent('gameModuleExit');
+						
+						MsgManager.getInstance().showMessage1('您的金币不足！请取金币！',null,0,-50,false,1);
+					}
+				}
+			}
+			
+			private function onShowAccount(record : tagServerGameRecord,val : uint = 0) : void
+			{
+				var model : BaccaratModel = BaccaratModel._getInstance();
+				if(model.m_lastGameEnd.lUserScore != 0 ||model.m_lastGameEnd.lUserReturnScore!=0  || model.m_wBankerUser == model.m_User.GetMeChairID()) {
+					//					theEndCard.Hide();
+					HideOpenCard(false);
+					
+				//	trace(model.l_status)
+					//					theEndTable.Show(record);
+					if(model.l_status == true)
+						EndTableShow(record,val);
+				}
+				HistoryModel._getInstance().InsertHistory(record);
+			}
+			
+			public function EndTableShow(record : tagServerGameRecord,val : uint = 0) : void
+			{
+				var model : BaccaratModel = BaccaratModel._getInstance();
+//				this['ZpointTxt'].text = record.cbBankerCount + '点';
+//				this['XPointTxt'].text = record.cbPlayerCount + '点';
+//				if(record.cbBankerCount > 7) {
+//					this['ZpointTxt'].text += '(天王' + record.cbBankerCount + ')';
+//				}
+//				if(record.cbPlayerCount > 7) {
+//					this['XPointTxt'].text += '(天王' + record.cbPlayerCount + ')';
+//				}
+//				for(var i : uint = 0;i<8;i++) {
+//					this['Area_' + (i+1)].text = TScore.toStringEx(model.m_lastGameEnd.lUserAreaWinScore[i]);
+//					
+//					if(model.m_lastGameEnd.lUserAreaWinScore[i]  == 0)
+//						this['Area_' + (i+1)].text = '';
+//				}
+				var bIsBanker:Boolean = model.m_wBankerUser == model.m_User.GetMeChairID();
+				if(bIsBanker && model.m_lastGameEnd.lUserScore==0)
+				{
+					record.cbUserSelect = 1;
+				}else {
+					if(model.m_lastGameEnd.lUserScore > 0 )//赢
+					{
+						record.cbUserSelect = 3;
+//						_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'win');
+						playSoundEffect(TConst.INVALID_CHAIR,'win');
+						
+					} else {//输
+//						_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'lost');
+						playSoundEffect(TConst.INVALID_CHAIR,'lost');
+						record.cbUserSelect = 2;
+					}
+				}
+				this['AllScore'].text = TScore.toStringEx(model.m_lastGameEnd.lUserScore);
+				
+				this['ReturnScore'].text= TScore.toStringEx(model.m_lastGameEnd.lUserReturnScore);
+				win_0.visible = false;
+				win_1.visible = false;
+				win_2.visible = false;
+				switch(val)
+				{
+					case 0:{win_0.visible = true; break;}
+					case 1:{win_1.visible = true; break;}
+					case 2:{win_2.visible = true; break;}
+					default:{win_0.visible = true; break;}
+				}
+				if(model.m_lastGameEnd.lBankerScore > 0)
+				{
+					this['BankScore'].text = '+'+TScore.toStringEx(model.m_lastGameEnd.lBankerScore);
+				//	win_0.visible = true;
+				}else
+				{
+					this['BankScore'].text = TScore.toStringEx(model.m_lastGameEnd.lBankerScore);
+//					if(model.m_lastGameEnd.lBankerScore<0)
+//					{
+//						win_1.visible = true;
+//					}else
+//					{
+//						win_2.visible = true;
+//					}
+				}
+//				theEndTable.visible = true;
+//				ZoomMove.play([theEndTable]);
+				theEndTable.visible = false;
+				theEndTable.scaleX = theEndTable.scaleY = 0.1;
+				TweenMax.to(theEndTable,0.5,{autoAlpha:1,scaleX:1,scaleY:1});
+				Memory._zeroArray(model.m_lAreaScore,0);
+			}
+			public function HideEndTable() : void
+			{
+//				for(var i : uint = 1;i<9;i++)
+//				{
+//					this['Area_' + i].text = '';
+//				}
+				this['AllScore'].text = '';
+				
+				this['ReturnScore'].text= '';
+				this['BankScore'].text = '';
+//				this['ZpointTxt'].text='';
+//				this['XPointTxt'].text='';
+				theEndTable.visible = false;
+			}
+			
+			
+			private function playSoundEffect(wChairID : uint,action : String):void
+			{
+				if(_theModel == null)	return;
+				try
+				{
+					_theModel.m_Sound.PlayEffect(wChairID, action);
+				}
+				catch(e:Error){};
+			}
+			
+			
+			
+			private function win_enterFrameHandler(evt:Event):void
+			{
+				var mc:MovieClip = evt.target as MovieClip;
+				if(mc.currentFrame == mc.totalFrames)
+				{
+					mc.stop();
+					mc.removeEventListener(Event.ENTER_FRAME, win_enterFrameHandler);
+				}
+			}
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				_theModel = BaccaratModel._getInstance();
+				
+				initWinUI();
+			}
+			
+			private function initWinUI():void
+			{
+				if(!ui_xian.numChildren)
+				{
+					mc_xian = BaccaratSkinClass.GetWin(0);
+					mc_xian.gotoAndStop(1);
+					ui_xian.addChild(mc_xian);
+				}else
+				{
+					mc_xian.gotoAndStop(1);
+				}
+				if(!ui_zhuang.numChildren)
+				{
+					mc_zhuang = BaccaratSkinClass.GetWin(1);
+					mc_zhuang.gotoAndStop(1);
+					ui_zhuang.addChild(mc_zhuang);
+				}else
+				{
+					mc_zhuang.gotoAndStop(1);
+				}
+			}
+			
+			public function Destroy():Boolean
+			{
+				_theModel = null;
+				return true;
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+		<mx:Zoom id="ZoomMove" zoomHeightFrom="0" zoomWidthFrom="0" duration="400">
+		</mx:Zoom>
+
+	</fx:Declarations>
+	
+	<s:Group top="80" bottom="0" left="100" right="0" id="gp_cards" />
+	<s:Group top="-187" bottom="0" left="-35" right="0" id="_openCard">
+		<s:Image id="bgImg" width="322" height="61" horizontalCenter="0" verticalCenter="0" source="{BaccaratSkinClass.end_vs}" />
+		<s:Label filters="{[gf01]}" id="xCount" text="0"  verticalCenter="0" horizontalCenter="-73" fontSize="20" color="0xFFFFFF" fontFamily="微软雅黑" />
+		<s:Label filters="{[gf01]}" id="zCount" text="0"  verticalCenter="0" horizontalCenter="102" fontSize="20" color="0xFFFFFF" fontFamily="微软雅黑" />
+		
+		<mx:UIComponent horizontalCenter="-130" verticalCenter="60" id="ui_xian"/>
+		<mx:UIComponent horizontalCenter="35" verticalCenter="60" id="ui_zhuang"/>
+		<!--<s:Image horizontalCenter="5" verticalCenter="70" source="{BaccaratSkinClass.ping}" id="ping" visible="false"/>-->
+	</s:Group>
+	
+	
+	<s:Group horizontalCenter="2" verticalCenter="-20" width="530" height="303" id="theEndTable" visible="false">
+		<s:Image source="{BaccaratSkinClass.end_bg}" x="90" y="100"/>
+		<s:Image source="{BaccaratSkinClass.win_0}" x="210" y="111" id="win_0" visible="false"/>
+		<s:Image source="{BaccaratSkinClass.win_1}" x="210" y="111" id="win_1" visible="false"/>
+		<s:Image source="{BaccaratSkinClass.win_2}" x="210" y="111" id="win_2" visible="false"/>
+		<!--<s:Label x="80" y="58" fontSize="24" color="#CC9900" id="XPointTxt"/>
+		<s:Label x="290" y="58" width="160" color="#CC9900" fontSize="24" textAlign="right" id="ZpointTxt"/>
+		
+		<s:Label x="110" y="107" fontSize="14" color="#999999" id="Area_7"/>
+		<s:Label x="430" y="107" fontSize="14" color="#999999" id="Area_8"/>
+		
+		<s:Label x="80" y="151" fontSize="14" color="#999999" id="Area_1"/>
+		<s:Label x="250" y="151" fontSize="14" color="#999999" id="Area_2"/>
+		<s:Label x="400" y="151" fontSize="14" color="#999999" id="Area_3"/>
+		
+		<s:Label x="110" y="196" fontSize="14" color="#999999" id="Area_4"/>
+		<s:Label x="280" y="196" fontSize="14" color="#999999" id="Area_6"/>
+		<s:Label x="430" y="196" fontSize="14" color="#999999" id="Area_5"/>-->
+		
+		<s:Label filters="{[gf01]}" x="190" y="176" fontSize="15" color="#FFFFFF" id="AllScore"/>
+		
+		
+		<s:Label filters="{[gf01]}" x="300" y="176" fontSize="15" color="#FFFFFF" id="ReturnScore"/>
+		
+		<s:Label filters="{[gf01]}" x="190" y="205" fontSize="15" color="#FFFFFF" id="BankScore"/>
+		
+	</s:Group>
+	
+</s:Group>

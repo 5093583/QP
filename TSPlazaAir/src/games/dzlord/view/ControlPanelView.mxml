@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 width="336" height="190" xmlns:com="com.*" xmlns:view="games.dzlord.view.*">
+	<fx:Script>
+		<![CDATA[
+			import com.plaza.MsgManager;
+			
+			import cx.gamebase.sturuct.GameCmd;
+			
+			import gameAssets.DDZhouHL.DDZhouHLSkinClass;
+			
+			import games.dzlord.model.DeZhouModel;
+			import games.dzlord.struct.CMD_C_AddScore;
+			import games.dzlord.utils.DZFor_9CMDconst;
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			
+			private var _theModel:DeZhouModel;
+			private var _theScore:Number = 0;
+			private var _chipLab : Array = [1,2,5,10,20];
+			private var _index:int = 0;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				init();
+			}
+			public function init() : void
+			{
+				_theModel = DeZhouModel._getInstance();
+				this.visible = false;
+//				JiaZhuBtn.addEventListener(MouseEvent.MOUSE_OVER,onClickHandler);
+				JiaZhuBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+				QiPaiBtn.visible = false;
+				QiPaiBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+			}
+			public function show() : void
+			{
+				this.visible = true;
+				JZMC.visible = false;
+				_hslider.value = 0;
+				GuoPaiBtn.visible = true;
+				GenZhuBtn.visible = true;
+				JiaZhuBtn.visible = true;
+				QuanXiaBtn.visible = false;
+				GQ_btn.visible = false;
+//				Guo_btn.visible = false;
+				Gen_btn.visible = false;
+				GR_btn.visible = false;
+				rightBtn.visible = false;
+				rightBtn.mouseEnabled = false;
+			}
+			private function onClickHandler(e:MouseEvent):void
+			{
+				switch(e.currentTarget.id)
+				{
+					case 'GuoPaiBtn' :
+					case 'GenZhuBtn' :
+						SendAddScore_Hanlder(_theModel.m_wlTurnLessScore);
+						_theModel.m_wChipNumber = 0;
+						hide();
+						break;
+					case 'QuanXiaBtn' :
+						AllInHandler(_theModel.m_wCurrentAddMaxScore);
+						break;
+					case 'QiPaiBtn' :
+						SendGiveUp();
+						break;
+					case 'JiaZhuBtn' :
+						if(JZMC.visible)	break;
+						JZMC.visible = true;
+						var num  : Number  = Number(TScore.toStringEx(_theModel.m_wCurrentAddMaxScore));
+						var num1 : Number  = Number(TScore.toStringEx(_theModel.m_wlTurnLessScore));
+//						_hslider.maximum = Number(num.toFixed(2));
+//						_hslider.minimum = Number(num1.toFixed(2));
+						_hslider.SilderShow(Number(num.toFixed(2)),Number(num1.toFixed(2)));
+						if(_theModel.m_wChipNumber == 0)
+						{
+							tipTxt.text = '过牌:';
+						}
+						if(_theModel.m_wChipNumber > 0)
+						{
+							tipTxt.text = '跟注:';
+						}
+						//chipNumber.text =  Number(TScore.toStringEx(_theModel.m_wChipNumber)).toFixed(2);
+						_hslider.value.toFixed(2).toString();
+						ChipBtnAddEvent();
+						if(!QueDingBtn.hasEventListener(MouseEvent.CLICK))
+						{
+							QueDingBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+						}
+						if(!QuXiaoBtn.hasEventListener(MouseEvent.CLICK))
+						{
+							QuXiaoBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+						}
+						if(!MaxBtn.hasEventListener(MouseEvent.CLICK))
+						{
+							MaxBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+						}
+						break;
+					case 'QueDingBtn':
+						SendAddScore_Hanlder( TScore.parseFloatEx(_hslider.value.toString()));
+						JZMC.visible = false;
+						_hslider.value = 0;
+						break;
+					case 'QuXiaoBtn':
+						JZMC.visible = false;
+						_hslider.value = 0;
+						break;
+					case 'MaxBtn':
+						AllInHandler(_theModel.m_wCurrentAddMaxScore);
+						JZMC.visible = false;
+						_hslider.value = 0;
+						break;
+					case 'QiPaiBtn':
+						SendGiveUp();
+						JZMC.visible = false;
+						_hslider.value = 0;
+						break;
+					case 'GQ_btn':
+					{
+						if(_index == 2)
+						{
+							_index = 0;
+							rightBtn.visible = false;
+							rightBtn.mouseEnabled = false;
+							rightBtn.mouseChildren =false
+						}else
+						{
+							_index = 2;
+							rightBtn.x = 15.5;
+							rightBtn.y = 76;
+							rightBtn.visible = true;
+							rightBtn.mouseEnabled = false;
+							rightBtn.mouseChildren =false
+						}
+						break;
+					}
+					case "Gen_btn":
+					{
+						if(_index == 1)
+						{
+							_index = 0;
+							rightBtn.visible = false;
+							rightBtn.mouseEnabled = false;
+							rightBtn.mouseChildren =false
+						}else{
+							_index = 1;
+							rightBtn.x = 160.5;
+							rightBtn.y = 76;
+							rightBtn.visible = true;
+							rightBtn.mouseEnabled = false;
+							rightBtn.mouseChildren =false
+						}
+						break;
+					}
+					case "GR_btn":
+					{
+						if(_index == 3)
+						{
+							_index = 0;
+							rightBtn.visible = false;
+							rightBtn.mouseEnabled = false;
+							rightBtn.mouseChildren =false
+						}else{
+							_index = 3;
+							rightBtn.x = 305.5;
+							rightBtn.y = 76;
+							rightBtn.visible = true;
+							rightBtn.mouseEnabled = false;
+							rightBtn.mouseChildren =false
+						}
+						break;
+					}
+				}
+			}
+			
+			private function getAddNumStr(num:Number):String
+			{
+				if(num < 1 && num > 0)	return num.toFixed(1);
+				return num.toFixed(0);
+			}
+			
+			
+			private function ChipBtnAddEvent():void
+			{
+				//var num : Number = Number(chipNumber);
+				for(var i:uint = 0; i < 4; i++)
+				{
+					if(!this['ChipBtn_'+i].hasEventListener(MouseEvent.CLICK))
+					{
+						this['ChipBtn_'+i].addEventListener(MouseEvent.CLICK,onChipBtnClickHandler);
+					}
+				}
+			}
+			private function onChipBtnClickHandler(e : MouseEvent) : void
+			{
+				var num : Number = Number(TScore.toStringEx(_theModel.m_wCurrentAddMaxScore));
+				switch(e.currentTarget.id)
+				{
+					case 'ChipBtn_0':
+					{
+						if(_hslider.value + _chipLab[0] > num)
+						{
+							num = TScore.toFloatEx(_theModel.m_wCurrentAddMaxScore);
+						} else {
+							num = _hslider.value + _chipLab[0]*TScore.toFloatEx(_theModel.m_wlCellScore);
+						}
+						_hslider.value = Number(num.toFixed(2));
+						//chipNumber.text = num.toFixed(2).toString();  
+						break;
+					}
+					case 'ChipBtn_1':
+					{
+						if(_hslider.value + _chipLab[1] > num)
+						{
+							num = TScore.toFloatEx(_theModel.m_wCurrentAddMaxScore);
+						} else {
+							num = _hslider.value + _chipLab[1]*TScore.toFloatEx(_theModel.m_wlCellScore);
+						}
+						_hslider.value = Number(num.toFixed(2));
+						break;
+					}
+					case 'ChipBtn_2':
+					{
+						if(_hslider.value + _chipLab[2] > num)
+						{
+							num = TScore.toFloatEx(_theModel.m_wCurrentAddMaxScore);
+						} else {
+							num = _hslider.value + _chipLab[2]*TScore.toFloatEx(_theModel.m_wlCellScore);
+						}
+						_hslider.value = Number(num.toFixed(2));
+						break;
+					}
+					case 'ChipBtn_3':
+					{
+						if(_hslider.value + _chipLab[3] > num)
+						{
+							num = TScore.toFloatEx(_theModel.m_wCurrentAddMaxScore);
+						} else {
+							num = _hslider.value + _chipLab[3]*TScore.toFloatEx(_theModel.m_wlCellScore);
+						}
+						_hslider.value = Number(num.toFixed(2)); 
+						break;
+					}
+					case 'ChipBtn_4':
+					{
+						if(_hslider.value + _chipLab[4] > num)
+						{
+							num = TScore.toFloatEx(_theModel.m_wCurrentAddMaxScore);
+						} else {
+							num = _hslider.value + _chipLab[4]*TScore.toFloatEx(_theModel.m_wlCellScore);
+						}
+						_hslider.value = Number(num.toFixed(2));
+						break;
+					}
+				}
+				tipTxt.text = '加注:';
+			}
+			public function Regsint(stutas : uint = 0) : void
+			{
+				if(_index != 0)
+				{
+					GQ_btn.visible = false;
+//					Guo_btn.visible = false;
+					Gen_btn.visible = false;
+					GR_btn.visible = false;
+					rightBtn.visible = false;
+					rightBtn.mouseEnabled = false;
+					rightBtn.mouseChildren =false
+					if(_index == 1 || _index == 3)
+					{
+						SendAddScore_Hanlder(_theModel.m_wlTurnLessScore);
+						_theModel.m_wChipNumber = 0;
+					}else
+					{
+						if(_theModel.m_wChipNumber == 0)
+						{
+							SendAddScore_Hanlder(_theModel.m_wChipNumber);
+							_theModel.m_wChipNumber = 0;
+						}else
+						{
+							SendGiveUp();
+						}
+					}
+					_index = 0;
+					return;
+				}
+				switch(stutas)
+				{
+					case 0:
+					{
+						GuoPaiBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+						GenZhuBtn.removeEventListener(MouseEvent.CLICK,onClickHandler);
+						GuoPaiBtn.visible = true;
+						GuoPaiBtn.buttonMode = true;
+						GuoPaiBtn.useHandCursor = true;
+						GenZhuBtn.visible = false;
+						Gentxt.text = "";
+						Gentxt.visible = false;
+						break;
+					}
+					case 1:
+					{
+						GenZhuBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+						GuoPaiBtn.removeEventListener(MouseEvent.CLICK,onClickHandler);
+						GuoPaiBtn.visible = false;
+						GenZhuBtn.visible = true;
+						GenZhuBtn.buttonMode = true;
+						GenZhuBtn.useHandCursor = true;
+						Gentxt.text = TScore.toStringEx(_theModel.m_wlTurnLessScore).toString();
+						Gentxt.visible = true;
+						Gentxt.mouseEnabled = false;
+						break;
+					}	
+				}
+				if(_theModel.m_wChipNumber >= _theModel.m_wMyHandGold && _theModel.m_wMyHandGold != 0)
+				{
+					QuanXiaBtn.visible = true;
+					JiaZhuBtn.visible = false;
+					if(!QuanXiaBtn.hasEventListener(MouseEvent.CLICK))
+					{
+						QuanXiaBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+						QuanXiaBtn.buttonMode = true;
+						QuanXiaBtn.useHandCursor = true;
+						Gentxt.text = '';
+						Gentxt.text = TScore.toStringEx(_theModel.m_wMyHandGold).toString();
+					}
+				}else
+				{
+					QuanXiaBtn.visible = false;
+					JiaZhuBtn.visible = true;
+				}
+				if(!QiPaiBtn.hasEventListener(MouseEvent.CLICK))
+				{
+					QiPaiBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+					QiPaiBtn.buttonMode = true;
+					QiPaiBtn.useHandCursor = true;
+				}
+				if(_theModel.m_wCurrentAddMaxScore == _theModel.m_wChipNumber)
+				{
+					JiaZhuBtn.enabled = false;
+				}else
+					JiaZhuBtn.enabled = true;
+				if(_theModel.m_wChipNumber == 0 && QiPaiBtn.visible == true)
+					QiPaiBtn.enabled = false;
+				else
+					QiPaiBtn.enabled = true;
+				GQ_btn.visible = false;
+//				Guo_btn.visible = false;
+				Gen_btn.visible = false;
+				GR_btn.visible = false;
+				rightBtn.visible = false;
+				rightBtn.mouseEnabled = false;
+				rightBtn.mouseChildren =false
+				QiPaiBtn.visible = true;
+				Gentxt2.text = "";
+				Gentxt2.visible = false;
+				_index = 0;
+			}
+			/**
+			 * 用户加注操作
+			 **/
+			private function SendAddScore_Hanlder(lscore:Number):void
+			{
+				if(lscore < _theModel.m_wlTurnLessScore) return;
+				if(lscore > _theModel.m_wCurrentAddMaxScore)
+				{
+//					lscore = _theModel.m_wCurrentAddMaxScore;
+					return;
+				}
+				var addscore:CMD_C_AddScore = new CMD_C_AddScore();
+				addscore.lScore = lscore;
+				_theModel.m_Tcp.SendData(GameCmd.MDM_GF_GAME,DZFor_9CMDconst.SUB_C_ADD_SCORE,addscore.toByteArry(),addscore.size);
+			}
+			private function AllInHandler(lscore : Number) : void
+			{
+				if(lscore >= _theModel.m_wCurrentAddMaxScore)
+				{
+					MsgManager.getInstance().showMessage2('您确定要 ALL IN？',alertClickYesHandler,alertClickNoHandler, -100);
+				}
+//				alertClickYesHandler();
+//				alertClickNoHandler();
+			}
+			private function alertClickYesHandler() : void
+			{
+//					SendAddScore_Hanlder(_theModel.m_wCurrentAddMaxScore);
+				_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,DZFor_9CMDconst.SUB_C_SHOUHAND);
+				this.visible = false;
+				
+				this.dispatchEvent( new Event('userAllIn') );
+				
+				alertClickNoHandler();
+			}
+			private function alertClickNoHandler() : void
+			{
+				JZMC.visible = false;
+			}
+			/**
+			 * 用户弃牌发送
+			 **/
+			private function SendGiveUp():void
+			{
+				this.visible = false;
+				_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,DZFor_9CMDconst.SUB_C_GIVE_UP);
+			}
+			public function hide() : void
+			{
+				JZMC.visible = false;
+				_hslider.value = 0;
+				GuoPaiBtn.visible = false;
+				GenZhuBtn.visible = false;
+				JiaZhuBtn.visible = false;
+				QuanXiaBtn.visible = false;
+				QueDingBtn.removeEventListener(MouseEvent.CLICK,onClickHandler);
+				QuXiaoBtn.removeEventListener(MouseEvent.CLICK,onClickHandler);
+				QuanXiaBtn.removeEventListener(MouseEvent.CLICK,onClickHandler);
+				GuoPaiBtn.removeEventListener(MouseEvent.CLICK,onClickHandler);
+				GenZhuBtn.removeEventListener(MouseEvent.CLICK,onClickHandler);
+				Gentxt.text = "";
+				Gentxt.visible = false;
+				
+				GQ_btn.visible = true;
+				GQ_btn.addEventListener(MouseEvent.CLICK,onClickHandler);
+//				Guo_btn.visible = true;
+//				Guo_btn.addEventListener(MouseEvent.CLICK,onClickHandler);
+				Gen_btn.visible = true;
+				Gen_btn.addEventListener(MouseEvent.CLICK,onClickHandler);
+				GR_btn.visible = true;
+				GR_btn.addEventListener(MouseEvent.CLICK,onClickHandler);
+				Gentxt2.visible = false;
+				Gentxt2.text = TScore.toStringEx(_theModel.m_wChipNumber).toString();
+				Gentxt2.mouseEnabled = false;
+			}
+			protected function _hslider_changeHandler(event:Event):void
+			{
+				// TODO Auto-generated method stub
+				var num : Number = Number(TScore.toStringEx(_theModel.m_wCurrentAddMaxScore ));
+				//var num1: Number = Number(this.parent['fen_0']['theScoreTxt'].text);
+				if(_hslider.value  > num)
+				{
+					_hslider.value = num;
+				}
+				if(_hslider.value == 0)
+				{
+					tipTxt.text = '过牌';
+				}
+				if(_hslider.value == _theModel.m_wChipNumber)
+				{
+					tipTxt.text = '跟注:';
+				}
+				if(_hslider.value > _theModel.m_wChipNumber)
+				{
+					tipTxt.text = '加注:';
+				}
+				//chipNumber.text = _hslider.value.toFixed(2).toString();
+			}
+			public function GameEnd():void
+			{
+				GQ_btn.visible = false;
+//				Guo_btn.visible = false;
+				Gen_btn.visible = false;
+				GR_btn.visible = false;
+				rightBtn.visible = false;
+				rightBtn.mouseEnabled = false;
+				rightBtn.mouseChildren =false
+				bg3.visible = false;
+				_index = 0;
+			}
+			public function Destory() : void
+			{
+				_hslider.value = 0;
+				//chipNumber.text = '';
+				this.visible = false;
+				GameEnd();
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Group id="KZMC" x="0" y="75" >
+		<s:Image x="0" y="55" id="bg3" source="{DDZhouHLSkinClass.control_scorebg3}" visible="true"/>
+		<com:GameMCButton id="GuoPaiBtn" x="5" y="60"  targetClass="{DDZhouHLSkinClass.GuoPaiBtn}" />
+		<com:GameMCButton id="GenZhuBtn" x="5" y="60"  targetClass="{DDZhouHLSkinClass.GenZhuBtn}" />
+		<com:GameMCButton id="JiaZhuBtn" x="150" y="60"  targetClass="{DDZhouHLSkinClass.JiaZhuBtn}" />
+		<com:GameMCButton id="QuanXiaBtn" x="150" y="60" targetClass="{DDZhouHLSkinClass.QuanXiaBtn}" visible="false" />
+		<com:GameMCButton id="QiPaiBtn" x="295" y="60" targetClass="{DDZhouHLSkinClass.QiPaiBtn}"   />
+		<com:GameMCButton id="GQ_btn" x="5" y="60"  targetClass="{DDZhouHLSkinClass.GQ_btn}" visible="false" />
+		<!--<com:GameMCButton id="Guo_btn" x="170" y="11"  targetClass="{DDZhouHLSkinClass.Guo_btn}" visible="false" />-->
+		<com:GameMCButton id="Gen_btn" x="150" y="60"  targetClass="{DDZhouHLSkinClass.Gen_btn}" visible="false" />
+		<com:GameMCButton id="GR_btn" x="295" y="60"  targetClass="{DDZhouHLSkinClass.GR_btn}" visible="false" />
+		<s:Image id="rightBtn" source="{DDZhouHLSkinClass.rightBtn}" visible="false" mouseChildren="false" mouseEnabled="false"/>
+		<s:Label id="Gentxt" width="72" height="22" textAlign="center" fontSize="16" fontFamily="宋体" x="70" y="74" visible="false" color="0xffffff" />
+		<s:Label id="Gentxt2" width="72" height="22" textAlign="center" fontSize="16" fontFamily="宋体" x="226" y="74" visible="false" color="0xffffff" />
+	</s:Group>
+	<s:Group id="JZMC" x="40" y="50">
+		<s:Image x="10"   y="5"   source="{DDZhouHLSkinClass.control_scorebg2}" />
+		
+		<com:GameMCButton targetClass="{DDZhouHLSkinClass.control_add1}" x="15" y="36" id="ChipBtn_0"/>
+		<com:GameMCButton targetClass="{DDZhouHLSkinClass.control_add2}" x="69" y="36" id="ChipBtn_1"/>
+		<com:GameMCButton targetClass="{DDZhouHLSkinClass.control_add5}" x="123" y="36" id="ChipBtn_2"/>
+		<com:GameMCButton targetClass="{DDZhouHLSkinClass.control_add10}" x="177" y="36" id="ChipBtn_3"/>
+		<com:GameMCButton targetClass="{DDZhouHLSkinClass.control_addmax}" x="231" y="36" id="MaxBtn"/>
+		
+		<!--<com:GameMCButton id="ChipBtn_3" x="155" y="-32"  targetClass="{DDZhouHLSkinClass.ChipNumberBtn}" visible="true"/>
+		<com:GameMCButton id="ChipBtn_4" x="201" y="-32"  targetClass="{DDZhouHLSkinClass.ChipNumberBtn}" visible="true"/>-->
+
+		
+		<s:Label id="tipTxt" x="220" y="12" height="20" fontSize="14" text="跟注:" fontFamily="宋体" color="0xFFFFFF"/>
+		<s:Label id="chipNumber" x="206" y="8" height="20" fontSize="14"  color="0xFFFFFF"/>
+		
+		<view:MySilderView x="-26" y="0" id="_hslider" />
+		
+		<com:GameMCButton id="QueDingBtn" x="285" y="36"  targetClass="{DDZhouHLSkinClass.QueDingBtn}" />
+		<com:GameMCButton id="QuXiaoBtn" x="339" y="36"   targetClass="{DDZhouHLSkinClass.QuXiaoBtn}" />
+	</s:Group>
+</s:Group>

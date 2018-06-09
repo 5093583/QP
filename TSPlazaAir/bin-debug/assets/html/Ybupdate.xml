@@ -1,0 +1,112 @@
+<update ver="103" forceAll="0">
+  <addr>
+    <item target="logon"><![CDATA[192.168.2.28-9185]]></item>
+    <item target="message"><![CDATA[192.168.2.28-9183]]></item>
+  </addr>
+  <message><![CDATA[]]></message>
+  <url>
+    <item target="def_url"><![CDATA[http://xpj.pjqp777.com]]></item>
+    <item target="pay_url"><![CDATA[http://xpj.pjqp777.com]]></item>
+  </url>
+  <gameOption coverFlowW="175" coverFlowH="208" coverFlowRef="true">
+    <item kindID="1003" width="1010" height="730" type="game2d" recommend="true" ver="115">
+      <index><![CDATA[8]]></index>
+      <icon><![CDATA[data\icon\icon_ddz.cxp]]></icon>
+      <name><![CDATA[百人牛牛]]></name>
+      <exe><![CDATA[CowCowBattle]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="2001" width="1010" height="730" type="game2d" recommend="true" ver="115">
+      <index><![CDATA[1]]></index>
+      <icon><![CDATA[data\icon\icon_zjh.cxp]]></icon>
+      <name><![CDATA[诈金花]]></name>
+      <exe><![CDATA[zjh]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="2002" width="1010" height="720" type="game2d" recommend="true" ver="115">
+      <index><![CDATA[3]]></index>
+      <icon><![CDATA[data\icon\icon_dz.cxp]]></icon>
+      <name><![CDATA[德州扑克]]></name>
+      <exe><![CDATA[DDZhouHL]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="2003" width="1010" height="730" type="game2d" recommend="false" ver="115">
+      <index><![CDATA[6]]></index>
+      <icon><![CDATA[data\icon\icon_cow.cxp]]></icon>
+      <name><![CDATA[牛牛]]></name>
+      <exe><![CDATA[CowCow]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="2004" width="1010" height="730" type="game2d" recommend="false" ver="115">
+      <index><![CDATA[2]]></index>
+      <icon><![CDATA[data\icon\icon_gswz.cxp]]></icon>
+      <name><![CDATA[梭哈]]></name>
+      <exe><![CDATA[gswz]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="1000" width="1010" height="730" type="game2d" recommend="false" ver="115">
+      <index><![CDATA[7]]></index>
+      <icon><![CDATA[data\icon\icon_baccarat.cxp]]></icon>
+      <name><![CDATA[百家乐]]></name>
+      <exe><![CDATA[Baccarat]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="2005" width="1010" height="730" type="game2d" recommend="true" ver="115">
+      <index><![CDATA[5]]></index>
+      <icon><![CDATA[data\icon\icon_mj.cxp]]></icon>
+      <name><![CDATA[二人麻将]]></name>
+      <exe><![CDATA[Sparrow]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="2000" width="1010" height="730" type="game2d" recommend="true" ver="115">
+      <index><![CDATA[4]]></index>
+      <icon><![CDATA[data\icon\icon_ddz.cxp]]></icon>
+      <name><![CDATA[斗地主]]></name>
+      <exe><![CDATA[Landlord]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="1004" width="1010" height="730" type="game3d" recommend="false" ver="115">
+      <index><![CDATA[9]]></index>
+      <icon><![CDATA[data\icon\icon_Fish.cxp]]></icon>
+      <name><![CDATA[金蟾捕鱼]]></name>
+      <exe><![CDATA[FishPC_V2]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="1008" width="1010" height="730" type="game3d" recommend="false" ver="115">
+      <index><![CDATA[10]]></index>
+      <icon><![CDATA[data\icon\icon_Fish.cxp]]></icon>
+      <name><![CDATA[捕鱼达人]]></name>
+      <exe><![CDATA[FishPC_433]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="1202" width="1010" height="730" type="game3d" recommend="false" ver="115">
+      <index><![CDATA[10]]></index>
+      <icon><![CDATA[data\icon\icon_FruitGame.cxp]]></icon>
+      <name><![CDATA[水果机]]></name>
+      <exe><![CDATA[Mema_FruitGame]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="1203" width="1010" height="730" type="game2d" recommend="false" ver="115">
+      <index><![CDATA[14]]></index>
+      <icon><![CDATA[data\icon\icon_FruitGame.cxp]]></icon>
+      <name><![CDATA[水浒传]]></name>
+      <exe><![CDATA[Mema_shzGame]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="1230" width="1010" height="730" type="game2d" recommend="false" ver="115">
+      <index><![CDATA[14]]></index>
+      <icon><![CDATA[data\icon\icon_AnimalsGame.cxp]]></icon>
+      <name><![CDATA[飞禽走兽]]></name>
+      <exe><![CDATA[Mema_AnimalsGame]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+    <item kindID="1503" width="1010" height="730" type="game2d" recommend="false" ver="115">
+      <index><![CDATA[14]]></index>
+      <icon><![CDATA[data\icon\icon_FiveStarBat.cxp]]></icon>
+      <name><![CDATA[百人五星宏辉]]></name>
+      <exe><![CDATA[FiveStarBat]]></exe>
+      <describe><![CDATA[]]></describe>
+    </item>
+  </gameOption>
+  <down/>
+</update>

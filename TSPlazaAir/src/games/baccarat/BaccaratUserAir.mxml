@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 fontFamily="宋体"
+		 implements="cx.gamebase.Interface.IUserViewSink, cx.gamebase.Interface.IReadyGame, cx.gamebase.Interface.IDestroy"
+		 width="230" height="100" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import com.greensock.TweenMax;
+			
+			import cx.assembly.head.HeadEmbed;
+			import cx.client.logon.model.UserModel;
+			import cx.gamebase.model.GameUserModel;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			import cx.ip.IPLocation;
+			import cx.ip.IPScannerNew;
+			import cx.ip.IpInfo;
+			
+			import flashx.textLayout.edit.TextScrap;
+			import flashx.textLayout.formats.TextLayoutFormat;
+			
+			import gameAssets.baccarat.BaccaratSkinClass;
+			
+			import games.baccarat.model.BaccaratModel;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.IDConvert;
+			import t.cx.air.utils.Memory;
+			
+			
+			private var _faceVec : Vector.<Bitmap>;
+			
+			protected var _user : GameUserModel;
+			protected var _model:BaccaratModel;
+			
+//			protected var _UserListAll : Array;
+			protected var _UserListAll : ArrayCollection;
+			
+			protected var _userListDic : Dictionary;
+			
+			
+			public function init():void
+			{
+				_user = GameUserModel.GetInstance();
+				_model= BaccaratModel._getInstance();
+//				_UserListAll = new Array();
+				_UserListAll = new ArrayCollection();
+				_userListDic = new Dictionary(true);
+//				Controller.addEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+			}
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				//d_faceVec = new Vector.<Bitmap>();
+				
+				//bjl_rollText.playedRollText();
+			}
+			
+			public function Destroy():Boolean
+			{
+				ZGoldTxt.text 	= '';
+				_UserListAll = null;
+				_userListDic = null;
+				_user = null;
+				_model = null;
+				return true;
+			}
+			
+			public function ReadyGameEvent(e:TEvent):Boolean
+			{
+				return true;
+			}
+			
+			public function UpdateUserCome(userInfo:tagUserInfoHead, wViewChairID:uint):Boolean
+			{
+//				if(userInfo != null &&( userInfo.dwUserRight != 0 || userInfo.dwMasterRight != 0)) {
+//					trace('玩家：'+IDConvert.Id2View(userInfo.dwUserID),userInfo.dwUserRight,userInfo.dwMasterRight);
+//				}
+				if(userInfo.dwUserID == _user.selfID) 
+				{
+					IDTxt.text = IDConvert.Id2View(userInfo.dwUserID).toString();
+				//	IDTxt.text = UserModel._getInstance().selfInfo.szAccount;
+					
+					GoldTxt.text = TScore.toFloatEx(userInfo.UserScoreInfo.lScore).toFixed(2);
+					
+					if(StaticVars.isTryPlayed)
+						GoldTxt.text = TScore.toFloatEx(StaticVars.tryPlayScore).toFixed(2);
+					
+					_model.l_userTotalIn = TScore.parseFloatEx(GoldTxt.text);
+					
+					
+					WinTxt.text	= TScore.toStringEx(BaccaratModel._getInstance().m_lPlayerScore);
+					
+					if(userInfo.cbGender == 2)
+						img_head.source = SkinClass.hall_head_female_small;
+					else
+						img_head.source = SkinClass.hall_head_male_small;
+				}
+				
+				if( !_userListDic.hasOwnProperty(userInfo.dwUserID) )
+				{
+					_userListDic[userInfo.dwUserID] = userInfo.dwUserID;
+					
+					UserInfos.text = '';
+					if(_UserListAll.length)
+						_UserListAll.addItemAt( userInfo, 1 );
+					else
+						_UserListAll.addItem(userInfo);
+					
+//					for(var i : uint = 0, len:int = _UserListAll.length; i < len;i++)
+//					{
+//						var userInfoss : tagUserInfoHead = _UserListAll[i] as tagUserInfoHead;
+//						var stri:String = userInfoss.dwUserID.toString();
+//						var str:String = IPScannerNew._getInstance().getIpnew(userInfoss.ip);
+//						if(str.length>5)
+//						{
+//							str = str.substring(0,str.indexOf(" "));
+//						}
+//						if(stri.length == 6)
+//							UserInfos.text += IDConvert.Id2View(userInfoss.dwUserID).toString()+'	'+str+'\n';
+//						else if(stri.length == 7)
+//							UserInfos.text += IDConvert.Id2View(userInfoss.dwUserID).toString()+'	'+str+'\n';
+//						else 
+//							UserInfos.text += IDConvert.Id2View(userInfoss.dwUserID).toString()+'		'+str+'\n';
+//					}
+					
+					
+					if(_UserListAll.length > 17)
+					{
+						if(!track1.hasEventListener(MouseEvent.MOUSE_DOWN))
+							track1.addEventListener(MouseEvent.MOUSE_DOWN,onMouseDownHandler);
+					}else
+					{
+						if(track1.hasEventListener(MouseEvent.MOUSE_DOWN))
+							track1.removeEventListener(MouseEvent.MOUSE_DOWN,onMouseDownHandler);
+					}
+				}
+				
+				return true;
+			}
+			private function onMouseMoveHandler(e:MouseEvent) : void
+			{
+				UserInfos.textDisplay.verticalScrollPosition = 296 - 296/(track1.y-10);
+			}
+			private function onMouseUpHandler(e:MouseEvent):void
+			{
+				this.removeEventListener(MouseEvent.MOUSE_UP, onMouseUpHandler);
+				this.removeEventListener(MouseEvent.MOUSE_MOVE, onMouseMoveHandler);
+				track1.stopDrag();
+			}
+			private function onMouseDownHandler(e:MouseEvent):void
+			{
+				this.addEventListener(MouseEvent.MOUSE_UP, onMouseUpHandler);
+				this.addEventListener(MouseEvent.MOUSE_MOVE, onMouseMoveHandler);
+				track1.startDrag(false, new Rectangle(892, 10, 0, 296));
+			}
+			public function UpdateUserScore(userID:int, wViewChairID:uint, fScore:Number):Boolean
+			{
+//				super.UpdateUserScore(userID,wViewChairID,fScore);
+				if(userID == _user.selfID) 
+				{ 
+					GoldTxt.text = TScore.toFloatEx(fScore).toFixed(2); 
+				
+					if(StaticVars.isTryPlayed)
+						GoldTxt.text = TScore.toFloatEx(StaticVars.tryPlayScore).toFixed(2);
+					
+					_model.l_userTotalIn = TScore.parseFloatEx(GoldTxt.text);
+					
+//					//trace('_model.m_lBankerScore------------',_model.m_lBankerScore)
+				}
+				return true;
+			}
+			
+			public function EndShowScore(lGold : Number) : void
+			{
+				UpdateUserScore(_user.selfID,_user.GetMeChairID(),lGold);
+				InitInfo();
+			}
+			
+			
+			private var userNum:int;
+			
+			public function UpdateUserStatus(userID:int, cbStatus:uint, wTableID:int, wViewChairID:uint):Boolean
+			{
+				if(cbStatus < TConst.US_FREE)
+				{
+					for(var i : uint = 0; i < _UserListAll.length;i++)
+					{
+						var userInfosn : tagUserInfoHead = _UserListAll[i] as tagUserInfoHead;
+						if(userInfosn.dwUserID == userID)
+						{
+							_UserListAll.removeItemAt(i);
+							delete _userListDic[userID];
+							break;
+						}
+					}
+				}
+				if(userNum != _UserListAll.length)
+				{
+					UserInfos.text = '';
+					userNum = _UserListAll.length;
+					for(i = 0; i < userNum;i++)
+					{
+						var userInfoss : tagUserInfoHead = _UserListAll[i] as tagUserInfoHead;
+						var stri:String = userInfoss.dwUserID.toString();
+						var str:String = IPScannerNew._getInstance().getIpnew(userInfoss.ip);
+						if(str.length>5)
+						{
+							str = str.substring(0,str.indexOf(" "));
+						}
+						if(stri.length == 6)
+							UserInfos.text += IDConvert.Id2View(userInfoss.dwUserID).toString()+'	'+str+'\n';
+						else if(stri.length == 7)
+							UserInfos.text += IDConvert.Id2View(userInfoss.dwUserID).toString()+'	'+str+'\n';
+						else 
+							UserInfos.text += IDConvert.Id2View(userInfoss.dwUserID).toString()+'		'+str+'\n';
+						
+					}
+				}
+				
+				return true;
+			}
+			
+			
+			public function ChangeLimitScore() : void
+			{
+//				ZLimitTxt.text = TScore.toStringEx( _model.m_Logic.GetBankerScore() );
+//				XLimitTxt.text = TScore.toStringEx( _model.m_Logic.GetPlayerScore() );
+//				PLimitTxt.text = TScore.toStringEx( _model.m_Logic.GetTieScore() );
+				
+//				ZLimitTxt.text = TScore.toStringEx( Memory._min( TScore.parseFloatEx(GoldTxt.text), _model.m_Logic.GetBankerScore() ) );
+//				XLimitTxt.text = TScore.toStringEx( Memory._min( TScore.parseFloatEx(GoldTxt.text), _model.m_Logic.GetPlayerScore() ) );
+//				PLimitTxt.text = TScore.toStringEx( Memory._min( TScore.parseFloatEx(GoldTxt.text), _model.m_Logic.GetTieScore() ) );
+				
+				ZLimitTxt.text = TScore.toStringEx( _model.lAllBankerScore );
+				XLimitTxt.text = TScore.toStringEx( _model.lAllPlayerScore );
+				PLimitTxt.text = TScore.toStringEx( _model.lAllTieScore );
+			}
+			
+			
+			public function InitInfo() : void
+			{
+				ChangeLimitScore();
+				 
+//				var bit : Bitmap;
+				
+//				ZIDTxt.text		= StaticVars.serverName;
+//				ZGoldTxt.text	= '牌局:0012001034216444143';
+				if(_model == null)	return;
+				
+				if(_model.m_wBankerUser == TConst.INVALID_CHAIR) 
+				{
+					if(_model.m_bEnableSysBanker==1) {
+						if(StaticVars.isTryPlayed)
+						{
+							ZTimeTxt.text = '系统坐庄';
+							ZGoldTxt.text = '**********';
+							ZTimeNum.text = "**********";
+							ZTimeScore.text = "**********";
+						}else{
+							ZTimeTxt.text = '系统坐庄';
+							ZGoldTxt.text = "**********";
+							ZTimeNum.text = _model.m_cbBankerTime.toString();
+							ZTimeScore.text = TScore.toStringEx(_model.m_lBankerWinScore);
+						}
+					}else {
+						ZTimeTxt.text = '无人坐庄';
+						ZGoldTxt.text = "";
+						ZTimeNum.text = "";
+						ZTimeScore.text = "";
+					}
+					
+				}
+				else 
+				{
+					var userInfo : tagUserInfoHead = _user.GetUserByChair(_model.m_wBankerUser);
+					if(userInfo != null) 
+					{
+//						ZIDTxt.text = IDConvert.Id2View( userInfo.dwUserID ).toString();
+						
+						if(userInfo.dwUserID == _user.selfID)
+						{
+							ZTimeTxt.text =  IDConvert.Id2View(_user.selfID).toString();
+							if(StaticVars.isTryPlayed)
+								ZGoldTxt.text = '******';
+							else
+								ZGoldTxt.text = TScore.toStringEx(	_model.m_lBankerScore);//userInfo.UserScoreInfo.lScore );
+							//								ZGoldTxt.text = TScore.toStringEx(_model.m_lBankerScore);
+						}else
+						{
+							ZTimeTxt.text = userInfo.dwUserID.toString();
+							if(!isNaN(_model.m_lBankerScore))
+							{
+								if(StaticVars.isTryPlayed)
+									ZGoldTxt.text = '******';
+								else
+									ZGoldTxt.text = TScore.toStringEx(_model.m_lBankerScore);
+							}
+						}
+						ZTimeNum.text = _model.m_cbBankerTime.toString();
+						ZTimeScore.text = TScore.toStringEx(_model.m_lBankerWinScore);
+					}
+					else
+					{
+						ZTimeTxt.text = int(Math.random()*10000).toString();
+						ZGoldTxt.text = "";
+					}
+				}
+				
+				
+				if(ZTimeTxt.text == '玩家坐庄')
+				{
+					ZTimeTxt.text = int(Math.random()*10000).toString();
+				}
+				
+				WinTxt.text =  TScore.toStringEx(_model.m_lPlayerScore);
+			}
+			
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+	</fx:Declarations>
+	
+	<!--	bottom	-->
+	
+	<s:Image id="img_head" x="-75" bottom="-10"/>
+
+	<!--<s:Label color="#EBB54C" text="昵称:" x="135" bottom="-15"/>
+	<s:Label color="#EBB54C" text="成绩:" x="135" bottom="-30"/>
+	<s:Label color="#EBB54C" text="金币:" x="135" bottom="-55"/>-->
+	
+	<s:Label filters="{[gf01]}" color="#f0c05c" id="IDTxt"  x="32" bottom="32"  fontSize="14" fontFamily="微软雅黑"/>
+	<s:Label filters="{[gf01]}" color="#f0c05c" id="WinTxt"  x="32" bottom="4"  fontSize="14" fontFamily="微软雅黑"/>
+	<s:Label filters="{[gf01]}" color="#f0c05c" id="GoldTxt"  x="32" bottom="-23"  fontSize="14" fontFamily="微软雅黑"/>
+	
+	
+	<!--	top		left	-->
+	
+	<s:Label filters="{[gf01]}" color="#f0c05c" id="ZLimitTxt" x="0" top="-4"  fontSize="14" fontFamily="微软雅黑"/>
+	<s:Label filters="{[gf01]}" color="#f0c05c" id="XLimitTxt" x="0" top="14" fontSize="14" fontFamily="微软雅黑"/>
+	<s:Label filters="{[gf01]}" color="#f0c05c" id="PLimitTxt" x="0" top="33" fontSize="14" fontFamily="微软雅黑"/>
+	
+	<!--	top		center	-->
+	
+	<!--<s:Image source="{BaccaratSkinClass.head_bg}" x="278" top="19"/>
+	<s:Image source="{BaccaratSkinClass.head_normal}" x="288" top="30" id="img_system"/>-->
+	
+	<!--<s:Label color="#f0c05c" x="365" top="30" id="ZIDTxt" fontWeight="bold"/>-->
+	<s:Label filters="{[gf01]}" color="#f0c05c" x="205" top="47" fontSize="14" id="ZGoldTxt" fontFamily="微软雅黑"/>
+	<s:Label filters="{[gf01]}" color="#f0c05c" x="205" top="19" fontSize="14" id="ZTimeTxt" fontFamily="微软雅黑"/>
+	
+	<s:Label filters="{[gf01]}" color="#f0c05c" x="345" top="19" fontSize="14" id="ZTimeNum" fontFamily="微软雅黑"/>
+	<s:Label filters="{[gf01]}" color="#f0c05c" x="345" top="47" fontSize="14" id="ZTimeScore" fontFamily="微软雅黑"/>
+	<s:TextArea id="UserInfos" color="#f4d580" width="220" height="343" right="-110" top="15" borderVisible="false" 
+				editable="false" fontSize="15"
+				textIndent="0" contentBackgroundAlpha="0" paddingLeft="10" paddingRight="0" 
+				verticalScrollPolicy="off" lineHeight="20" filters="{[gf01]}"
+				mouseEnabled="false" selectable="false" />
+	
+	<s:Image source="{BaccaratSkinClass.btn_scroll}" right="-105" top="10" buttonMode="true" id="track1"/>
+	<!--<com:GameRollText x="260" top="165" RollText="{StaticVars.gameRollTextStr}" visible="false" id="bjl_rollText"/>-->
+	
+	<!--	top		right	-->
+	<!--
+	<s:Label color="#EBB54C" text=" I D:" x="115" y="19"/>
+	<s:Label color="#EBB54C" text="成绩:" x="115" y="43"/>
+	<s:Label color="#EBB54C" text="金币:" x="115" y="68"/>
+	-->
+</s:Group>

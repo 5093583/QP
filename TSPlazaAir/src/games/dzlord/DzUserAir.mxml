@@ -1,0 +1,814 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:user="games.dzlord.user.*"
+		 width="800" height="600"
+		 implements="cx.gamebase.Interface.IUserViewSink, cx.gamebase.Interface.IReadyGame, cx.gamebase.Interface.IDestroy" 
+		 xmlns:view="games.dzlord.view.*" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.StaticVars;
+			
+			import com.greensock.TweenLite;
+			import com.greensock.TweenMax;
+			import com.greensock.plugins.AutoAlphaPlugin;
+			import com.greensock.plugins.TweenPlugin;
+			import com.plaza.MsgManager;
+			
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.model.GameUserModel;
+			import cx.gamebase.model.GlobalModel;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			
+			import gameAssets.DDZhouHL.DDZhouHLSkinClass;
+			
+			import games.dzlord.model.DeZhouModel;
+			import games.dzlord.user.UserOther2;
+			import games.dzlord.utils.DZFor_9CMDconst;
+			import games.dzlord.view.SyView;
+			
+			import mx.controls.Alert;
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.IDConvert;
+			
+			protected var _user : GameUserModel;
+			private var _theModel : DeZhouModel;
+			
+			private var syAry:Array;
+			private var _gameRecord:Array;
+			public function init():void
+			{
+				_user = GameUserModel.GetInstance();
+				_theModel = DeZhouModel._getInstance();
+				Controller.addEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+				
+				syAry = [];
+			}
+			private function onUserGameScore(e : TEvent) : void
+			{
+				var wChairID : uint = e.nWParam;
+				var lScore : Number = e.nLParam;
+				var userInfo : tagUserInfoHead = _user.GetUserByChair(wChairID);
+				if(userInfo != null)
+				{
+					userInfo.UserScoreInfo.lScore = lScore;
+					if(_theModel.ViewChairID(wChairID) == 0)
+						_theModel.m_wMyHandGold = lScore;
+					UpdateGameScore(lScore,_theModel.ViewChairID(wChairID));
+				}
+			}
+			public function UpdateGameScore(score : Number,wViewChairID : uint) : void
+			{
+//				if(wViewChairID == 0)
+//				{
+//					//					UV_0.JinBi = TScore.toFloatEx(_theModel.m_wMyHandGold - score) ;
+//					//					var user : UserOther = this['UV_' + wViewChairID]; 
+//					//					if(user != null) 
+//					//					{ 
+//					//						user.JinBi = score; 
+//					//					}
+//					
+//					//UV_2.JinB = score;
+//					
+//					UV_0.JinBi = score; 
+//				}
+				this['UV_'+wViewChairID].JinBi = score; 
+			}
+			
+			public function ReadyGameEvent(e:TEvent):Boolean
+			{
+				// TODO Auto Generated method stub
+				return false;
+			}
+			
+			public function UpdateUserCome(userInfo:tagUserInfoHead, wViewChairID:uint):Boolean
+			{
+				if(userInfo != null &&( userInfo.dwUserRight != 0 || userInfo.dwMasterRight != 0)) {
+					//trace('玩家：'+IDConvert.Id2View(userInfo.dwUserID),userInfo.dwUserRight,userInfo.dwMasterRight);
+				}
+				var wChaidID:uint = _theModel.ViewChairID(userInfo.wChairID);
+				if(_theModel.m_wCurrentPlayerCount == null)
+				{
+					_theModel.m_wCurrentPlayerCount = new Array();
+				}
+				_theModel.m_wCurrentPlayerCount.push(userInfo.wChairID);
+				
+				
+				if(wViewChairID < DZFor_9CMDconst.GAME_PLAYER)			//如果用户座位ID不为0
+				{
+					var user : *;
+					if(wChaidID == 0)
+					{
+						user = this['UV_' + wChaidID] as UserMyself;
+					}
+					else if(wChaidID == 2 || wChaidID == 3)
+					{
+						user = this['UV_' + wChaidID] as UserLeft;
+					}
+					else if(wChaidID == 4 || wChaidID == 5 || wChaidID == 1 || wChaidID == 8)
+					{
+						user = this['UV_' + wChaidID] as UserTop;
+					}
+					else if(wChaidID == 6 || wChaidID ==7)
+					{
+						user = this['UV_' + wChaidID] as UserLeft;
+					}
+					//		----------------------------		
+					if(user != null) 
+					{
+						if( userInfo.dwUserRight!=0 || userInfo.dwMasterRight!=0 )
+						{
+							user.userID = userInfo.dwUserID;
+							DeZhouModel._getInstance().m_PlayerInfo[wChaidID] = userInfo.dwUserID;
+						}else{
+							
+							user.userID = IDConvert.Id2View(userInfo.dwUserID);
+							//							DeZhouModel._getInstance().m_PlayerInfo[wViewChairID] = IDConvert.Id2View(userInfo.dwUserID);
+							DeZhouModel._getInstance().m_PlayerInfo[wChaidID] = IDConvert.Id2View(userInfo.dwUserID);
+						}
+						DeZhouModel._getInstance().m_playerStatus[wChaidID] = 1;
+						user.IP = userInfo.ip;
+						//						user.Face = userInfo.wFaceID;
+						user.Face = userInfo.cbGender;
+						user.Offlie(0);
+						user.visible = true;
+						if(wChaidID == 0) 
+						{ 
+							user.JinBi = _user.GetSelfData().UserScoreInfo.lScore; 
+						}else
+						{
+							user.JinBi = userInfo.UserScoreInfo.lScore; 
+						}
+					}
+				}
+				return true;
+			}
+			
+			public function UpdateUserScore(userID:int, wViewChairID:uint, fScore:Number):Boolean
+			{
+//				if(userID == _theModel.m_User.selfID)
+//				{
+//					UV_0.JinBi = _user.GetSelfData().UserScoreInfo.lScore; 
+//				}
+				this['UV_'+wViewChairID].JinBi = fScore; 
+				return true;
+			}
+			
+			private function exitGame():void
+			{
+				Controller.dispatchEvent('gameModuleExit');
+				
+				MsgManager.getInstance().showMessage1('由于您长时间未参与游戏！系统自动返回大厅！');
+			}
+			
+			public function UpdateUserStatus(userID:int, cbStatus:uint, wTableID:int, wViewChairID:uint):Boolean
+			{
+				if(cbStatus < TConst.US_SIT || cbStatus == TConst.US_LOOKON || wViewChairID == TConst.INVALID_CHAIR ) 
+				{
+					if(GlobalModel( GlobalModel.GetInstance() ).m_bReadyGame && _user.count == 1) {
+						Controller.dispatchEvent('ready_leave');
+						return true;
+					}
+				}
+				
+				var i : uint = 0;
+				
+				if(cbStatus == TConst.US_FREE)// && wViewChairID != 0)
+				{
+					var wChaidID:uint;
+					for(i=0; i<DZFor_9CMDconst.GAME_PLAYER; i++)
+					{
+						if( DeZhouModel._getInstance().m_PlayerInfo[i] == userID )
+						{
+							wChaidID = i;
+							break;
+						}
+					}
+					if(wChaidID != 0)
+					{
+//						this['UV_' + wChaidID].userLeave();
+					}
+					return true;
+				}
+				
+				if(cbStatus == TConst.US_NULL && wTableID == TConst.INVALID_CHAIR && wViewChairID == TConst.INVALID_CHAIR && !_theModel.m_gameStart)
+				{
+					for(i=0; i<DZFor_9CMDconst.GAME_PLAYER; i++)
+					{
+						if(userID == _theModel.m_PlayerInfo[i])
+						{
+							this['UV_' + i].visible = false;
+							break;
+						}
+					}
+					
+					if(_theModel.GetUserNumber < 3)
+					{
+						showContinueBtn();
+						
+						TweenMax.delayedCall(StaticVars.delayedExitGame, exitGame);
+						MsgManager.getInstance().showMessage1('游戏玩家已退出，请点击开始继续游戏！');
+					}
+				}
+				
+				
+				
+				if(cbStatus < TConst.US_SIT || cbStatus == TConst.US_LOOKON || wViewChairID >= DZFor_9CMDconst.GAME_PLAYER ) return true;
+				if(cbStatus == TConst.US_OFFLINE)
+				{
+					this['UV_' + wViewChairID].Offlie(30000);
+					//					if(_user.SwitchViewChairID(ZjhModel._getInstance().wCurrentUser) == wViewChairID) { 
+					//						StopClock();
+					//					}
+					return true;
+				}
+				if(cbStatus > TConst.US_FREE)
+				{
+					this['UV_' + wViewChairID].Offlie(0);
+				}
+				return true;
+			}
+			public function SetBankerPoint(wViewCardID : uint) : void
+			{
+				switch(wViewCardID)
+				{
+					case 0 :{Banker_icon.bottom = 180;Banker_icon.horizontalCenter  = 0;break;}
+					case 1 :{Banker_icon.verticalCenter = 100; Banker_icon.right  = 320;break;}
+					case 2 :{Banker_icon.verticalCenter = -20; Banker_icon.right  = 130;break;}
+					case 3 :{Banker_icon.verticalCenter = -160;Banker_icon.right  = 185;break;}
+					case 4 :{Banker_icon.verticalCenter = -185;Banker_icon.right   = 300;break;}
+					case 5 :{Banker_icon.verticalCenter = -185; Banker_icon.left   = 310;break;}
+					case 6 :{Banker_icon.verticalCenter = -160; Banker_icon.left   = 185;break;}
+					case 7 :{Banker_icon.verticalCenter = -25; Banker_icon.left   = 125;break;}
+					case 8 :{Banker_icon.verticalCenter = 100; Banker_icon.left   = 320;break;}
+				}
+				Banker_icon.visible = true;
+			}
+			public function SetBigPoint(wViewCardID : uint) : void
+			{
+				switch(wViewCardID)
+				{
+					case 0 :{Big_icon.bottom = 180;Big_icon.horizontalCenter  = -30;break;}
+					case 1 :{Big_icon.verticalCenter = 100; Big_icon.right  = 290;break;}
+					case 2 :{Big_icon.verticalCenter = -20; Big_icon.right  = 100;break;}
+					case 3 :{Big_icon.verticalCenter = -160;Big_icon.right  = 155;break;}
+					case 4 :{Big_icon.verticalCenter = -185;Big_icon.right   = 270;break;}
+					case 5 :{Big_icon.verticalCenter = -185; Big_icon.left   = 280;break;}
+					case 6 :{Big_icon.verticalCenter = -160; Big_icon.left   = 155;break;}
+					case 7 :{Big_icon.verticalCenter = -25; Big_icon.left   = 95;break;}
+					case 8 :{Big_icon.verticalCenter = 100; Big_icon.left   = 290;break;}
+				}
+				Big_icon.visible = true;
+			}
+			public function SetSmallPoint(wViewCardID : uint) : void
+			{
+				switch(wViewCardID)
+				{
+					case 0 :{Small_icon.bottom = 180;Small_icon.horizontalCenter  = -30;break;}
+					case 1 :{Small_icon.verticalCenter = 100; Small_icon.right  = 290;break;}
+					case 2 :{Small_icon.verticalCenter = -20; Small_icon.right  = 100;break;}
+					case 3 :{Small_icon.verticalCenter = -160;Small_icon.right  = 155;break;}
+					case 4 :{Small_icon.verticalCenter = -185;Small_icon.right   = 270;break;}
+					case 5 :{Small_icon.verticalCenter = -185; Small_icon.left   = 280;break;}
+					case 6 :{Small_icon.verticalCenter = -160; Small_icon.left   = 155;break;}
+					case 7 :{Small_icon.verticalCenter = -25; Small_icon.left   = 95;break;}
+					case 8 :{Small_icon.verticalCenter = 100; Small_icon.left   = 290;break;}
+				}
+				Small_icon.visible = true;
+			}
+			/**
+			 * 结算
+			 **/
+			public function GameEndShow(lscore:Number,viewCardID:uint) : void
+			{
+				//				TweenLite.from(KaiShiBtn,1,{delay:2,autoAlpha:1,onComplete:JiXuHandler});
+				//				KaiShiBtn.visible = true;
+				
+				var syView : SyView = new SyView();
+				syView.name = 'syView_'+viewCardID;
+				
+				if(lscore > 0)
+				{
+					syView.score.text = '+' + TScore.toStringEx(lscore);
+					syView.score.setStyle('color',0xFF962D);
+//					syView.sy_text.text = '赢';
+//					syView.sy_text.setStyle('color',0xFFFF00);
+				}
+				else if(lscore == 0)
+				{
+//					syView.score.text = TScore.toStringEx(lscore);
+//					syView.score.setStyle('color',0xEEE193);
+//					syView.sy_text.text = '平';
+//					syView.sy_text.setStyle('color',0xFFFF00);
+					syView.visible = false;
+					viewCardID = 255;
+				}
+				else if(lscore < 0)
+				{
+					syView.score.text = TScore.toStringEx(lscore);
+					syView.score.setStyle('color',0xD2E9DF);
+//					syView.sy_text.text = '输';
+//					syView.sy_text.setStyle('color',0xFF6600);
+				}
+				addElement(syView);
+				if(syAry != null)
+					syAry.push(syView);
+				
+				switch(viewCardID)
+				{
+					case 0 :{syView.x = 490;	syView.y = 340; break;}
+					case 1 :{syView.x = 640;  	syView.y = 320; break;}
+					case 2 :{syView.x = 730; 	syView.y = 255; break;}
+					case 3 :{syView.x = 730;	syView.y = 160; break;}
+					case 4 :{syView.x = 645;	syView.y = 110;  break;}
+					case 5 :{syView.x = 340; 	syView.y = 110;  break;}
+					case 6 :{syView.x = 235;  	syView.y = 160; break;}
+					case 7 :{syView.x = 235;  	syView.y = 255; break;}
+					case 8 :{syView.x = 350;  	syView.y = 320; break;}
+				}
+				
+				
+				
+				//				showContinueBtn();
+			}
+			
+			public function showContinueBtn():void
+			{
+				KaiShiBtn.visible = true;
+				JiXuHandler();
+			}
+			
+			public function JiXuHandler() : void
+			{
+				//				TweenLite.from(KaiShiBtn,1,{delay:2,autoAlpha:1,onComplete:JiXuHandler});
+				KaiShiBtn.addEventListener(MouseEvent.CLICK,onClickHandler);
+			}
+			private function onClickHandler(e : MouseEvent) : void
+			{
+				switch(e.currentTarget.id)
+				{
+					case 'KaiShiBtn':
+					{
+						if(checkPlayed())	return;
+						//onDestroyAllDos();
+						//						Controller.dispatchEvent(GameEvent.CONTINUE_GAME);
+						KaiShiBtn.visible = false;
+						Controller.dispatchEvent( 'continueGame' );
+					}
+				}
+			}
+			
+			private function checkPlayed():Boolean
+			{
+				if(StaticVars.isTryPlayed && _theModel != null && StaticVars.tryPlayScore < (_theModel.m_wlCellScore*100) )
+				{
+					Controller.dispatchEvent('gameModuleExit');
+					
+					MsgManager.getInstance().showMessage1('您的金币不足！请取金币！');
+					return true;
+				}
+				return false;
+			}
+			
+			
+			
+			
+			public function Destroy():Boolean
+			{
+				for(var j:int = 0;j<9;j++)
+				{
+					this["Tip_"+ j].visible = false;
+				}
+				//Controller.removeEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+				UV_0.visible = false;
+				UV_1.visible = false;
+				UV_2.visible = false;
+				UV_3.visible = false;
+				UV_4.visible = false;
+				UV_5.visible = false;
+				UV_6.visible = false;
+				UV_7.visible = false;
+				UV_8.visible = false;
+				var syview : SyView;
+				if(syAry)
+				{
+					for(var i:int=syAry.length-1; i>=0; i--)
+					{
+						syview = syAry[i] as SyView;
+						if(this.contains(syview))
+						{
+							syview.Destory();
+							this.removeElement(syview);
+						}
+					}
+				}
+				
+				syAry = [];
+//				for(var i : int = 0; i < DZFor_9CMDconst.GAME_PLAYER;i++)
+//				{
+//					if(this.getChildByName('syView_'+i) != null)
+//					{
+//						syview = this.getChildByName('syView_'+i) as SyView;
+//						if(this.contains(syview))
+//						{
+//							syview.Destory();
+//							this.removeElement(syview);
+//						}
+//					}
+//				}
+				
+				
+				Banker_icon.top 			= undefined;
+				Banker_icon.bottom 			= undefined;
+				Banker_icon.left 			= undefined;
+				Banker_icon.right 			= undefined;
+				Banker_icon.horizontalCenter= undefined;
+				Banker_icon.verticalCenter 	= undefined;
+				Banker_icon.visible = false;
+				Big_icon.top 			= undefined;
+				Big_icon.bottom 			= undefined;
+				Big_icon.left 			= undefined;
+				Big_icon.right 			= undefined;
+				Big_icon.horizontalCenter= undefined;
+				Big_icon.verticalCenter 	= undefined;
+				Big_icon.visible = false;
+				Small_icon.top 			= undefined;
+				Small_icon.bottom 			= undefined;
+				Small_icon.left 			= undefined;
+				Small_icon.right 			= undefined;
+				Small_icon.horizontalCenter= undefined;
+				Small_icon.verticalCenter 	= undefined;
+				Small_icon.visible = false;
+				if(_gameRecord)
+				{
+					_gameRecord.length = 0;
+					_gameRecord = null;
+				}
+				gameEnd.text = "";
+				return true;
+			}
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{	
+				if(_user == null)	init();
+			}
+			
+			
+			public function updateUserPrompt():void
+			{
+				for(var i:int=0; i<DZFor_9CMDconst.GAME_PLAYER; i++)
+				{
+					var img:Image = this['Tip_' + i];
+					if(img.visible)
+					{
+						if(img.source != DDZhouHLSkinClass.qipai_tip)
+							img.visible = false;
+					}
+				}
+			}
+			
+			/**
+			 * 操作提示
+			 **/
+			public function UserPromptHandler(wCardViewID : uint,stutas : uint) :void
+			{
+				switch(wCardViewID)
+				{
+					case 0:
+					{
+						Tip_0.top 			= undefined;
+						Tip_0.bottom 			= undefined;
+						Tip_0.left 			= undefined;
+						Tip_0.right 			= undefined;
+						Tip_0.horizontalCenter= undefined;
+						Tip_0.verticalCenter 	= undefined;
+						Tip_0.visible = true;
+						if(stutas == 1)
+							Tip_0.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_0.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_0.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_0.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_0.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_0.x = 475;
+						Tip_0.y = 448;
+						break;
+					}
+					case 1:
+					{
+						Tip_1.top 			= undefined;
+						Tip_1.bottom 			= undefined;
+						Tip_1.left 			= undefined;
+						Tip_1.right 			= undefined;
+						Tip_1.horizontalCenter= undefined;
+						Tip_1.verticalCenter 	= undefined;
+						Tip_1.visible = true;
+						if(stutas == 1)
+							Tip_1.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_1.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_1.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_1.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_1.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_1.x = 721;
+						Tip_1.y = 448;
+						break;
+					}
+					case 2:
+					{
+						Tip_2.top 			= undefined;
+						Tip_2.bottom 			= undefined;
+						Tip_2.left 			= undefined;
+						Tip_2.right 			= undefined;
+						Tip_2.horizontalCenter= undefined;
+						Tip_2.verticalCenter 	= undefined;
+						Tip_2.visible = true;
+						if(stutas == 1)
+							Tip_2.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_2.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_2.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_2.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_2.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_2.x = 937;
+						Tip_2.y = 303;
+						break;
+					}
+					case 3:
+					{
+						Tip_3.top 			= undefined;
+						Tip_3.bottom 			= undefined;
+						Tip_3.left 			= undefined;
+						Tip_3.right 			= undefined;
+						Tip_3.horizontalCenter= undefined;
+						Tip_3.verticalCenter 	= undefined;
+						Tip_3.visible = true;
+						if(stutas == 1)
+							Tip_3.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_3.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_3.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_3.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_3.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_3.x = 921;
+						Tip_3.y = 126;
+						break;
+					}
+					case 4:
+					{
+						Tip_4.top 			= undefined;
+						Tip_4.bottom 			= undefined;
+						Tip_4.left 			= undefined;
+						Tip_4.right 			= undefined;
+						Tip_4.horizontalCenter= undefined;
+						Tip_4.verticalCenter 	= undefined;
+						Tip_4.visible = true;
+						if(stutas == 1)
+							Tip_4.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_4.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_4.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_4.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_4.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_4.x = 726;
+						Tip_4.y = 3;
+						break;
+					}
+					case 5:
+					{
+						Tip_5.top 			= undefined;
+						Tip_5.bottom 			= undefined;
+						Tip_5.left 			= undefined;
+						Tip_5.right 			= undefined;
+						Tip_5.horizontalCenter= undefined;
+						Tip_5.verticalCenter 	= undefined;
+						Tip_5.visible = true;
+						if(stutas == 1)
+							Tip_5.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_5.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_5.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_5.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_5.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_5.x = 255;
+						Tip_5.y = 3;
+						break;
+					}
+					case 6:
+					{
+						Tip_6.top 			= undefined;
+						Tip_6.bottom 			= undefined;
+						Tip_6.left 			= undefined;
+						Tip_6.right 			= undefined;
+						Tip_6.horizontalCenter= undefined;
+						Tip_6.verticalCenter 	= undefined;
+						Tip_6.visible = true;
+						if(stutas == 1)
+							Tip_6.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_6.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_6.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_6.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_6.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_6.x = 40;
+						Tip_6.y = 126;
+						break;
+					}
+					case 7:
+					{
+						Tip_7.top 			= undefined;
+						Tip_7.bottom 			= undefined;
+						Tip_7.left 			= undefined;
+						Tip_7.right 			= undefined;
+						Tip_7.horizontalCenter= undefined;
+						Tip_7.verticalCenter 	= undefined;
+						Tip_7.visible = true;
+						if(stutas == 1)
+							Tip_7.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_7.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_7.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_7.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_7.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_7.x = 22;
+						Tip_7.y = 303;
+						break;
+					}
+					case 8:{
+						Tip_8.top 			= undefined;
+						Tip_8.bottom 			= undefined;
+						Tip_8.left 			= undefined;
+						Tip_8.right 			= undefined;
+						Tip_8.horizontalCenter= undefined;
+						Tip_8.verticalCenter 	= undefined;
+						Tip_8.visible = true;
+						if(stutas == 1)
+							Tip_8.source = DDZhouHLSkinClass.guopai_tip;
+						else if(stutas == 2)
+							Tip_8.source = DDZhouHLSkinClass.genzhu_tip;
+						else if(stutas == 3)
+							Tip_8.source = DDZhouHLSkinClass.jiazhu_tip;
+						else if(stutas == 4)
+							Tip_8.source = DDZhouHLSkinClass.qipai_tip;
+						else if(stutas == 5)
+							Tip_8.source = DDZhouHLSkinClass.quanxia_tip;
+						Tip_8.x = 210;
+						Tip_8.y = 449;
+						break;
+					}
+				}
+			}
+			public function hideTip(wViewID:uint) : void
+			{
+				this["Tip_" + wViewID].visible = false;
+			}
+			public function hide():void
+			{
+				Banker_icon.visible = false;
+				Big_icon.visible = false;
+				Small_icon.visible = false;
+			}
+			public function GameMessage(_index:int,wViewID:uint = 255):void
+			{
+				if(_gameRecord == null)
+					_gameRecord = [];
+				var str:String;
+				var wCharId:uint = 255;
+				switch(_index)
+				{
+					case 0://///////////////游戏开始
+					{
+						str = "游戏开始" + "\n";
+						break;
+					}
+					case 1:
+					{
+						wCharId = _theModel.ViewChairID(_theModel.m_wDUser);
+						str = this["UV_" + wCharId]['IDTxt'].text + " : 庄家 " + "\n";
+						break;
+					}	
+					case 2:
+					{
+						wCharId = _theModel.ViewChairID(_theModel.m_wBigUser);
+						str = this["UV_" + wCharId]['IDTxt'].text + " : 大盲下注 " + TScore.toStringEx(_theModel.m_wlCellScore*2) + "\n";
+						break;
+					}
+					case 3:
+					{
+						wCharId = _theModel.ViewChairID(_theModel.m_wMaxChipInUser);
+						str = this["UV_" + wCharId]['IDTxt'].text + " : 小盲下注 " + TScore.toStringEx(_theModel.m_wlCellScore) + "\n";
+						break;
+					}
+					case 4:
+					{
+						str = this["UV_" + wViewID]['IDTxt'].text + " : 过牌 " + "\n";
+						break;
+					}
+					case 5:
+					{
+						str = this["UV_" + wViewID]['IDTxt'].text + " : 跟注 " + TScore.toStringEx(_theModel.m_wlTurnLessScore)+ "\n";
+						break;
+					}
+					case 6:
+					{
+						str = this["UV_" + wViewID]['IDTxt'].text + " : 加注 " + TScore.toStringEx(_theModel.m_SendScore) + "\n";
+						break;
+					}
+					case 7:
+					{
+						str = this["UV_" + wViewID]['IDTxt'].text + " : 全下 " + TScore.toStringEx(_theModel.m_wCurrentAddMaxScore) + "\n";
+						break;
+					}
+					case 8:
+					{
+						str = this["UV_" + wViewID]['IDTxt'].text + " : 弃牌" + "\n";
+						break;
+					}	
+				}
+				if(wCharId == 0 || wViewID == 0)
+					str = str.substr(5);
+				_gameRecord.push(str);
+				gameEnd.text = "";
+				while(_gameRecord.length > 20)
+					_gameRecord.shift();
+				gameEnd.text = _gameRecord.join('');
+				
+				gameEnd.validateNow();
+				gameEnd.scroller.verticalScrollBar.value = gameEnd.scroller.verticalScrollBar.maximum;
+				gameEnd.validateNow();
+				gameEnd.scroller.verticalScrollBar.value = gameEnd.scroller.verticalScrollBar.maximum;
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<!--<user:UserSelf   id="UV_0" horizontalCenter="150" bottom="45" visible="false"/>-->
+	<user:UserMyself  id="UV_0" horizontalCenter="-5" bottom="45" visible="false" width="65" height="110"/>
+	
+	<user:UserTop id="UV_1" right="238" verticalCenter="202" visible="false" width="65" height="110"/>
+	<user:UserLeft id="UV_2" right="22" verticalCenter="56" visible="false" width="65" height="110"/>
+	<user:UserLeft id="UV_3" right="38" verticalCenter="-121" visible="false" width="65" height="110"/>
+	<user:UserTop  id="UV_4" right="233" verticalCenter="-244" visible="false" width="65" height="110"/>
+	
+	<user:UserTop  id="UV_5" left="255" verticalCenter="-244" visible="false" width="65" height="110"/>
+	<user:UserLeft  id="UV_6" left="40"  verticalCenter="-121" visible="false" width="65" height="110"/>
+	<user:UserLeft  id="UV_7" left="22" verticalCenter="56" visible="false" width="65" height="110"/>
+	<user:UserTop  id="UV_8" left="210" verticalCenter="202" visible="false" width="65" height="110"/>
+	<!--
+	<user:UserLeft id="UV_10" right="230" verticalCenter="-240" visible="true" userID="321445" IP="洛杉矶"/>
+	<user:UserLeft id="UV_9" left="230" verticalCenter="-240" visible="true" userID="321445" IP="洛杉矶"/>
+	-->
+	
+	<s:Image id="Banker_icon" source="{DDZhouHLSkinClass.ZhuangICON}" visible="false" />
+	<s:Image id="Big_icon" source="{DDZhouHLSkinClass.dz_big}" visible="false" />
+	<s:Image id="Small_icon" source="{DDZhouHLSkinClass.dz_small}" visible="false" />
+	<s:Image id="Tip_0" visible="false"/>
+	<s:Image id="Tip_1" visible="false"/>
+	<s:Image id="Tip_2" visible="false"/>
+	<s:Image id="Tip_3" visible="false"/>
+	<s:Image id="Tip_4" visible="false"/>
+	<s:Image id="Tip_5" visible="false"/>
+	<s:Image id="Tip_6" visible="false"/>
+	<s:Image id="Tip_7" visible="false"/>
+	<s:Image id="Tip_8" visible="false"/>
+	<!--<com:GameMCButton id="KaiShiBtn" visible="false" verticalCenter="130" horizontalCenter="0" targetClass="{DDZhouHLSkinClass.KaiShiBtn}" buttonMode="true" />-->
+	<!--<s:Image id="KaiShiBtn" alpha="0" verticalCenter="100" horizontalCenter="0" source="{DDZhouHLSkinClass.KaiShiBtn}"/>-->
+	<com:GameMCButton id="KaiShiBtn" visible="false" verticalCenter="35" horizontalCenter="0" targetClass="{DDZhouHLSkinClass.KaiShiBtn}" />
+	<s:TextArea id="gameEnd" width="300" height="75" left="12" bottom="-38" borderVisible="false" 
+		    editable="false" color="#000000" fontSize="12" fontFamily="宋体"
+		    textIndent="0" contentBackgroundAlpha="0" paddingLeft="5" paddingRight="0" 
+		    verticalScrollPolicy="off" lineHeight="18"
+		    mouseEnabled="false" selectable="false" />
+</s:Group>

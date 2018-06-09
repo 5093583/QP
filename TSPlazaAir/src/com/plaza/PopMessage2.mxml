@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="360" height="150" contentBackgroundColor="#FFFFFF"
+		 creationComplete="group1_creationCompleteHandler(event)" fontFamily="宋体" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+			}
+			
+			private var _callBack1:Function;
+			private var _callBack2:Function;
+			
+			public function init(msg:String, callback1:Function, callback2:Function,val : uint = 0):void
+			{
+				var myPattern:RegExp = / /g;
+				msg = msg.replace(myPattern,"");
+				var rep : RegExp =/<score>.*?<\/score>/g;
+				var scores : Array = msg.match(rep);
+				if(scores.length > 0) {
+					var scoreParrent : String;
+					var score : String;
+					while(scores.length>0)
+					{
+						scoreParrent = scores.pop();
+						score = TScore.toStringEx( parseFloat( scoreParrent.substring( 7,scoreParrent.length-8) ) );
+						msg = msg.replace(scoreParrent,score);
+					}
+				}
+				
+				_callBack1 = callback1;
+				_callBack2 = callback2;
+				lab.text = msg;
+				if(val == 0)
+				{
+					bg.x = 0;
+					bg.y = 0;
+					lab.x = 27;
+					lab.y = 45;
+					btn1.x = 65;
+					btn1.y = 120;
+					btn2.x = 226;
+					btn2.y = 120;
+				}else
+				{
+					bg.x = -137;
+					bg.y = 0-30;
+					lab.x = 27-137;
+					lab.y = 45-30;
+					btn1.x = 65-137;
+					btn1.y = 120-30;
+					btn2.x = 226-137;
+					btn2.y = 120-30;
+				}
+			}
+			
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+//				PopUpManager.removePopUp(this);
+				MsgManager.getInstance().removeTopPop();
+				
+				if(_callBack1 != null)
+					_callBack1();
+			}
+			
+			protected function button2_clickHandler(event:MouseEvent):void
+			{
+//				PopUpManager.removePopUp(this);
+				MsgManager.getInstance().removeTopPop();
+				
+				if(_callBack2 != null)
+					_callBack2();
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+	</fx:Declarations>
+	<s:Image id="bg" source="{SkinClass.showmsg_bg1}" x="0" y="0"/>
+	<s:Label filters="{[gf01]}"  id="lab" x="27" y="45" width="340" height="70" textAlign="center" verticalAlign="middle" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF"/>
+	<com:MCButton id="btn1" x="65" y="120" click="button1_clickHandler(event)" targetClass="{SkinClass.showmsg_sure}"/>
+	<com:MCButton id="btn2" x="226" y="120" click="button2_clickHandler(event)" targetClass="{SkinClass.showmsg_cancel}"/>
+</s:Group>

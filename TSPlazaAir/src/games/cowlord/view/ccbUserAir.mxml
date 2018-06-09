@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 fontFamily="宋体"
+		 implements="cx.gamebase.Interface.IUserViewSink, cx.gamebase.Interface.IReadyGame, cx.gamebase.Interface.IDestroy"
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 width="230" height="100" xmlns:com="com.*">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import cx.client.logon.model.UserModel;
+			import cx.gamebase.model.GameUserModel;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			import cx.ip.IPScanner;
+			import cx.ip.IPScannerNew;
+			
+			import gameAssets.cowcowBattle.CCBattleSkinClass;
+			
+			import games.cowlord.model.CowModle;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.IDConvert;
+			import t.cx.air.utils.Memory;
+			
+			private var _faceVec : Vector.<Bitmap>;
+			
+			protected var _user : GameUserModel;
+			protected var _model:CowModle;
+			
+			protected var _UserListAll : Array;
+			public function init():void
+			{
+				_user = GameUserModel.GetInstance();
+				_model= CowModle._getInstance();
+				_UserListAll = new Array();
+			}
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				_faceVec = new Vector.<Bitmap>();
+				
+//				bjl_rollText.playedRollText();
+			}
+			public function UpdateUserCome(userInfo:tagUserInfoHead, wViewChairID:uint):Boolean
+			{
+//				if(userInfo != null &&( userInfo.dwUserRight != 0 || userInfo.dwMasterRight != 0)) {
+//					trace('玩家：'+IDConvert.Id2View(userInfo.dwUserID),userInfo.dwUserRight,userInfo.dwMasterRight);
+//				}
+				if(userInfo.dwUserID == _user.selfID) {
+//					IDTxt.text = UserModel._getInstance().selfInfo.szAccount;
+					IDTxt.text = userInfo.dwUserID.toString();
+					GoldTxt.text = TScore.toFloatEx(userInfo.UserScoreInfo.lScore).toFixed(2);
+					if(StaticVars.isTryPlayed)
+						GoldTxt.text = TScore.toFloatEx(StaticVars.tryPlayScore).toFixed(2);
+					//WinTxt.text	= TScore.toStringEx(CowModle._getInstance().m_lPlayerScore);
+					WinTxt.text	= TScore.toStringEx(CowModle._getInstance().m_wUserScore);
+					
+					
+					
+					if(userInfo.cbGender == 2)
+						img_head.source = SkinClass.hall_head_female_small;
+					else
+						img_head.source = SkinClass.hall_head_male_small;
+					
+				}
+				
+				var Ishave : Boolean = false;
+				for(var i : uint = 0; i < _UserListAll.length;i++)
+				{
+					var userInfosn : tagUserInfoHead = _UserListAll[i] as tagUserInfoHead;
+					if(userInfosn.dwUserID == userInfo.dwUserID)
+					{
+						Ishave = true;
+					}
+				}
+				if(Ishave == false)
+				{
+					_UserListAll.push(userInfo);
+				}
+				UserInfos.text = '';
+				for(i = 0; i < _UserListAll.length;i++)
+				{
+					var userInfoss : tagUserInfoHead = _UserListAll[i] as tagUserInfoHead;
+//					UserInfos.text += IDConvert.Id2View(userInfoss.dwUserID).toString()+'	  	  '+IPScanner._getInstance().Query(userInfoss.ip).country+'\n';
+					UserInfos.text += IDConvert.Id2View(userInfoss.dwUserID).toString()+'		'+IPScannerNew._getInstance().getIpnew(userInfoss.ip)+'\n';
+				}
+				return true;
+			}
+			public function UpdateUserScore(userID:int, wViewChairID:uint, fScore:Number):Boolean
+			{
+				if(userID == _user.selfID) 
+				{ 
+					GoldTxt.text = TScore.toFloatEx(fScore).toFixed(2); 
+					
+					if(StaticVars.isTryPlayed)
+						GoldTxt.text = TScore.toFloatEx(StaticVars.tryPlayScore).toFixed(2);
+				}
+				return true;
+			}
+			public function UpdateUserStatus(userID:int, cbStatus:uint, wTableID:int, wViewChairID:uint):Boolean
+			{
+				if(cbStatus <= TConst.US_FREE)
+				{
+					for(var i : int = _UserListAll.length-1; i >=0;i--)
+					{
+						var userInfosn : tagUserInfoHead = _UserListAll[i] as tagUserInfoHead;
+						if(userInfosn.dwUserID == userID)
+						{
+							_UserListAll.splice(i,1);
+						}
+					}
+				}
+				UserInfos.text = '';
+				for(i = 0; i < _UserListAll.length;i++)
+				{
+					var userInfoss : tagUserInfoHead = _UserListAll[i] as tagUserInfoHead;
+					var str:String = IPScannerNew._getInstance().getIpnew(userInfoss.ip);
+					if(str.length>5)
+					{
+						str = str.substring(0,str.indexOf(" "));
+					}
+					UserInfos.text += userInfoss.dwUserID+'		'+str+'\n';
+				}
+				return true;
+			}
+			public function EndShowScore(lGold : Number) : void
+			{
+				UpdateUserScore(_user.selfID,_user.GetMeChairID(),lGold);
+				InitInfo();
+			}
+			public function ChangeLimitScore() : void
+			{
+				
+				//				ZLimitTxt.text = TScore.toStringEx( Memory._min( TScore.parseFloatEx(GoldTxt.text), _model.m_Logic.GetBankerScore() ) );
+				//				XLimitTxt.text = TScore.toStringEx( Memory._min( TScore.parseFloatEx(GoldTxt.text), _model.m_Logic.GetPlayerScore() ) );
+				//				PLimitTxt.text = TScore.toStringEx( Memory._min( TScore.parseFloatEx(GoldTxt.text), _model.m_Logic.GetTieScore() ) );
+			}
+			public function InitInfo() : void
+			{
+				if(_model == null)	return;
+				
+				if(_model.m_wBankerID == TConst.INVALID_CHAIR) 
+				{
+					if(_model.m_bEnableSysBanker==1) 
+					{
+						if(StaticVars.isTryPlayed)
+						{
+//							ZTimeTxt.text = '无人坐庄';
+							ZTimeTxt.text = '系统坐庄';
+							ZGoldTxt.text = "";
+						}
+						else
+						{
+//							ZTimeTxt.text = '无人坐庄';
+							ZTimeTxt.text = '玩家坐庄';
+							ZGoldTxt.text = "";
+						}
+//						ZTimeTxt.text = '坐庄:玩家坐庄';
+					}else 
+					{
+						ZTimeTxt.text = '无人坐庄';
+						ZGoldTxt.text = "";
+					}
+					ZwinTxt.text = "";
+					ZjuTxt.text = '';
+//					img_system.source = CCBattleSkinClass.head_normal;
+				} 
+				else 
+				{
+					var userInfo : tagUserInfoHead = _user.GetUserByChair(_model.m_wBankerID);
+					if(userInfo != null) 
+					{
+						if(userInfo.dwUserID == _user.selfID)
+						{
+//							ZTimeTxt.text =UserModel._getInstance().selfInfo.szAccount;
+							ZTimeTxt.text = userInfo.dwUserID.toString();
+							if(StaticVars.isTryPlayed)
+								ZGoldTxt.text = '******';
+							else
+								ZGoldTxt.text = TScore.toStringEx(_model.m_lBankerScore);
+						}else
+						{
+//							trace("------------",userInfo.dwUserID,"+++++",IDConvert.Id2View(userInfo.dwUserID));
+//							ZTimeTxt.text = '玩家坐庄';
+							ZTimeTxt.text = userInfo.dwUserID.toString();
+							if(!isNaN(_model.m_lBankerScore))
+							{
+								if(StaticVars.isTryPlayed)
+									ZGoldTxt.text = '******';
+								else
+									ZGoldTxt.text = TScore.toStringEx(_model.m_lBankerScore);
+							}
+						}
+//						ZTimeTxt.text = '坐庄:玩家坐庄';
+//						if(userInfo.cbGender == 2)
+//							img_system.source = CCBattleSkinClass.head_female;
+//						else
+//							img_system.source = CCBattleSkinClass.head_male;
+						ZwinTxt.text = TScore.toStringEx(_model.m_wBankerScore);
+						ZjuTxt.text = String(_model.m_wCbBankerTime);
+					}else
+					{
+						ZTimeTxt.text = int(Math.random()*10000).toString();
+						ZGoldTxt.text = "";
+					}
+				}
+				
+				if(ZTimeTxt.text == '玩家坐庄')
+				{
+					ZTimeTxt.text = int(Math.random()*10000).toString();
+				}
+				
+				//WinTxt.text =  TScore.toStringEx(_model.m_lPlayerScore);
+				WinTxt.text =  TScore.toStringEx(_model.m_wUserScore);
+			}
+			public function ReadyGameEvent(e:TEvent):Boolean
+			{
+				return true;
+			}
+			
+			public function Destroy():Boolean
+			{
+//				ZGoldTxt.text 	= '';
+				_UserListAll = null;
+				_user = null;
+				_model = null;
+				return true;
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<s:Image id="img_head" x="55" bottom="30"/>
+	<!--<com:GameRollText x="260" top="165" RollText="{StaticVars.gameRollTextStr}" visible="false" id="bjl_rollText"/>-->
+	
+	<s:Label color="#f0c05c" text="" x="135" bottom="80" filters="{[gf01]}"/>
+	<s:Label color="#f0c05c" text="" x="135" bottom="55" filters="{[gf01]}"/>
+	<s:Label color="#f0c05c" text="" x="135" bottom="31" filters="{[gf01]}"/>
+	
+	<s:Label color="#f0c05c" id="IDTxt"  x="169" bottom="80" filters="{[gf01]}"/>
+	<s:Label color="#f0c05c" id="WinTxt"  x="169" bottom="50" filters="{[gf01]}"/>
+	<s:Label color="#f0c05c" id="GoldTxt"  x="169" bottom="22" filters="{[gf01]}"/>
+	
+	<!--<s:Image source="{CCBattleSkinClass.head_bg}" x="278" top="19"/>-->
+	<!--<s:Image source="{CCBattleSkinClass.head_normal}" x="288" top="30" id="img_system"/>-->
+	
+	<!--<s:Label color="#EBB54C" x="365" top="35" id="ZIDTxt" fontWeight="bold"/>-->
+	<s:Label color="#f0c05c" x="350" top="45" id="ZGoldTxt" filters="{[gf01]}"/>
+	<s:Label color="#f0c05c" x="350" top="17" id="ZTimeTxt" filters="{[gf01]}"/>
+	
+	<s:Label color="#f0c05c" x="520" top="17" id="ZjuTxt" filters="{[gf01]}"/>
+	<s:Label color="#f0c05c" x="520" top="45" id="ZwinTxt" filters="{[gf01]}"/>
+	
+	
+	<s:TextArea id="UserInfos" width="220" height="343" right="-250" top="18" borderVisible="false" 
+				editable="false" color="#f4d580" fontSize="15"
+				textIndent="0" contentBackgroundAlpha="0" paddingLeft="5" paddingRight="0" 
+				verticalScrollPolicy="off" lineHeight="20"
+				mouseEnabled="false" selectable="false" filters="{[gf01]}" />
+</s:Group>

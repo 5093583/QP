@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="true" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="TUpdateBase"/>
+    <classEntry path="cx.client.logon.view.LogonSpriteBase"/>
+    <classEntry path="cx.client.logon.model.LogonModel"/>
+    <classEntry path="cx.client.logon.view.Combox"/>
+    <classEntry path="cx.client.logon.view.welcome.WelcomeView"/>
+    <classEntry path="cx.client.logon.view.welcome.WelcomeWebContiner"/>
+    <classEntry path="cx.client.logon.view.Logon.LogonView"/>
+    <classEntry path="cx.client.logon.view.Plaza.Plaza"/>
+    <classEntry path="cx.client.logon.view.Plaza.PlazaTopNotice"/>
+    <classEntry path="cx.client.logon.view.Plaza.chat.ChatView"/>
+    <classEntry path="cx.client.logon.view.Plaza.ClosePlazaView"/>
+    <classEntry path="cx.client.logon.view.Plaza.PlazaBulletin"/>
+    <classEntry path="cx.client.logon.view.Plaza.kindroom.KindItemSprite"/>
+    <classEntry path="cx.client.logon.view.Plaza.kindroom.RoomItem"/>
+    <classEntry path="cx.client.logon.view.Action.ActionCodeSprite"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_RefurbishSignIn"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_RefurbishSignIn_result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_CheckBindEmail"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_ChcekBindEmail_Result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_CheckPhone_Result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_BindEmail"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_BindPhone"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_CreateCustomGameRoom"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_CreateCustomGameRoom_Result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_InputFriend"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_DeleteFriend"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_InputFriend_Result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_CheckBank"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_CheckBank_Result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_BindBank"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_RecordSignIn_result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_InputFriend_Sine_Result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_InputFriend_Sine"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_WaitInputFriend"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_DeleteFriend_result"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_FriendInfo"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_PlayerOnline"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_BookFriend"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_CheckResult"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_PlayerOffline"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_PlayWithFriend"/>
+    <classEntry path="cx.admin.CMD_GF_AideLock1"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_Bank_Transfer"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_Bank_TransferResult"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_MSG_SendUserList"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_BankCheck"/>
+    <classEntry path="cx.client.logon.model.struct.CMD_GP_BankCheck_Result"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="true" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="com.qs.controls.CachedLabel"/>
+    <classEntry path="com.qs.controls.LayoutTarget"/>
+    <classEntry path="com.qs.controls.FisheyeTile"/>
+    <classEntry path="com.qs.controls.fisheyeClasses.FisheyeBase"/>
+    <classEntry path="com.qs.controls.fisheyeClasses.FisheyeItem"/>
+    <classEntry path="com.qs.controls.fisheyeClasses.FisheyeParameters"/>
+    <classEntry path="com.qs.controls.fisheyeClasses.FisheyeAxis"/>
+    <classEntry path="com.qs.controls.Fisheye"/>
+    <classEntry path="com.qs.controls.BitmapTile"/>
+    <classEntry path="com.qs.controls.DragTile"/>
+    <classEntry path="com.qs.controls.utils.AssociativeInstanceCache"/>
+    <classEntry path="com.qs.controls.UIBitmap"/>
+    <classEntry path="com.qs.controls.events.DragTileEvent"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>

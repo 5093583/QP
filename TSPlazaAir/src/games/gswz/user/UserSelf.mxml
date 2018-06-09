@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="65" height="110"
+		 fontFamily="宋体"
+		 creationComplete="group1_creationCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import cx.assembly.head.HeadEmbed;
+			import cx.client.logon.model.UserModel;
+			import cx.ip.IPScannerNew;
+			
+			import gameAssets.gswz.GswzSkinClass;
+			
+			import games.gswz.model.GswzModel;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			
+			private var headMC:MovieClip;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+//				addHeadStatus();
+			}
+			
+			private function addHeadStatus():void
+			{
+//				if(!ui_head.numChildren)
+//				{
+//					headMC = new GswzSkinClass.head_statusbg() as MovieClip;
+//					ui_head.addChild(headMC);
+//				}
+			}
+			
+			
+			
+			private var _userid : int;
+			public function set userID(val : int) : void
+			{
+				_userid = val;
+				IDTxt.text = "ID : " + val.toString();
+//				IDTxt.text = UserModel._getInstance().selfInfo.szAccount;
+				if(_userid == GswzModel._getInstance().m_User.selfID)
+				{
+					SelfTxt.text = TScore.toStringEx(GswzModel._getInstance().m_User.GetSelfData().UserScoreInfo.lScore);
+					
+					if(StaticVars.isTryPlayed)
+						SelfTxt.text = TScore.toStringEx(StaticVars.tryPlayScore);
+				}
+			}
+			public function get userID() : int
+			{
+				return _userid;
+			}
+			public function set IP(val : String) : void
+			{
+//				IPTxt.text = val;
+//				var localIP : IPLocation = IPScanner._getInstance().Query(val);
+//				IPTxt.text = localIP.country;
+				
+				IPTxt.text = IPScannerNew._getInstance().getIpnew(val);
+			}
+			public function set JinBi(val : Number) : void
+			{
+				if(_userid == GswzModel._getInstance().m_User.selfID)
+				{
+					SelfTxt.text = TScore.toStringEx(val);
+					
+					if(StaticVars.isTryPlayed)
+						SelfTxt.text = TScore.toStringEx(StaticVars.tryPlayScore);
+				}
+			}
+			
+			private var _time : Timer;
+			public function Offlie(timelen : int) : void
+			{
+				destroyTime();
+				if(timelen > 0)
+				{
+					_time = new Timer(1000,timelen/1000);
+					_time.addEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time.start();
+					
+//					setChildIndex(OffLineTxt,this.numChildren-1);
+					setElementIndex(OffLineTxt,this.numChildren-1);
+					OffLineTxt.text = '断线' + _time.repeatCount;
+				}
+			}
+			public function set Face(index : uint) : void
+			{
+				if(index == 2)
+					head.source = SkinClass.hall_head_female_small;
+				else
+					head.source = SkinClass.hall_head_male_small;
+				
+//				if(!headMC)
+//					addHeadStatus();
+//				headMC.gotoAndStop(2);
+				
+			}
+			
+			private function onOfflieTime(e : TimerEvent) : void
+			{
+				OffLineTxt.text="断线" + (_time.repeatCount-_time.currentCount).toString();
+				if(_time.repeatCount == _time.currentCount) { destroyTime(); }
+			}
+			private function destroyTime() : void
+			{
+				if(_time != null)
+				{
+					_time.reset();
+					_time.removeEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time = null;
+				}
+				OffLineTxt.text = '';
+			}
+			public function Destroy() : void
+			{
+				destroyTime();
+			}
+			
+			
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<!--<s:Image x="0" y="0" source="{GswzSkinClass.user_bg0}"/>-->
+	<!--
+	<s:Group x="15" y="8" id="head_mask">
+		<s:Ellipse width="66" height="66">
+			<s:fill>
+				<s:SolidColor color="0xcccccc"/>
+			</s:fill>
+		</s:Ellipse>
+	</s:Group>
+	-->
+	<!--<mx:UIComponent x="0" y="0" id="ui_head"/>-->
+	
+	<s:Image source="{GswzSkinClass.user_head}" x="0" y="0"/>
+	<s:Image x="6" y="6" id="head"/>
+	
+	<s:Label id="IDTxt" horizontalCenter="0" y="70" color="#FFEE00"/>
+	<s:Label id="IPTxt" horizontalCenter="0" y="90" color="#FFEE00"/>
+	
+	<s:Label id="SelfTxt" x="100" y="65" color="#F1E9C4"/>
+	<s:Image x="70" y="60" source="{GswzSkinClass.user_score}"/>
+	
+	<s:Label id="OffLineTxt" color="0xFFFFFF" x="22" y="28" width="38" fontSize="16" fontWeight="bold" textAlign="center"/>
+	
+</s:Group>

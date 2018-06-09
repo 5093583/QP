@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 width="1024" height="703" xmlns:com="com.*">
+	
+	<fx:Script>
+		<![CDATA[
+			import base.StaticVars;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			
+			private var _nativeWindow : NativeWindow;
+			public function set nativeWindow(val : NativeWindow) : void
+			{
+				_nativeWindow = val;
+			}
+			
+			protected function image1_mouseDownHandler(event:MouseEvent):void
+			{
+				_nativeWindow.startMove();
+			}
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+//				if(StaticVars.isTryPlayed)
+//				{
+//					roomTop.setStyle('color','898787');
+//				}else
+//				{
+//					roomTop.setStyle('color','898787');
+//				}
+				roomTop.text =	'底注:'+TScore.toStringEx(StaticVars.scellScore)+' 抽水:'+StaticVars.iRevenuel+'%';
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Image source="@Embed('assets/back/top.png')" x="0" y="0" mouseDown="image1_mouseDownHandler(event)"/>
+	<s:Image source="@Embed('assets/back/bottom.png')" x="0" y="33"/>
+	
+	<com:RollText x="241" y="5" rollWidth="515" labFontColor="#FFFFFF" labFontSize="16" mouseChildren="false" mouseEnabled="false">
+	</com:RollText>
+	
+	<s:Label x="5" y="10" id="roomTop" color="#898787" fontFamily="微软雅黑"  fontSize="15" mouseChildren="false" mouseEnabled="false"/>
+	
+</s:Group>

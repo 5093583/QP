@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="600" height="350">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.greensock.TweenMax;
+			
+			import flash.utils.getTimer;
+			
+			import games.dzlord.utils.DZFor_9CMDconst;
+			
+			private var _chips : Array;
+			private var _m : Array;
+			private var _centerArray:Array;
+			private var _allArray:Array;
+			//生成筹码
+			public function AddChip(wChardViewID:uint,array:Array):void
+			{
+				var i:int = 0;
+				if(array.length > 1)
+				{
+					var leng:int = array.length>10?10:array.length;
+					for(i = 0;i<leng;i++)
+					{
+						var dos : DisplayObject = array[i];
+						var ui:UIComponent = this['cp_'+wChardViewID];
+						dos.x = Math.round(this['cp_'+wChardViewID].numChildren / 10) * (-36); 
+						dos.y = -(this['cp_'+wChardViewID].numChildren%10 * 4);
+						ui.addChild(dos);
+						ui.x = this["cp_"+wChardViewID].x-50;
+						ui.y = this["cp_"+wChardViewID].y+50;
+						if(!this.contains(ui))
+							this.addElement(ui);
+						TweenMax.delayedCall(0.05*i,Showchip,[ui,wChardViewID]);
+					}
+				}else{
+					AddChipHandler(wChardViewID,array[0]);
+				}
+			}
+			//延迟显示
+			private function Showchip(ui:UIComponent,wChardViewID:uint):void
+			{
+				var indexX:int = 0;
+				var indexY:int = 0;
+				switch(wChardViewID)
+				{
+					case 0:{indexX = 220;indexY = 215;break;}
+					case 1:{indexX = 430;indexY = 215;break;}
+					case 2:{indexX = 495;indexY = 160;break;}
+					case 3:{indexX = 490;indexY = 62;break;}
+					case 4:{indexX = 390;indexY = 15;break;}
+					case 5:{indexX = 35;indexY = 15;break;}
+					case 6:{indexX = -10;indexY = 62;break;}
+					case 7:{indexX = -15;indexY = 160;break;}
+					case 8:{indexX = 23;indexY = 215;break;}
+				}
+				TweenMax.to(ui,.1,{x:indexX,y:indexY,
+				alpha:1,visible:1,onComplete:ShowChips,onCompleteParams:[ui,wChardViewID]});
+			}
+			public function AddChipHandler(wChardViewID : uint,_dos : DisplayObject) : void
+			{
+				var dos : DisplayObject = _dos;
+//				this['cp_'+wChardViewID].addChild(dos);
+				var ui:UIComponent = this['cp_'+wChardViewID];
+				if(ui.numChildren > 28)	return;
+				ui.addChild(dos);
+				if(!this.contains(ui))
+					this.addElement(ui);
+				dos.x = Math.round(this['cp_'+wChardViewID].numChildren / 10) * 36; 
+				dos.y = -(this['cp_'+wChardViewID].numChildren%10 * 4);
+				TweenMax.from(ui,.5,{x:this["gp_"+wChardViewID].x,y:this["gp_"+wChardViewID].y,alpha:1,visible:1,onComplete:ShowChips,onCompleteParams:[ui,wChardViewID]});
+			}
+			//0.1运行轨迹
+			public function ShowChips(ui:UIComponent,wViewId:uint):void
+			{
+				ui.x = this["cp_"+wViewId].x;
+				ui.y = this["cp_"+wViewId].y;
+				if(_allArray == null) _allArray = new Array();
+				_allArray.push(ui);
+			}
+			public function ChipMoveCertent() : void
+			{
+				removeChip();
+				var dos : DisplayObject;
+				var ui : UIComponent ;
+				if(_chips == null) return;
+//				for(var i : int = 0 ; i < _chips.length; i++)
+				for(var i:int=_chips.length-1; i>=0; i--)
+				{
+					if(_chips[i] != null)
+					{
+//						dos = _chips[i];
+						dos = _chips.pop();
+						ui = new UIComponent();
+						ui.x = dos.x;
+						ui.y = dos.y;
+						ui.alpha = 1;
+						ui.addChild(dos);
+						dos.x = 0;
+						dos.y = 0;
+						this.addElement(ui);
+						
+						if(_centerArray == null)
+							_centerArray = new Array();
+						_centerArray.push(ui);
+						
+						TweenMax.to(ui,.8,{x:gp.x,y:gp.y,alpha:0,onComplete:removeDisChip,onCompleteParams:[ui,dos]});
+					}
+				}
+			}
+			private function removeDisChip(ui:UIComponent,dos:DisplayObject) : void
+			{
+				if(ui.contains(dos))
+				{
+					ui.removeChild(dos);
+				}
+				if(this.containsElement(ui))
+				{
+					this.removeElement(ui);
+				}
+				if(_centerArray != null)
+				{
+					for(var i:int = _centerArray.length-1;i>=0;i--)
+					{
+						if(_centerArray[i] != null && this.contains(_centerArray[i]))
+						{
+							this.removeElement(_centerArray[i]);
+							_centerArray.splice(i,1);
+						}
+					}
+				}
+			}
+			public function removeChip() : DisplayObject
+			{
+				var ui : UIComponent;
+				var dos : DisplayObject;
+				for(var i : int = DZFor_9CMDconst.GAME_PLAYER - 1; i >= 0;i--)
+				{
+					if(this['cp_' + i] != null)
+					{
+						ui = this['cp_' + i] as UIComponent;
+						if(ui.numChildren > 0)
+						{
+							for(var j :int = ui.numChildren - 1; j >= 0; j--)
+							{
+								if(ui.getChildAt(j)!=null)
+								{
+									dos = ui.removeChildAt(j);
+									dos.x = ui.x;
+									dos.y = ui.y;
+									if(_chips == null)
+									{
+										_chips = new Array();
+									}
+									_chips.push(dos);
+								}
+							}
+						}
+					}
+				}
+				return null;
+			}
+			//游戏结束
+			public function SendChip(wChardViewID:uint,array:Array):void
+			{
+				var leng:int = array.length>10?10:array.length;
+				if(leng > 0)
+				{
+//					var ui:UIComponent = this['cp_'+wChardViewID];
+					for(var i:int = 0;i<leng;i++)
+					{
+						var ui:UIComponent = new UIComponent();
+						var dos : DisplayObject = array[i];
+						dos.x = Math.round(this['cp_'+wChardViewID].numChildren / 10) * 36; 
+						dos.y = -(this['cp_'+wChardViewID].numChildren%10 * 4);
+						ui.addChild(dos);
+						ui.horizontalCenter = 0;
+						ui.verticalCenter = -160;
+						ui.visible = true;
+						if(_m == null) _m = new Array();
+						_m.push(ui);
+						this.addElement(ui);
+						//					SendAll(ui,wChardViewID);
+						TweenMax.delayedCall(0.1*i,SendAll,[ui,wChardViewID,i]);
+					}
+//					TweenMax.delayedCall(0.5*i,SendAll,[ui,wChardViewID]);
+				}
+			}
+			private function SendAll(ui:UIComponent,wChardViewID:uint,i:int):void
+			{
+				var indexX:int = 0;
+				var indexY:int = 0;
+				ui.top = undefined;
+				ui.bottom = undefined;
+				ui.left = undefined;
+				ui.right = undefined;
+				ui.horizontalCenter = undefined;
+				ui.verticalCenter = undefined;
+				switch(wChardViewID)
+				{
+					case 0:{indexX = 220+Math.floor(i/6)*30;indexY = 270-i*4;break;}
+					case 1:{indexX = 430+Math.floor(i/6)*30;indexY = 270-i*4;break;}
+					case 2:{indexX = 495+Math.floor(i/6)*30;indexY = 160-i*4;break;}
+					case 3:{indexX = 490+Math.floor(i/6)*30;indexY = 62-i*4;break;}
+					case 4:{indexX = 390+Math.floor(i/6)*30;indexY = 15-i*4;break;}
+					case 5:{indexX = 0+Math.floor(i/6)*30;indexY = 15-i*4;break;}
+					case 6:{indexX = 20+Math.floor(i/6)*30;indexY = 34-i*4;break;}
+					case 7:{indexX = -15+Math.floor(i/6)*30;indexY = 140-i*4;break;}
+					case 8:{indexX = 10 - Math.floor(i/6)*30;indexY = 270-i*4;break;}
+				}
+				ui.visible = true;
+				TweenMax.to(ui,0.5,{x:indexX,y:indexY,
+					alpha:1,visible:1,onComplete:ShowAll,onCompleteParams:[ui,wChardViewID,indexX,indexY]});
+			}
+			private function ShowAll(ui:UIComponent,wChardViewID:uint,indexX:int,indexY:int):void
+			{
+				
+				ui.top = undefined;
+				ui.bottom = undefined;
+				ui.left = undefined;
+				ui.right = undefined;
+				ui.horizontalCenter = undefined;
+				ui.verticalCenter = undefined;
+				ui.x = indexX;
+				ui.y = indexY;
+			}
+			public function Destroy() : void
+			{
+				TweenMax.killAll();
+				var i:int=0;
+				for(i = 0; i<8; i++)
+				{
+					this['cp_' + i].removeChildren();
+				}
+				
+				for each(var p : UIComponent  in  _m )
+				{
+					if(this.contains(p))
+					{
+						this.removeElement(p);
+					}
+				}
+				if(_chips != null)
+				{
+					for each(var chip : DisplayObject in _chips)
+					{
+						if(this.contains(chip))
+							this.removeChild(chip);
+					}
+				}
+				
+				if(_centerArray != null)
+				{
+					for(i = _centerArray.length-1;i>=0;i--)
+					{
+						if(_centerArray[i] != null && this.contains(_centerArray[i]))
+						{
+							this.removeElement(_centerArray[i]);
+							_centerArray.splice(i,1);
+						}
+					}
+				}
+				
+				if(_allArray != null)
+				{
+					for(i = _allArray.length-1;i>=0;i--)
+					{
+						if(_allArray[i] != null && this.contains(_allArray[i]))
+						{
+							this.removeElement(_allArray[i]);
+							_allArray.splice(i,1);
+						}
+					}
+				}
+				
+				this.removeAllElements();
+			}
+		]]>
+	</fx:Script>
+	<!--
+	<s:Rect width="100%" height="100%">
+		<s:fill>
+			<s:LinearGradient>
+				<s:GradientEntry color="0xFFFFFF" alpha=".8"/>
+			</s:LinearGradient>
+		</s:fill>
+	</s:Rect>
+	-->
+	<s:Group  id="gp" width="20" height="20" horizontalCenter="0" verticalCenter="-160">
+	</s:Group>
+	
+
+	
+	<s:Group id="gp_0" x="300" y="315"/>
+	<s:Group id="gp_1" x="530" y="300"/>
+	<s:Group id="gp_2" x="650" y="160"/>
+	<s:Group id="gp_3" x="650" y="62"/>
+	<s:Group id="gp_4" x="410" y="0"/>
+	<s:Group id="gp_5" x="20" y="0"/>
+	<s:Group id="gp_6" x="-110" y="62"/>
+	<s:Group id="gp_7" x="-110" y="160"/>
+	<s:Group id="gp_8" x="23" y="315"/>
+	
+	<mx:UIComponent id="cp_0" x="220" y="215" />
+	<mx:UIComponent id="cp_1" x="430" y="215" />
+	<mx:UIComponent id="cp_2" x="495" y="160" />
+	<mx:UIComponent id="cp_3" x="490" y="62" />
+	<mx:UIComponent id="cp_4" x="390" y="15" />
+	<mx:UIComponent id="cp_5" x="35" y="15" />
+	<mx:UIComponent id="cp_6" x="-10" y="62" />
+	<mx:UIComponent id="cp_7" x="-15" y="160" />
+	<mx:UIComponent id="cp_8" x="23" y="215" />
+</s:Group>

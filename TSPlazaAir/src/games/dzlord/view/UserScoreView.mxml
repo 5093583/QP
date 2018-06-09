@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 width="85" height="20">
+	
+	<fx:Script>
+		<![CDATA[
+			import gameAssets.DDZhouHL.DDZhouHLSkinClass;
+			
+			import games.dzlord.model.DeZhouModel;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			
+			private var _land:DeZhouModel;
+			public var _score:Number;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				init();
+			}
+			public function init() : void
+			{
+				_land = DeZhouModel._getInstance();
+				_score = 0;
+			}
+			public function Show(score:Number = 0):void
+			{
+				_score += score;
+				_land.m_wCurrentMyChipNumBer = _score;
+				//theScoreTxt.text = TScore.toStringEx(_score);
+				
+				if(_score > 0)
+				{
+					this.visible = true;
+					theScoreTxt.text = TScore.toStringEx(_score);
+				}else
+				{
+					Hide();
+				}
+				//return this;
+			}
+			public function Hide() : void
+			{
+				theScoreTxt.text = '';
+				_score = 0;
+				this.visible = false;
+			}
+			public function Destoty() : Boolean
+			{
+				theScoreTxt.text =  '';
+				this.visible = false;
+				return true;
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<mx:GlowFilter id="glow"  blurX="5" blurY="5" strength="2.5" color="#000000" />
+	</fx:Declarations>
+	<!--<s:Image x="0" y="0" source="{DDZhouHLSkinClass.jiesuanBG}"/>-->
+	<s:Image x="0" y="0" source="{DDZhouHLSkinClass.syBg}" />
+	<s:Label id="theScoreTxt" x="0" y="8" width="100%" height="100%" color="#FFFFFF" fontSize="15"
+			 textAlign="center" verticalAlign="middle" filters="{[glow]}"/>
+</s:Group>

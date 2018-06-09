@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 fontFamily="微软雅黑"
+		 width="241" height="121">
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				this.buttonMode = true;
+				this.addEventListener(MouseEvent.ROLL_OVER, rollOverHandler);
+				this.addEventListener(MouseEvent.ROLL_OUT, rollOutHandler);
+				
+				this.alpha = 1;
+			}
+			
+			private function rollOverHandler(event:MouseEvent):void
+			{
+//				_rectColor.visible = false;
+//				_rectColor1.visible= true;
+				if(_tryPlayed)
+					img.source = 'assets/back/table_free2.png';
+				else
+					img.source = 'assets/back/table_normal2.png';
+				
+				this.alpha = .8;
+			}
+			
+			private function rollOutHandler(event:MouseEvent):void
+			{
+//				_rectColor.visible  = true;
+//				_rectColor1.visible = false;
+				if(_tryPlayed)
+					img.source = 'assets/back/table_free1.png';
+				else
+					img.source = 'assets/back/table_normal1.png';
+				
+				this.alpha = 1;
+			}
+			
+			
+			private var _wServerID:uint;
+			
+			public function get wServerID():uint
+			{
+				return _wServerID;
+			}
+			
+			public function set wServerID(value:uint):void
+			{
+				_wServerID = value;
+			}
+			
+			private var _wKindID:uint;
+			
+			public function get wKindID():uint
+			{
+				return _wKindID;
+			}
+			
+			public function set wKindID(value:uint):void
+			{
+				_wKindID = value;
+			}
+			
+			private var _szServerName:String;
+			
+			public function get szServerName():String
+			{
+				return _szServerName;
+			}
+			
+			public function set szServerName(value:String):void
+			{
+				_szServerName = value;
+			}
+			
+			private var _tryPlayed:Boolean;
+			public function get tryPlayed():Boolean
+			{
+				return _tryPlayed;	
+			}
+			
+			
+			private var _roomLessScore:Number;
+			
+			public function get roomLessScore():Number
+			{
+				return _roomLessScore;
+			}
+			
+			public function set roomLessScore(value:Number):void
+			{
+				_roomLessScore = value;
+			}
+			
+			private var _dwOnLineCount:int;
+			
+			public function get dwOnLineCount():int
+			{
+				return _dwOnLineCount;
+			}
+			
+			public function set dwOnLineCount(value:int):void
+			{
+				_dwOnLineCount = value;
+			}
+			private var _lCellScore : Number;
+			public function get lCellScore() : Number
+			{
+				return _lCellScore;
+			}
+			public function set lCellScore(value : Number) : void
+			{
+				_lCellScore = value;
+			}
+			private var _iRevenuel : Number;
+			public function get iRevenuel() : Number
+			{
+				return _iRevenuel;
+			}
+			public function set iRevenuel(value : Number) : void
+			{
+				_iRevenuel = value;
+			}
+			
+			public function set tryPlayed(value:Boolean):void
+			{
+				_tryPlayed = value;
+				if(value)
+				{
+					labname.setStyle('color', 0xFFFFFF);
+					lab_desc.setStyle('color', 0xcc99CC);
+					labperson.setStyle('color', 0xcc99CC);
+					lab_sell.setStyle('color', 0xcc99CC);
+					
+					img.source = 'assets/back/table_free1.png';
+				}
+				else
+				{
+					labname.setStyle('color', 0xFFFFFF);
+					lab_desc.setStyle('color', 0xFFCC00);
+					labperson.setStyle('color', 0xFFCC00);
+					lab_sell.setStyle('color', 0xFFCC00);
+					img.source = 'assets/back/table_normal1.png';
+				}
+				
+				if(value)
+				{
+					type.source="assets/back/tryplay.png"
+					type.visible = value;
+				}
+				
+			}
+			
+			
+			private var _isMatch:Boolean = false;
+			public function get isMatch():Boolean
+			{
+				return _isMatch;
+			}
+			
+			public function set isMatch(value:Boolean):void
+			{
+				_isMatch = value;
+				
+				if(value)
+				{
+					type.source="assets/back/match.png"
+					type.visible = value;
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+	</fx:Declarations>
+	<s:Image source="assets/back/table_normal1.png" x="0" y="0" id="img"/>
+	
+	<s:Image x="186" y="58" source="assets/back/tryplay.png" id="type" visible="false"/>
+	
+	<!--
+	<s:Rect x="0" y="0" width="241" height="121" radiusX="4" radiusY="4" id="_rectColor" visible="true">
+		<s:fill>
+			<s:SolidColor color="0x000000" alpha=".2"/>
+		</s:fill>
+	</s:Rect>
+	
+	<s:Rect x="0" y="0" width="241" height="121" radiusX="4" radiusY="4" id="_rectColor1" visible="false">
+		<s:fill>
+			<s:SolidColor color="0xCCCCCC" alpha=".4"/>
+		</s:fill>
+	</s:Rect>
+	-->
+	<!--<s:Image x="10" y="57" source="assets/ui/game/zjh.png" id="img_game" alpha=".8"/>-->
+	
+	<s:Label  filters="{[gf01]}" id="labname" x="0" y="4" width="241" color="0xFFFFFF" fontSize="14" textAlign="center"/>
+
+	<s:Label  filters="{[gf01]}" x="10" y="60" width="241" color="#0099CC" id="lab_sell" fontSize="14"/>
+	<s:Label filters="{[gf01]}"  x="10" y="32"  width="241" color="#0099CC" id="lab_desc" fontSize="14"/>
+	<s:Label  filters="{[gf01]}" x="10" y="88" width="241" color="#0099CC" id="labperson" fontSize="14"/>
+	
+	
+</s:Group>

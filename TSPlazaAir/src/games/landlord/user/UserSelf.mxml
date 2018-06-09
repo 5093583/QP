@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 width="97" height="154"
+		 creationComplete="group1_creationCompleteHandler(event)" fontFamily="宋体">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import cx.client.logon.model.UserModel;
+			import cx.ip.IPLocation;
+			import cx.ip.IPScanner;
+			import cx.ip.IPScannerNew;
+			
+			import gameAssets.landlord.LandlordSkinClass;
+			
+			import games.landlord.model.LandModel;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			
+			private var _userid : int;
+			public function set userID(val : int) : void
+			{
+				_userid = val;
+				Id_1.text = "ID : " + val.toString();
+//				Id_1.text = "ID" + UserModel._getInstance().selfInfo.szAccount;
+				if(_userid == LandModel._getInstance().m_User.selfID)
+				{
+					Score_1.text = TScore.toStringEx(LandModel._getInstance().m_User.GetSelfData().UserScoreInfo.lScore);
+					
+					if(StaticVars.isTryPlayed)
+						Score_1.text = TScore.toStringEx(StaticVars.tryPlayScore);
+				}
+			}
+			public function get userID() : int
+			{
+				return _userid;
+			}
+			public function set IP(val : String) : void
+			{
+//				var localIP : IPLocation = IPScanner._getInstance().Query(val);
+//				Ip_1.text = localIP.country + ' ' + localIP.local;
+				Ip_1.text = IPScannerNew._getInstance().getIpnew(val); /////////新;
+			}
+			public function set JinBi(val : Number) : void
+			{
+				if(_userid == LandModel._getInstance().m_User.selfID)
+				{
+					Score_1.text = TScore.toStringEx(val);
+					
+					if(StaticVars.isTryPlayed)
+						Score_1.text = TScore.toStringEx(StaticVars.tryPlayScore);
+				}
+			}
+			public function set Face(index : uint) : void
+			{
+				if(index == 2)
+					my_bg.source = SkinClass.hall_head_female_small;
+				else
+					my_bg.source = SkinClass.hall_head_male_small;
+			}
+			private var _time : Timer;
+			public function Offlie(timelen : int) : void
+			{
+				destroyTime();
+				if(timelen > 0)
+				{
+					_time = new Timer(1000,timelen/1000);
+					_time.addEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time.start();
+					setElementIndex(off_1,this.numChildren-1);
+					off_1.text = '断线' + _time.repeatCount;
+				}
+			}
+			private function onOfflieTime(e : TimerEvent) : void
+			{
+				off_1.text="断线" + (_time.repeatCount-_time.currentCount).toString();
+				if(_time.repeatCount == _time.currentCount) { destroyTime(); }
+			}
+			private function destroyTime() : void
+			{
+				if(_time != null)
+				{
+					_time.reset();
+					_time.removeEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time = null;
+				}
+				off_1.text = '';
+			}
+			public function Destroy() : void
+			{
+				destroyTime();
+			}
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<mx:GlowFilter id="glow"  blurX="5" blurY="5" strength="2.5" color="#000000" />
+	</fx:Declarations>
+	
+	<!--<s:Image x="0" y="0" source="{LandlordSkinClass.land_head}" id="head_my"/>-->
+	<s:Image x="19" y="19" id="my_headbg" source="{LandlordSkinClass.land_headBg}"/>
+	<s:Image x="25" y="26" id="my_bg"/>
+	<!--<s:Image x="0" y="0" source="{LandlordSkinClass.land_tuoguan_XS}" id="tuoguan_XS" visible="true"/>-->
+	<s:Label x="4" y="33" id="off_1" width="40" fontSize="16" fontWeight="bold" textAlign="center" color="#FFFFFF" filters="{[glow]}"/>
+	<s:Label x="0" y="93" color="#FFEE00" fontSize="12" width="97" height="16" textAlign="center" id="Id_1" fontFamily="宋体"/>
+	<s:Label x="0" y="115" color="#FFEE00" fontSize="12" width="97" height="16" textAlign="center" id="Ip_1" fontFamily="宋体"/>
+	<s:Image x="5" y="135" source="{LandlordSkinClass.land_jinbi}" id="my_jinbi"/>
+	<s:Label x="0" y="135" color="#FFEE00" fontSize="12" width="91" height="16" textAlign="center" id="Score_1" fontFamily="宋体"/>
+</s:Group>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 width="196" height="20">
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				this.addEventListener(MouseEvent.ROLL_OVER, rollOverHandler);
+				this.addEventListener(MouseEvent.ROLL_OUT, rollOutHandler);
+			}
+			
+			private function rollOverHandler(e:MouseEvent):void
+			{
+				_col.color = 0xf4d990;
+			}
+			
+			private function rollOutHandler(e:MouseEvent):void
+			{
+				_col.color = 0xffffff;
+			}
+			
+			
+			public function setUserName(str:String):void
+			{
+				_lab.text = str;
+			}
+			
+			public function getUserName():String
+			{
+				return _lab.text;
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Rect x="0" y="0" width="130" height="20">
+		<s:fill>
+			<s:SolidColor color="0xffffff" id="_col"/>
+		</s:fill>
+	</s:Rect>
+	<s:Label x="5" y="5" text="sdfsdf213" id="_lab" fontFamily="宋体" fontSize="14"/>
+	
+</s:Group>

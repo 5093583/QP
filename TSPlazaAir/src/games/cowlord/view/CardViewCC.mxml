@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="764" height="405" xmlns:com="com.*" xmlns:view="games.cowlord.view.*">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.greensock.TweenMax;
+			
+			import gameAssets.card.YBCardEmbed;
+			import gameAssets.cowcowBattle.CCBattleSkinClass;
+			
+			import games.cowlord.model.CowModle;
+			import games.cowlord.model.HistoryModel;
+			import games.cowlord.struct.tagServerGameRecord;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.utils.Memory;
+			
+			private var _cow:CowModle;
+			private var _cowCards : Vector.< Vector.<CardImage> >;	//自己手前牌
+			private var _cbSortCards: Array;						//排序后手牌
+			private var _cpwFourCards:Array							//第四张牌
+			private var flag : int;
+			
+			/**
+			 * 发牌
+			 **/
+			public function InitCardList(cbCards : Array,cbSortCards:Array,bAn : Boolean = true):void
+			{
+				_cowCards = new Vector.<Vector.<CardImage>>(5);
+				_cow = CowModle._getInstance();
+				_cbSortCards = cbSortCards;
+				_cpwFourCards = Memory._newArrayAndSetValue(5,0);
+				var wCardID:int;
+				var i : uint = 0,j : uint = 0;
+				for( i = 0;i<5;i++) { _cowCards[i] = new Vector.<CardImage>(5); }
+				for( i = 0;i<5;i++){
+					for(j = 0;j<5;j++){
+						wCardID =  _cow.FACardRectHandler(_cow.m_wDiceNumber)[flag%5];
+						if(wCardID > 0){
+							this['Card_'+wCardID+i].source = YBCardEmbed.GetCard(cbCards[wCardID][i],65,89.05,'b2');
+							if(i == 3)
+							{
+								_cpwFourCards[wCardID] = cbCards[wCardID][i];
+								this['Card_'+wCardID+i].source = YBCardEmbed.GetCard(0,65,89.05,'b2');
+							}
+						} else {
+							this['Card_'+wCardID+i].source = YBCardEmbed.GetCard(cbCards[wCardID][i],50,68.55,'b2');
+							if(i == 3)
+							{
+								_cpwFourCards[wCardID] = cbCards[wCardID][i];
+								this['Card_'+wCardID+i].source = YBCardEmbed.GetCard(0,50,68.55,'b2');
+							}
+						}
+						//	this['Card_'+wCardID+i].value = cbSortCards
+						this['Card_'+wCardID+i].visible = !bAn;
+						var delay : Number = i*1 + j*0.2;
+						TweenMax.delayedCall(delay,ReawCardHandler,[this['Card_'+wCardID+i],wCardID]);
+						flag++;
+						if(flag == 25){
+							flag = 0;
+						}
+					}
+				}
+				
+			}
+			private var count : int = 0;
+			private function ReawCardHandler(card : CardImage,wCardID : uint) : void
+			{
+				count++;
+				card.visible = true;
+				TweenMax.from(card,.2,{x : 382,y:0,scaleX:.3,scaleY:.3});
+				if(count == 25){
+					TweenMax.delayedCall(1,DisPlayCowHandler);
+					count = 0;
+				}
+				playSoundEffect(TConst.INVALID_CHAIR,'sendcard');
+			}
+			/**
+			 * 搓牌
+			 **/
+			public function DisPlayCowHandler():void
+			{
+				try
+				{
+					var cardX : Number;
+					for(var i : int = 1 ; i < 5 ; i++)
+					{
+						cardX = this['Card_'+i+4].x;
+						TweenMax.to(this['Card_'+i+4],1,{
+							x:cardX + 5,
+							onStart:DisPlayCard,
+							onStartParams:[i,_cpwFourCards[i]],
+							onComplete:JSPointHander,
+							onCompleteParams:[i,cardX],
+							delay:(i-1)*1.5
+						});
+					}
+					
+					cardX = this['Card_04'].x;
+					TweenMax.to(this['Card_04'],1,{
+						x:cardX + 5,
+						onStart:DisPlayCard,
+						onStartParams:[0,_cpwFourCards[0]],
+						onComplete:JSPointHander,
+						onCompleteParams:[0,cardX],
+						delay:6
+					});
+				}
+				catch(e:Error){};
+			}
+			private function DisPlayCard(wCardID : uint,cardValue : uint) : void
+			{
+				/* 
+				_hand.visible = true;
+				_hand.x = this['Card_'+wCardID+3].x - _hand.width + 10;
+				_hand.y = this['Card_'+wCardID+3].y + 25;
+				 */
+				if(wCardID > 0){
+					this['Card_'+wCardID+3].source = YBCardEmbed.GetCard(cardValue,65,89.05,'b2');
+				} else {
+					this['Card_'+wCardID+3].source = YBCardEmbed.GetCard(cardValue,50,68.55,'b2');
+				}
+				TweenMax.delayedCall(1,CardTypeHandler,[wCardID])
+			}
+			private var lun : int = 0 ;
+			private function CardTypeHandler(wCardID : uint): void
+			{
+				lun++;
+				for(var i : int = 0 ; i < 5; i++)
+				{
+					if(wCardID > 0){
+						this['Card_'+wCardID+i].source = YBCardEmbed.GetCard(_cbSortCards[wCardID][i],65,89.05,'b2');
+					} else {
+						this['Card_'+wCardID+i].source = YBCardEmbed.GetCard(_cbSortCards[wCardID][i],50,68.55,'b2');
+					}
+				}
+				try
+				{
+					this['niu_'+wCardID].addChild(CCBattleSkinClass.GetCowTypeTxt(_cow.m_wCBCardOx[wCardID]) as DisplayObject);
+				}
+				catch(e:Error){};
+				
+				if(lun == 5){
+					lun = 0;
+					TweenMax.delayedCall(1,theEndView.Show);
+					
+//					Controller.dispatchEvent('UPDATE_HISTORY');
+					var tagRecord:tagServerGameRecord = new tagServerGameRecord;
+					tagRecord.m_bAreaAide = _cow.lAreaWinner;
+					HistoryModel._getInstance().InsertHistory(tagRecord);
+				}
+			}
+			private function JSPointHander(wCardID : uint,cardX:Number) :void
+			{
+				/* _hand.visible = false; */
+				this['Card_'+wCardID+4].x = cardX;
+				
+			}
+			public function ClearCard() : void
+			{
+				for(var i : int = 0 ; i < 5 ; i++)
+				{
+					for(var j : int = 0 ; j < 5 ; j++)
+					{
+						this['Card_'+i+j].visible = false;
+					}
+//					this['niu_'+i].removeChildren();
+					var ui:UIComponent = this['niu_'+i] as UIComponent;
+					for(j=ui.numChildren-1; j>=0; j--)
+						ui.removeChildAt(j);
+				}
+				_cpwFourCards = null;
+			}
+			private function playSoundEffect(wChairID : uint,action : String):void
+			{
+				if(_cow == null)	return;
+				try
+				{
+					_cow.m_Sound.PlayEffect(wChairID, action);
+				}
+				catch(e:Error){};
+			}
+			public function CreateMouseChip(cowName:String) : MovieClip
+			{
+				var c : Class = ApplicationDomain.currentDomain.getDefinition(cowName) as Class;
+				return new c();
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<com:CardImage id="Card_10" x="35" y="140" width="65" height="89.05"/>
+	<com:CardImage id="Card_11" x="67" y="140" width="65" height="89.05"/>
+	<com:CardImage id="Card_12" x="11" y="186" width="65" height="89.05"/>
+	<com:CardImage id="Card_13" x="52" y="186" width="65" height="89.05"/>
+	<com:CardImage id="Card_14" x="92" y="186" width="65" height="89.05"/>
+	<mx:UIComponent id="niu_1"  x="18" y="210" />
+	
+	<com:CardImage id="Card_20" x="220" y="140" width="65" height="89.05"/>
+	<com:CardImage id="Card_21" x="252" y="140" width="65" height="89.05"/>
+	<com:CardImage id="Card_22" x="196" y="186" width="65" height="89.05"/>
+	<com:CardImage id="Card_23" x="236" y="186" width="65" height="89.05"/>
+	<com:CardImage id="Card_24" x="276" y="186" width="65" height="89.05"/>
+	<mx:UIComponent id="niu_2"  x="210" y="210" />
+	
+	<com:CardImage id="Card_30" x="416" y="140" width="65" height="89.05"/>
+	<com:CardImage id="Card_31" x="448" y="140" width="65" height="89.05"/>
+	<com:CardImage id="Card_32" x="393" y="186" width="65" height="89.05"/>
+	<com:CardImage id="Card_33" x="433" y="186" width="65" height="89.05"/>
+	<com:CardImage id="Card_34" x="473" y="186" width="65" height="89.05"/>
+	<mx:UIComponent id="niu_3"  x="400" y="210" />
+	
+	<com:CardImage id="Card_40" x="600" y="140" width="65" height="89.05"/>
+	<com:CardImage id="Card_41" x="632" y="140" width="65" height="89.05"/>
+	<com:CardImage id="Card_42" x="576" y="186" width="65" height="89.05"/>
+	<com:CardImage id="Card_43" x="616" y="186" width="65" height="89.05"/>
+	<com:CardImage id="Card_44" x="656" y="186" width="65" height="89.05"/>
+	<mx:UIComponent id="niu_4"  x="576" y="210" />
+	
+	<com:CardImage id="Card_00" x="335" y="4" width="50" height="68.55"/>
+	<com:CardImage id="Card_01" x="362" y="4" width="50" height="68.55"/>
+	<com:CardImage id="Card_02" x="322" y="40" width="50" height="68.55"/>
+	<com:CardImage id="Card_03" x="339" y="40" width="50" height="68.55"/>
+	<com:CardImage id="Card_04" x="366" y="40" width="50" height="68.55"/>
+	<mx:UIComponent id="niu_0"  x="300" y="68" />
+	
+	<!--<s:Image id="_hand" source="{CCBattleSkinClass.Hand}" visible="false" />-->
+	
+	<view:EndViewCC id="theEndView" horizontalCenter="-20" verticalCenter="-20" />
+</s:Group>

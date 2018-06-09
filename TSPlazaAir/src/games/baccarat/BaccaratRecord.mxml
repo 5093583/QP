@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 width="530" height="496">
+	<fx:Script>
+		<![CDATA[
+			import gameAssets.baccarat.BaccaratSkinClass;
+			
+			import games.baccarat.model.HistoryModel;
+			import games.baccarat.struct.tagServerGameRecord;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			
+			private var _historyMode	: HistoryModel;
+			
+			private var _historyLableVec : Vector.<MovieClip>;
+			private var _historyPointVec : Vector.<MovieClip>;
+			private var _lastResult:int;
+			private var _lastPosX:int;
+			private var _lastPosY:int;
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				_historyMode = HistoryModel._getInstance();
+				_historyLableVec = new Vector.<MovieClip>();
+				_historyPointVec = new Vector.<MovieClip>();
+			}
+			
+			
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				this.visible = false;
+				
+				this.dispatchEvent(new Event('updateRecordVisible'));
+			}
+			
+			public function Show() : void
+			{
+				if(visible ) {
+					ZoomMove.play([gp_png]);
+					drawHistoryView();
+//					this.addEventListener(MouseEvent.MOUSE_DOWN,onMouseEventDown);
+					Controller.addEventListener("UPDATE_HISTORY",onUpdateGameRecord);
+					
+//					this.visible = true;
+//					theClose.addEventListener(MouseEvent.CLICK,onMouseClickEvent);
+				}else {
+					Hide();
+				}
+			}
+			
+			public function Hide() : void
+			{
+				Controller.removeEventListener("UPDATE_HISTORY",onUpdateGameRecord);
+//				this.removeEventListener(MouseEvent.MOUSE_DOWN,onMouseEventDown);
+//				theClose.removeEventListener(MouseEvent.CLICK,onMouseClickEvent);
+//				this.visible = false;
+			}
+			
+			private function onUpdateGameRecord(e : TEvent) : void
+			{
+				drawHistoryView();
+			}
+			
+			
+			
+			private function drawHistoryView() : void
+			{
+				var rowCount1 : uint = 0;
+				var lineCount1 : uint = 0;
+				
+				_lastResult	= 0;
+				_lastPosX	= -1;
+				_lastPosY	= 0;
+				
+				var labelCount : uint = 0;
+				var lastWinner : uint = 0;
+				var start : int = _historyMode.HistoryCount - 84;
+				start = start>0?start:0;
+				var winner : uint = 0;
+				var i : int = 0;
+//				for(var i : int = start;i<_historyMode.HistoryCount;i++)
+//				{
+//					var Record : tagServerGameRecord = _historyMode.GetHistoryByIndex(i);
+//					if(labelCount >= _historyLableVec.length) {
+////						var nLabel : HistoryLabel = createHistoryLabel(BaccaratSkinClass.HistoryLabelMovie);
+////						var nLabel : MovieClip = createHistoryLabel(BaccaratSkinClass.HistoryLabelMovie);
+////						_historyLableVec.push( nLabel );
+////						nLabel.x = 3 + int(labelCount/6) * 35;
+////						nLabel.y = 4 + (labelCount%6) * 35;
+//////						this.addChild(nLabel);
+////						_history.addChild(nLabel);
+//					}
+//					if(Record.cbPlayerCount>Record.cbBankerCount) 
+//					{
+//						winner = 2;
+//					}
+//					else if(Record.cbPlayerCount<Record.cbBankerCount) 
+//					{
+//						winner = 1
+//					}
+//					else 
+//					{
+//						winner = 3;
+//					}
+//					
+////					_historyLableVec[labelCount].value = winner;
+//					//(_historyLableVec[labelCount] as MovieClip).gotoAndStop(winner);
+//					
+//					
+////					if(_lastPosX < 27)
+////					{
+////						if(labelCount >= _historyPointVec.length) 
+////						{
+////							var nPoint:MovieClip = new BaccaratSkinClass.HistoryPointMovie() as MovieClip;
+////							_historyPointVec.push(nPoint);
+////							_pointUI.addChild(nPoint);
+////						}
+////						
+////						if(_lastResult == winner)
+////						{
+////							_lastPosY++;
+////						}
+////						else
+////						{
+////							_lastResult = winner;
+////							_lastPosX++;
+////							_lastPosY = 0;
+////						}
+////						
+////						_historyPointVec[labelCount].x	= 481 - _lastPosX*17;
+////						_historyPointVec[labelCount].y	= _lastPosY*19;
+////						
+////						_historyPointVec[labelCount].gotoAndStop(winner);
+////					}
+//					
+//					labelCount++;
+//				}
+				
+				labelCount = 0;
+				var lastLine:Boolean = false;
+				for(i=_historyMode.HistoryCount-1;i>=0;i--)
+				{
+					if(_lastPosX > 25)	
+						lastLine = true;
+					
+					var Recordpoint : tagServerGameRecord = _historyMode.GetHistoryByIndex(i);
+					if(labelCount >= _historyPointVec.length) 
+					{
+						var nPoint:MovieClip = new BaccaratSkinClass.HistoryPointMovie() as MovieClip;
+						_historyPointVec.push(nPoint);
+						_pointUI.addChild(nPoint);
+					}
+					
+					if(Recordpoint.cbPlayerCount>Recordpoint.cbBankerCount) 
+					{
+						winner = 2;
+					}
+					else if(Recordpoint.cbPlayerCount<Recordpoint.cbBankerCount) 
+					{
+						winner = 1
+					}
+					else 
+					{
+						winner = 3;
+					}
+					
+					if(_lastResult == winner)
+					{
+						_lastPosY++;
+						if(_lastPosY >= 6 )
+						{
+							_lastPosX++;
+							_lastPosY = 0;
+						}
+					}
+					else
+					{
+						_lastResult = winner;
+						_lastPosX++;
+						_lastPosY = 0;
+						
+						if(lastLine)	break;
+					}
+					if(Recordpoint.cbKingWinner == 4)
+						winner = 5;
+					else if(Recordpoint.cbKingWinner == 5)
+						winner = 4;
+					else if(Recordpoint.cbKingWinner == 6&&winner == 3)
+						winner = 8;
+					
+					if(winner == 1)
+					{
+						if(Recordpoint.bBankerTwoPair)
+							winner = 6;
+					}else if(winner == 2)
+					{
+						if(Recordpoint.bPlayerTwoPair)
+							winner = 7;
+					}
+					
+					_historyPointVec[labelCount].x	= 419 - _lastPosX*16;
+					_historyPointVec[labelCount].y	= _lastPosY*17;
+					
+					_historyPointVec[labelCount].visible = true;
+					_historyPointVec[labelCount].gotoAndStop(winner);
+					labelCount++;
+				}
+				
+				for(i=labelCount; i<_historyPointVec.length; i++)
+				{
+					_historyPointVec[i].visible = false;
+				}
+				
+				
+				XDuiZI.text = _historyMode.xianDuiZiCount.toString();
+				XDuiZIcom.text = ( (_historyMode.xianDuiZiCount / _historyMode.HistoryCount) * 100 ).toFixed(2) + '%';
+				ZDuiZI.text = _historyMode.zhuangDuiZiCount.toString();
+				ZDuiZIcom.text =  ( (_historyMode.zhuangDuiZiCount / _historyMode.HistoryCount) * 100 ).toFixed(2) + '%';
+				XianTxt1.text = _historyMode.xianWinCount.toString();
+				XiancomTxt1.text =  ( (_historyMode.xianWinCount / _historyMode.HistoryCount) * 100 ).toFixed(2) + '%';
+				PingTxt1.text = _historyMode.pingCount.toString();
+				PingcomTxt1.text = ( (_historyMode.pingCount / _historyMode.HistoryCount) * 100 ).toFixed(2) + '%';
+				ZhuangTxt1.text = _historyMode.zhuangWinCount.toString();
+				ZhuangcomTxt1.text = ( (_historyMode.zhuangWinCount / _historyMode.HistoryCount) * 100 ).toFixed(2) + '%';
+			}
+			
+			private function createHistoryLabel(c:Class)  : MovieClip
+			{
+				return new c() as MovieClip;
+			}
+			
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+		<mx:Zoom id="ZoomMove" zoomWidthFrom="0" duration="200">
+		</mx:Zoom>
+	</fx:Declarations>
+	<s:Group id="gp_png" >
+		<s:Image x="-3" y="480" source="{BaccaratSkinClass.view_record}"/>
+		<mx:UIComponent x="-3" y="483" width="436" height="107" id="_pointUI"/>
+	</s:Group>
+	<s:Label  filters="{[gf01]}" x="462" y="511" id="XianTxt1" fontSize="11" color="#0ba1d1"/>
+	<s:Label  filters="{[gf01]}" x="462" y="530" id="PingTxt1" fontSize="11" color="#2BD238"/>
+	<s:Label  filters="{[gf01]}" x="462" y="491" id="ZhuangTxt1" fontSize="11" color="#9D0000"/>
+	
+	<s:Label  filters="{[gf01]}" x="462" y="569" fontSize="11" color="#0ba1d1" id="XDuiZI"/>
+	<s:Label  filters="{[gf01]}" x="462" y="549" fontSize="11" color="#9D0000" id="ZDuiZI"/>
+	
+	
+	
+	<s:Label  filters="{[gf01]}" x="482" y="511" id="XiancomTxt1" fontSize="11" color="#0ba1d1"/>
+	<s:Label  filters="{[gf01]}" x="482" y="530" id="PingcomTxt1" fontSize="11" color="#2BD238"/>
+	<s:Label  filters="{[gf01]}" x="482" y="491" id="ZhuangcomTxt1" fontSize="11" color="#9D0000"/>
+	
+	<s:Label filters="{[gf01]}" x="482" y="569" fontSize="11" color="#0ba1d1" id="XDuiZIcom"/>
+	<s:Label filters="{[gf01]}" x="482" y="549" fontSize="11" color="#9D0000" id="ZDuiZIcom"/>
+
+</s:Group>

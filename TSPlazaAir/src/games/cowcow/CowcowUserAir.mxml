@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="800" height="600"
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 implements="cx.gamebase.Interface.IUserViewSink, cx.gamebase.Interface.IReadyGame, cx.gamebase.Interface.IDestroy" xmlns:user="games.cowcow.user.*">
+	<fx:Script>
+		<![CDATA[
+			import cx.client.logon.model.UserModel;
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.model.GameUserModel;
+			import cx.gamebase.model.GlobalModel;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			
+			import games.cowcow.model.CCModel;
+			import games.cowcow.units.CowcowConst;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.IDConvert;
+			
+			
+			protected var _user : GameUserModel;
+			
+			public function init():void
+			{
+				_user = GameUserModel.GetInstance();
+				Controller.addEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+			}
+			
+			private function onUserGameScore(e : TEvent) : void
+			{
+				var wChairID : uint = e.nWParam;
+				var lScore : Number = e.nLParam;
+				var userInfo : tagUserInfoHead = _user.GetUserByChair(wChairID);
+				if(userInfo != null)
+				{
+					userInfo.UserScoreInfo.lScore = lScore;
+					UpdateGameScore(lScore,_user.SwitchViewChairID(wChairID));
+				}
+			}
+			
+			public function UpdateGameScore(score : Number,wViewChairID : uint) : void
+			{
+				if(wViewChairID == 2)
+				{
+//					var user : UserOther = this['UV_' + wViewChairID]; 
+//					if(user != null) 
+//					{ 
+//						user.JinBi = score; 
+//					}
+					
+					UV_2.JinBi = score;
+				}
+			}
+			
+			
+			
+			public function ReadyGameEvent(e:TEvent):Boolean
+			{
+				return true;
+			}
+			
+			public function UpdateUserCome(userInfo:tagUserInfoHead, wViewChairID:uint):Boolean
+			{
+//				if(userInfo != null &&( userInfo.dwUserRight != 0 || userInfo.dwMasterRight != 0)) {
+//					trace('玩家：'+IDConvert.Id2View(userInfo.dwUserID),userInfo.dwUserRight,userInfo.dwMasterRight);
+//				}
+				if(wViewChairID < CowcowConst.GAME_PLAYER)			//如果用户座位ID不为0
+				{
+					var user : *;
+//					if(wViewChairID == 2)
+//						user = this['UV_' + wViewChairID] as UserSelf;
+//					else
+//						user = this['UV_' + wViewChairID] as UserOther;
+					user = this['UV_' + wViewChairID];
+					
+					if(user != null) 
+					{
+						if( userInfo.dwUserRight!=0 || userInfo.dwMasterRight!=0 )
+						{
+							user.userID = userInfo.dwUserID;
+							CCModel._getInstance().m_PlayerInfo[wViewChairID] = userInfo.dwUserID;
+						}else{
+							user.userID = IDConvert.Id2View(userInfo.dwUserID);
+							CCModel._getInstance().m_PlayerInfo[wViewChairID] = IDConvert.Id2View(userInfo.dwUserID);
+						}
+						user.IP = userInfo.ip;
+//						user.Face = userInfo.wFaceID;
+						user.Face = userInfo.cbGender;
+						user.Offlie(0);
+						user.visible = true;
+						if(wViewChairID == 2) 
+						{ 
+							///GameFrame中sendUserInfoToGame函数发送自己消息
+							user.JinBi = _user.GetSelfData().UserScoreInfo.lScore; 
+						}
+					}
+				}
+				return true;
+			}
+			
+			public function UpdateUserScore(userID:int, wViewChairID:uint, fScore:Number):Boolean
+			{
+				if(wViewChairID == 2)
+				{
+					var user : UserSelf = this['UV_' + wViewChairID];
+					if(user != null) {
+						user.JinBi = _user.GetSelfData().UserScoreInfo.lScore; 
+					}
+				}
+				return true;
+			}
+			
+			public function UpdateUserStatus(userID:int, cbStatus:uint, wTableID:int, wViewChairID:uint):Boolean
+			{
+				if(cbStatus < TConst.US_SIT || cbStatus == TConst.US_LOOKON || wViewChairID == TConst.INVALID_CHAIR ) 
+				{
+					if(GlobalModel( GlobalModel.GetInstance() ).m_bReadyGame && _user.count == 1) {
+						Controller.dispatchEvent('ready_leave');
+						return true;
+					}
+				}
+				
+				if(cbStatus == TConst.US_FREE && wViewChairID != 2)
+				{
+					this['UV_' + wViewChairID].userLeave();
+					return true;
+				}
+				
+				var i : uint = 0;
+				if(cbStatus == TConst.US_NULL && wTableID == TConst.INVALID_CHAIR && wViewChairID == TConst.INVALID_CHAIR && !CCModel._getInstance().m_gameStart)
+				{
+					for(i=0; i<CowcowConst.GAME_PLAYER; i++)
+					{
+						if(userID == CCModel._getInstance().m_PlayerInfo[i])
+						{
+							this['UV_' + i].visible = false;
+							break;
+						}
+					}
+					var userNum:int = getUserCount();
+					if(userNum < 3)
+					{
+						this.dispatchEvent( new Event( 'userLeave_notStart') );
+					}
+				}
+				
+				
+				
+				if(cbStatus < TConst.US_SIT || cbStatus == TConst.US_LOOKON || wViewChairID >= CowcowConst.GAME_PLAYER ) return true;
+				if(cbStatus == TConst.US_OFFLINE)
+				{
+					this['UV_' + wViewChairID].Offlie(30000);
+//					if(_user.SwitchViewChairID(ZjhModel._getInstance().wCurrentUser) == wViewChairID) { 
+//						StopClock();
+//					}
+					return true;
+				}
+				if(cbStatus > TConst.US_FREE)
+				{
+					this['UV_' + wViewChairID].Offlie(0);
+				}
+				return true;
+			}
+			
+			
+			private function getUserCount():uint
+			{
+				var count:uint = 0;
+				var i:int, wViewChairID:int;
+				var _theModel:CCModel = CCModel._getInstance();
+				for( i = 0; i<4;i++)
+				{
+					wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+					if(_theModel.m_PlayerInfo[wViewChairID] != 0) 
+						count++;
+				}
+				return count;
+			}
+			
+			public function Destroy():Boolean
+			{
+				Controller.removeEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+				UV_0.visible = false;
+				UV_1.visible = false;
+				UV_2.visible = false;
+				UV_3.visible = false;
+				_user = null;
+//				_user.Destroy();
+				return true;
+			}
+			
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{	
+				if(_user == null)	init();
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	
+	<user:UserTop id="UV_0" top="20" horizontalCenter="250" visible="false"/>
+	<user:UserOther id="UV_1" left="30" verticalCenter="90" visible="false"/>
+	<user:UserSelf id="UV_2" bottom="10" horizontalCenter="-80" visible="false"/>
+	<user:UserOther id="UV_3" right="0" verticalCenter="90" visible="false"/>
+	
+</s:Group>

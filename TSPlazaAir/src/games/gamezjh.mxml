@@ -1,0 +1,2282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base:GameBaseModule xmlns:fx="http://ns.adobe.com/mxml/2009"
+					 xmlns:s="library://ns.adobe.com/flex/spark"
+					 xmlns:mx="library://ns.adobe.com/flex/mx"
+					 xmlns:zjh="games.zjh.*"
+					 horizontalCenter="0" verticalCenter="0"
+					 maxWidth="1300" maxHeight="900"
+					 width="800" height="600"
+					 creationComplete="module1_creationCompleteHandler(event)"
+					 implements="base.IModuleGame" xmlns:base="base.*" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.StaticVars;
+			
+			import com.CardImage;
+			import com.MCButton;
+			import com.greensock.TweenMax;
+			import com.greensock.easing.Expo;
+			import com.plaza.MsgManager;
+			
+			import cx.gamebase.Interface.IUserViewSink;
+			import cx.gamebase.enum.enTimeType;
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.model.GameUserModel;
+			import cx.gamebase.model.SoundModel;
+			import cx.gamebase.sturuct.GameCmd;
+			import cx.gamebase.sturuct.tagServerTimer;
+			import cx.net.Interface.IClientSocket;
+			
+			import flash.utils.getTimer;
+			
+			import gameAssets.card.YBCardEmbed;
+			import gameAssets.chip.YBChipEmbed;
+			import gameAssets.zjh.ZjhSkinClass;
+			
+			import games.zjh.ZjhUserAir;
+			import games.zjh.enum.enTimerKind;
+			import games.zjh.model.ZjhModel;
+			import games.zjh.struct.CMD_C_AddScore;
+			import games.zjh.struct.CMD_C_CompareCard;
+			import games.zjh.struct.CMD_S_AddScore;
+			import games.zjh.struct.CMD_S_CompareCard;
+			import games.zjh.struct.CMD_S_GameEnd;
+			import games.zjh.struct.CMD_S_GameStart;
+			import games.zjh.struct.CMD_S_GiveUp;
+			import games.zjh.struct.CMD_S_LookCard;
+			import games.zjh.struct.CMD_S_OpenCard;
+			import games.zjh.struct.CMD_S_StatusFree;
+			import games.zjh.struct.CMD_S_StatusPlay;
+			import games.zjh.struct.CMD_S_WaitCompare;
+			import games.zjh.utils.ZjhCMD;
+			import games.zjh.utils.ZjhConst;
+			
+			import mx.collections.ArrayCollection;
+			import mx.core.BitmapAsset;
+			import mx.events.FlexEvent;
+			import mx.utils.ObjectUtil;
+			
+			import spark.components.Button;
+			import spark.filters.ColorMatrixFilter;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.Memory;
+			
+			
+			private static var SENDCARD_DELAY:Number = .2;
+			
+			
+			private var _theModel : ZjhModel;
+			private var _user:GameUserModel;
+			
+			private var _userCards:Array;
+			private var _userBackCards:Array;
+			private var _recycleCard:Array;
+			
+			private var _mingCard:Array;
+			
+			private var _timer : Timer;
+			
+			private var _chips : Array = [];
+			private var _chipArrs : Array = new Array({x:268,y:61},{x:46,y:334},{x:456,y:585},{x:967,y:346},{x:746,y:66});
+			
+			private var mc_vs:MovieClip;
+			private var mc_vslight11:MovieClip;
+			private var mc_vslight12:MovieClip;
+			private var mc_vslight21:MovieClip;
+			private var mc_vslight22:MovieClip;
+			
+			private var compareArr:Array;
+			private var compareloser:uint;
+			private var vsPlaying:Boolean = false;
+			
+			private var _addScore:Number  = 0xff;
+			
+			private var openMC1:MovieClip;
+			private var openMC2:MovieClip;
+			private var showOpenCard:Boolean;
+			private var openCard:Array;
+			
+			private var _sendCardCount:int = 0;
+			private var isReconnect:Boolean = false;
+			
+			private var Interval:uint;
+			
+			private var firstTryPlay:Boolean = true;
+			
+			private var updateServerNum:Boolean = true;
+			
+			private var _endGame:Boolean = false;
+			private var _completeSend:Boolean = false;
+			
+//			[Embed(source="gameAssets/clockNum.png")]
+//			public var clock_num:Class;
+//			private var _clockNum:BitmapData;
+			
+			protected function module1_creationCompleteHandler(event:FlexEvent):void
+			{
+				_userCards = new Array(ZjhConst.GAME_PLAYER);
+				_userBackCards = new Array();
+				_recycleCard = new Array();
+				
+				_mingCard = new Array(ZjhConst.GAME_PLAYER);
+				
+				theuser.addEventListener( 'userLeave_notStart', userLeaveHandler);
+				
+				for(var i:int=0; i<ZjhConst.GAME_PLAYER; i++)
+				{
+					_userCards[i] = new ArrayCollection;
+				}
+				
+				if(!ui_clock.numChildren)
+					ui_clock.addChild(ZjhSkinClass.GetClock());
+			
+				
+//				_clockNum = BitmapAsset(new clock_num() ).bitmapData;
+			}
+			
+//			private function getClockNum(val:int):BitmapData
+//			{
+//				var bitmap:BitmapData = new BitmapData(55, 49, true, 0xffffff);
+//				var num:int;
+//				if(_clockNum == null)
+//					_clockNum = BitmapAsset(new clock_num() ).bitmapData;
+//				if(val>9)
+//				{
+//					num = parseInt(val.toString().charAt(1));
+//					bitmap.copyPixels(_clockNum, new Rectangle(num*31, 0, 32, 49), new Point(24, 0));
+//					num = parseInt(val.toString().charAt(0));
+//					bitmap.copyPixels(_clockNum, new Rectangle(num*31, 0, 32, 49), new Point(0, 0));
+//				}
+//				else
+//				{
+//					num = parseInt(val.toString().charAt(0));
+//					bitmap.copyPixels(_clockNum, new Rectangle(num*31, 0, 32, 49), new Point(12, 0));
+//				}
+//				return bitmap;
+//			}
+			
+			
+			private function userLeaveHandler(e:Event):void
+			{
+				if(btn_continue && !btn_continue.visible)
+					btn_continue.visible = true;
+				
+				control1.visible = false;
+				HideButton();
+				
+				TweenMax.delayedCall(StaticVars.delayedExitGame, exitGame);
+				
+				MsgManager.getInstance().showMessage1('游戏玩家已退出，请点击开始继续游戏！');
+			}
+			
+			
+			public function logonSuccess():void
+			{
+				if(theuser)	theuser.init();
+				super.addToStage();
+			}
+			
+			
+			public function updateGameNum():void
+			{
+				if(theServerNum && updateServerNum)
+					theServerNum.text	= '牌局:' + StaticVars.szGameNum;
+			}
+			
+			override protected function OnPreInit():Boolean
+			{
+				_theModel = ZjhModel._getInstance();
+				_user = GameUserModel.GetInstance();
+				return true;
+			}
+			override protected function OnInit():Boolean
+			{
+				if( !super.OnInit() ) return false;
+				//设置用户回调钩子
+				_theModel.m_User.SetUserViewSink(theuser as IUserViewSink);
+				//初始化游戏服务配置
+				_theModel.m_Attribute.playerCount = ZjhConst.GAME_PLAYER;
+				//开始加载音效
+				_theModel.m_Sound.StartLoad('data/sound/zjh_sound' + (TConst.TC_DEUBG == 1?'.swf':'.cxm'));
+				
+				
+				Btn_0.enabled 		= false;
+				Btn_1.enabled 		= false;
+				
+				return true;
+			}
+			
+			override protected function OnSoundLoadComplete(e : TEvent) : void
+			{
+				super.OnSoundLoadComplete(e);
+			}
+			
+			
+			
+			override protected function OnGameFrameScene(pBuffer:ByteArray, wDataSize:int, pIClientSocket:IClientSocket):Boolean
+			{
+				super.OnGameFrameScene(pBuffer,wDataSize,pIClientSocket);
+				switch(_theModel.m_bGameStatus)
+				{
+					case TConst.GS_FREE:
+					{
+						var RecvStatusFree : CMD_S_StatusFree = CMD_S_StatusFree._readBuffer(pBuffer);
+						_theModel.lCellScore = RecvStatusFree.lCellScore;
+//						setAddScoreValue();
+						
+						StaticVars.isTryPlayed = RecvStatusFree.cbIsTryPlay == 1?true:false;
+						
+						if(firstTryPlay && StaticVars.isTryPlayed)
+						{
+							firstTryPlay = false;
+							StaticVars.tryPlayScore= RecvStatusFree.lTryPlayScore;
+							theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+							
+							if(StaticVars.isTryPlayed)
+								MsgManager.getInstance().showMessage1('您当前进入的是试玩房间，只为体验游戏而设，输赢金额不参与房间外结算！');
+						}
+						if(StaticVars.isTryPlayed)
+						{
+							tryplay.visible = true;
+//							tryplay1.visible= true;
+						}
+						
+						return true;
+					}
+					case TConst.GS_PLAYING:
+					{
+						var RecvStatusPlay : CMD_S_StatusPlay = CMD_S_StatusPlay._readBuffer(pBuffer);
+						_theModel.lCellScore 			= RecvStatusPlay.lCellScore;
+//						setAddScoreValue();
+						_theModel.lCurrentTimes 		= RecvStatusPlay.lCurrentTimes;
+						_theModel.lMaxScore 			= RecvStatusPlay.lMaxScore;
+						_theModel.lUserMaxScore			= RecvStatusPlay.lUserMaxScore;
+						_theModel.wCurrentUser			= RecvStatusPlay.wCurrentUser;
+						_theModel.wBankerUser			= RecvStatusPlay.wBankerUser;
+						_theModel.lMaxCellScore			= RecvStatusPlay.lMaxCellScore;
+						_theModel.m_lGuoDiScore			= RecvStatusPlay.lGuoDiScore;
+						_theModel.lMaxAddScore  		= _theModel.lMaxCellScore;
+						_theModel.lAddScore				= _theModel.lCellScore;
+						_theModel.bPlayerStatus			= RecvStatusPlay.cbPlayStatus;
+						_theModel.m_bFirstUser			= true;
+						
+						StaticVars.isTryPlayed = RecvStatusPlay.cbIsTryPlay == 1?true:false;
+						
+						if(firstTryPlay && StaticVars.isTryPlayed)
+						{
+							tryplay.visible = true;
+//							tryplay1.visible= true;
+							firstTryPlay = false;
+							StaticVars.tryPlayScore= RecvStatusPlay.lTryPlayScore;
+							theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+						}
+						if(StaticVars.isTryPlayed)
+						{
+							tryplay.visible = true;
+//							tryplay1.visible= true;
+						}
+						
+						
+						//玩家状态
+						isReconnect  = true;
+						sendCard(false);
+						
+						var i : uint = 0, wViewChairID : uint;
+						for(i = 0;i<ZjhConst.GAME_PLAYER;i++)
+						{
+							wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+							_theModel.bMingzhu[i] = RecvStatusPlay.bMingZhu[i]+1;
+							if(_theModel.bMingzhu[i] == 2 && _theModel.bPlayerStatus[i]==1)
+							{
+								if(i == _theModel.m_User.GetMeChairID())
+								{
+									ShowUserCard(RecvStatusPlay.cbHandCardData);
+								}else {
+									SetLookCard(wViewChairID);
+								}
+							}
+							_theModel.lTableScore[i] = RecvStatusPlay.lTableScore[i];
+							if(_theModel.lTableScore[i] > _theModel.m_lGuoDiScore)
+							{
+								_theModel.m_bFirstUser			= false;
+							}
+							if(_theModel.lTableScore[i] > 0)
+							{
+								SetTheUserAddScore(i,0,_theModel.lTableScore[i]);
+							}
+							_theModel.lTotalScore += _theModel.lTableScore[i];
+						}
+						
+						theCurrentTimes.text			= _theModel.lCurrentTimes.toString();
+						
+						theDiFen.text					= TScore.toStringEx(_theModel.lCellScore);
+						theFd.text						= TScore.toStringEx(_theModel.lMaxScore);
+						theOpenTimes.text				= '2';
+						theLookTimes.text				= '2';
+						theZhongZhu.text 				= TScore.toStringEx(_theModel.lTotalScore);
+						theServerName.text 				= StaticVars.serverName;
+						theServerNum.text				= '牌局:' + StaticVars.szGameNum;
+						//显示庄家
+						var zhuang:uint					= _theModel.m_User.SwitchViewChairID(_theModel.wBankerUser);
+						if(zhuang == 2)
+							updateClockPosition(_zhuang, zhuang, 50, -40);
+						else
+							updateClockPosition(_zhuang, zhuang, -15, -25);
+						_zhuang.visible = true;
+						
+						_endGame = false;
+						
+						//启动倒计时
+						startClock(_theModel.wCurrentUser,RecvStatusPlay.bCompareState==1?10000:25000);
+						
+						if(_theModel.wCurrentUser == _theModel.m_User.GetMeChairID())
+						{
+							if(RecvStatusPlay.bCompareState==1) {
+								ShowCompare(true);
+							}else {
+								CheckShowButton();
+							}
+						}else if(RecvStatusPlay.bCompareState == 1)
+						{
+							ShowCompare(false);
+						}
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			//游戏消息
+			override protected function OnTcpGameEvent(wSubCmd:uint, pBuffer:ByteArray, wDataSize:int, pIClientSocket:IClientSocket):Boolean
+			{
+				//				wait_operate.visible = false;
+				
+				if(wSubCmd==ZjhCMD.SUB_S_GAME_END) {
+					_theModel.StopOnLineCheck();
+				}else {
+					_theModel.ResetOnLineCheck();
+				}
+				if(super.OnTcpGameEvent(wSubCmd,pBuffer,wDataSize,pIClientSocket)) return true;
+				var i : uint=0;
+				var wViewChairID : uint = 0;
+				var wMeChairID : uint = _theModel.m_User.GetMeChairID();
+				switch(wSubCmd)
+				{
+					case ZjhCMD.SUB_S_GAME_START:				//游戏开始消息
+					{
+						updateServerNum = false;
+						
+						_theModel.m_gameStart = true;
+						_endGame = false;
+						
+						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,0);
+						playSoundEffect(TConst.INVALID_CHAIR,'gamestart');
+						
+						var GameStart : CMD_S_GameStart = CMD_S_GameStart._readBuffer(pBuffer);
+						
+						_theModel.lCellScore 			= GameStart.lCellScore;
+//						setAddScoreValue();
+						_theModel.lCurrentTimes 		= GameStart.lCurrentTimes;
+						_theModel.lMaxScore 			= GameStart.lMaxScore;
+						_theModel.lUserMaxScore			= GameStart.lUserMaxScore;
+						_theModel.wCurrentUser			= GameStart.wCurrentUser;
+						_theModel.wBankerUser			= GameStart.wBankerUser;
+						_theModel.lMaxCellScore			= GameStart.lMaxCellScore;
+						_theModel.m_lGuoDiScore			= GameStart.lGuoDiScore;
+						_theModel.lMaxAddScore  		= _theModel.lMaxCellScore;
+						
+						theCurrentTimes.text			= _theModel.lCurrentTimes.toString();
+						
+						_theModel.lAddScore				= _theModel.lCellScore;
+						theDiFen.text					= TScore.toStringEx(GameStart.lCellScore);
+						theFd.text						= TScore.toStringEx(GameStart.lMaxScore);
+						theOpenTimes.text				= '2';
+						theLookTimes.text				= '2';
+						//						//显示庄家		
+						var zhuang:uint					= _theModel.m_User.SwitchViewChairID(GameStart.wBankerUser);
+						if(zhuang == 2)
+							updateClockPosition(_zhuang, zhuang, 50, -40);
+						else
+							updateClockPosition(_zhuang, zhuang, -15, -25);
+						_zhuang.visible = true;
+						//						//下注
+						for(i  =0;i<ZjhConst.GAME_PLAYER;i++)
+						{
+							if(_theModel.m_User.GetUserByChair(i) != null) {
+								_theModel.lTableScore[i] 	+= _theModel.m_lGuoDiScore;
+								SetTheUserAddScore(i,_theModel.lTableScore[i],_theModel.lTableScore[i]);
+								_theModel.lTotalScore 		+= _theModel.lTableScore[i];
+								_theModel.bPlayerStatus[i] 	 = 1;
+							}
+						}
+						
+						btn_follow.targetClass = ZjhSkinClass.control_aoto;
+						_theModel.m_bFollow = false;
+						
+						_completeSend = false;
+						//						//发牌
+						var delay : Number = sendCard();
+						
+						var check:Function = function():void
+						{
+							if(!_completeSend)
+								completeMoveUpdate();
+						}
+						TweenMax.delayedCall( 10, check );
+						
+						
+						theZhongZhu.text = TScore.toStringEx(_theModel.lTotalScore);
+						theServerName.text 	= StaticVars.serverName;
+						theServerNum.text	= '牌局:' + StaticVars.szGameNum;
+						TweenMax.delayedCall(delay,delayAppendChip);
+						
+						StaticVars.isPlayedWithFriend = true;
+						
+						return CMD_S_GameStart.SIZE == wDataSize;
+					}
+					case ZjhCMD.SUB_S_GIVE_UP:					//用户弃牌
+					{
+						var RecvGieUp : CMD_S_GiveUp = CMD_S_GiveUp._readBuffer(pBuffer);
+						
+						wViewChairID = _theModel.m_User.SwitchViewChairID(RecvGieUp.wGiveUpUser);
+						SetGiveupCard(wViewChairID);
+						_theModel.bPlayerStatus[RecvGieUp.wGiveUpUser] = 2;
+						playSoundEffect(TConst.INVALID_CHAIR,'giveup');
+						if(wViewChairID == 2)
+						{
+							Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,1);
+							HideCompare();
+							
+							HideButton();
+							OnDestroyOnline();
+							
+							control1.visible = false;
+							
+							if(_theModel.UserCount > 1)
+								btn_continue.visible = true;
+							
+						}
+						return CMD_S_GiveUp.SIZE == wDataSize;
+					}
+					case ZjhCMD.SUB_S_ADD_SCORE:				//用户加注
+					{
+						var RecvAddScore : CMD_S_AddScore = CMD_S_AddScore._readBuffer(pBuffer);
+						
+						wViewChairID = _theModel.m_User.SwitchViewChairID(RecvAddScore.wAddScoreUser);
+						var lessAddScore : Number = _theModel.lCurrentTimes * _theModel.lCellScore * _theModel.bMingzhu[RecvAddScore.wAddScoreUser];
+						_theModel.wCurrentUser	= RecvAddScore.wCurrentUser;
+						_theModel.lMaxAddScore 	= RecvAddScore.lMaxAddScore;
+						_theModel.lAddScore		= RecvAddScore.lAddScoreCount;
+						_theModel.lTableScore[RecvAddScore.wAddScoreUser] += RecvAddScore.lAddScoreCount;
+						SetTheUserAddScore(RecvAddScore.wAddScoreUser,RecvAddScore.lAddScoreCount,_theModel.lTableScore[RecvAddScore.wAddScoreUser]);
+						_theModel.lTotalScore += RecvAddScore.lAddScoreCount;
+						_theModel.lCurrentTimes= RecvAddScore.lCurrentTimes;
+						
+						theCurrentTimes.text	= _theModel.lCurrentTimes.toString();
+						theZhongZhu.text		= TScore.toStringEx(_theModel.lTotalScore);
+						
+						if(wViewChairID == 2) { OnDestroyOnline(); }
+						//						//下注
+						AppendChip(RecvAddScore.lAddScoreCount,wViewChairID);
+						
+						_theModel.m_bFirstUser = false;
+						return true;
+					}
+					case ZjhCMD.SUB_S_LOOK_CARD:				//看牌
+					{
+						var RecvLookCard : CMD_S_LookCard = CMD_S_LookCard._readBuffer(pBuffer);
+						
+						//						trace('看牌----  : ' + getObjcetProperties(RecvLookCard) );
+						
+						_theModel.bMingzhu[RecvLookCard.wLookCardUser] = 2;
+						playSoundEffect(TConst.INVALID_CHAIR,'lookcard');
+						
+						wViewChairID = _theModel.m_User.SwitchViewChairID(RecvLookCard.wLookCardUser);
+						//						_theModel.wCurrentUser = RecvLookCard.wLookCardUser;
+						if(RecvLookCard.wLookCardUser == _theModel.m_User.GetMeChairID()) {	//自己看牌
+							ShowUserCard(RecvLookCard.cbCardData);
+							
+							btn_follow.targetClass = ZjhSkinClass.control_aoto;
+							_theModel.m_bFollow = false;
+							
+							_addScore = 0xff;
+							setAddScoreButtonEnabled(true);
+							lab_addScore.text = '您已看牌，请选择下注';
+							btn_addsure.visible = false;
+							
+							//							CheckShowButton();
+						}else {	
+							//玩家看牌 显示看牌
+							SetLookCard(wViewChairID);
+							
+						}
+						if(wViewChairID == 2) { OnDestroyOnline(); }
+						return true;
+					}
+					case ZjhCMD.SUB_S_COMPARE_CARD:				//比牌
+					{
+						var RecvCompare : CMD_S_CompareCard = CMD_S_CompareCard._readBuffer(pBuffer);
+						
+//						playSoundEffect(TConst.INVALID_CHAIR,'lookcard');
+						
+						//开始比牌动画
+						HideCompare();
+						if(RecvCompare.wLostUser != TConst.INVALID_CHAIR) {
+							compareArr = RecvCompare.wCompareUser;
+							compareloser = RecvCompare.wLostUser;
+//							if( _theModel.UserCount == 2 && compareArr.indexOf(wMeChairID) != -1 )
+//							{
+//								control1.visible = false;
+//								playOpenCardCartoon(compareArr[0], true);
+//								playOpenCardCartoon(compareArr[1], false);
+//								
+//								showOpenCard = true;
+//								openCard	 = new Array(2);
+//							}
+//							else
+								showCompareCartoon(RecvCompare.wCompareUser);
+							
+							_theModel.bPlayerStatus[RecvCompare.wLostUser] = 3;
+							_theModel.wCurrentUser = RecvCompare.wCurrentUser;
+							if(RecvCompare.wCompareUser[0]==wMeChairID || RecvCompare.wCompareUser[1]==wMeChairID) { OnDestroyOnline(); }
+						}else {
+							CheckShowButton();
+						}
+						return true;
+					}
+					case ZjhCMD.SUB_S_WAIT_COMPARE:				//等待比牌
+					{
+						var waitCompare : CMD_S_WaitCompare = CMD_S_WaitCompare._readBuffer(pBuffer);
+						
+						ShowCompare(waitCompare.wCompareUser == _theModel.m_User.GetMeChairID());
+						return true;
+					}
+					case ZjhCMD.SUB_S_OPEN_CARD:				//开牌
+					{
+						var RecvOpenCard : CMD_S_OpenCard = new CMD_S_OpenCard();
+						
+						control1.visible  = false;
+						control2.visible  = false;
+						control3.visible  = false;
+						_fengding.visible = true;
+						var f:Function = function():void
+						{
+							_fengding.visible = false;
+						};
+						TweenMax.delayedCall(2, f);
+						return true;
+					}
+					case ZjhCMD.SUB_S_GAME_END:					//游戏结束
+					{
+						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,1);
+						var RecvGameEnd : CMD_S_GameEnd = CMD_S_GameEnd._readBuffer(pBuffer);
+						
+						updateServerNum = true;
+						_endGame = true;
+						
+						if(_fengding)	_fengding.visible = false;
+						
+						var endDelayCount:Number = 0;
+						if(showOpenCard)
+						{
+							endPlayOpenCard(RecvGameEnd.cbCardData);
+							endDelayCount += 3;
+						}
+						
+						var delayEnd:Function = function():void
+						{
+							if(vsPlaying)
+								cartoonEndUpdateCard();
+							
+							EndGame(RecvGameEnd.lGameScore);
+							playSoundEffect(TConst.INVALID_CHAIR,'GameEnd1');
+							OnDestroyOnline();
+							//弹出结算窗口
+							TweenMax.delayedCall(1.6,onGameEnd,[RecvGameEnd]);
+						};
+						TweenMax.delayedCall(endDelayCount, delayEnd);
+						
+						return CMD_S_GameEnd.SIZE == wDataSize;
+					}
+					case ZjhCMD.SUB_S_CLIENT_ONLINE:
+					{
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			
+			private function checkPlayed():Boolean
+			{
+				if(StaticVars.isTryPlayed && StaticVars.tryPlayScore < (_theModel.lCellScore*100) )
+				{
+					Controller.dispatchEvent('gameModuleExit');
+					
+					MsgManager.getInstance().showMessage1('您的金币不足！请取金币！');
+					return true;
+				}
+				return false;
+			}
+			
+			//退出游戏
+			override protected function OnSubExitGame():Boolean
+			{
+				//				TweenMax.killAll(true);
+				//TweenMax.killAll();
+				onDestroyAllDos();
+				return true;
+			}
+			private var IsCanDrop : Boolean = false;
+			//时间消息处理
+			override protected function OnGameTimerEvent(pTimer : tagServerTimer) : Boolean
+			{
+				var bShow : Boolean = pTimer.bTimerType == enTimeType.TT_SHOW;
+				switch(pTimer.bTimerKind)
+				{
+					case enTimerKind.TK_ACTION:				//操作倒计时
+					{
+						if(bShow) 
+						{
+							_theModel.wCurrentUser = pTimer.wChairID;
+							
+							if(_theModel.wCurrentUser == _theModel.m_User.GetMeChairID())
+							{
+								IsCanDrop = true;
+								Btn_1.enabled = true;
+								if(_theModel.bMingzhu[_theModel.m_User.GetMeChairID()] == 2)
+									Btn_0.enabled = false;
+								else
+									Btn_0.enabled = true;
+							}
+							else
+							{
+								if(IsCanDrop == false)
+								{
+									Btn_1.enabled = false;
+									Btn_0.enabled = false;
+								}
+							}
+							startClock(pTimer.wChairID, pTimer.lTimer);
+							if(pTimer.wChairID == _theModel.m_User.GetMeChairID()) 
+							{
+								var delayCall:int = 0;
+								if(_sendCardCount == 0)
+									delayCall = 3;
+								var f:Function = function ():void
+								{
+									if(_theModel.m_bFollow) {
+										//										TweenMax.delayedCall(1,SendAddScore,[0,false]);
+										SendAddScore(0, false);
+									}else {
+										CheckShowButton();
+										SendOnLine(pTimer.lTimer);
+									}
+								};
+								TweenMax.delayedCall(delayCall, f);
+							}
+						}
+						return true;
+					}
+					case enTimerKind.TK_CONTINUE:			//继续倒计时
+					{
+						if(bShow)  { 
+							startClock(_theModel.m_User.GetMeChairID(),pTimer.lTimer);
+						}
+						return true;
+					}
+					case enTimerKind.TK_WAITCOMPARE:
+					{
+						if(bShow) 
+						{ 
+							startClock(pTimer.wChairID,pTimer.lTimer);
+							if(pTimer.wChairID == _theModel.m_User.GetMeChairID()) { SendOnLine(pTimer.lTimer); }
+						}
+						return true;
+					}
+					case enTimerKind.TK_OFFLINE:
+					{
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			
+			
+			private function onGameEnd(RecvGameEnd : CMD_S_GameEnd) : void
+			{
+				showCardOver();
+				
+				//游戏结束 亮出玩家牌
+				var i : uint = 0;
+				for( i = 0;i<ZjhConst.GAME_PLAYER;i++)
+				{
+					if(_mingCard[i])
+						_mingCard[i].visible = false;
+					
+					if(_theModel.m_User.GetMeChairID() == i) 	
+					{
+						if(RecvGameEnd.lGameScore[i] > 0) {
+							playSoundEffect(TConst.INVALID_CHAIR,'Win');
+						}else {
+							playSoundEffect(TConst.INVALID_CHAIR,'lost');
+						}
+					}
+				}
+				
+//				TweenMax.delayedCall(2,GameEndSoundPlay);
+				
+				var wViewChairID : uint = 0;
+				
+				for( i = 0; i<5;i++)
+				{
+					wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+					if(_theModel.m_playerInfo[wViewChairID] != 0)
+					{
+						hideUserCard(wViewChairID);
+						removeLookCard(wViewChairID);
+						for(var j : uint = 0;j<3;j++)
+						{
+							var img:CardImage = gettheCard(RecvGameEnd.cbCardData[i][j], 82, 112, "b2");
+							updateCardPosition(img, wViewChairID, j);
+							
+							this.addElement(img);
+							_userCards[wViewChairID].addItem(img);
+						}
+					}
+				}
+				
+				
+				btn_continue.visible = true;
+				TweenMax.delayedCall(StaticVars.delayedExitGame, exitGame);
+			}
+			
+			private function GameEndSoundPlay() : void
+			{
+				playSoundEffect(TConst.INVALID_CHAIR,'GameEnd');
+			}
+			
+			private function removeChip(dos : DisplayObject) : void
+			{
+				if(dos == null) return;
+				if(_chipUI.contains(dos)) { _chipUI.removeChild(dos); }
+				dos = null;
+			}
+			public function EndGame(scores : Array) : void
+			{
+				if(_chips == null) return; 
+				
+				HideButton();
+				control1.visible = false;
+				
+				var i:uint;
+				var wViewChairID : uint;
+				for(i = 0;i<scores.length;i++)
+				{
+					if(scores[i] > 0)
+					{
+						wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+						for each(var chip : DisplayObject in _chips)
+						{
+							TweenMax.to(chip,0.6,{delay:0.6,x:_chipArrs[wViewChairID].x,y:_chipArrs[wViewChairID].y,onComplete:removeChip,onCompleteParams:[chip]});
+							//TweenMax.to(chip,0.6,{delay:0.6,x:170,y:-60,onComplete:removeChip,onCompleteParams:[chip]});
+						}
+						break;
+					}
+				}
+				
+				var color:uint;
+				for( i = 0; i<5;i++)
+				{
+					if(scores[i] != 0)
+					{
+						wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+						if(wViewChairID == 2 && scores[i] > 0) 	
+						{
+							if(StaticVars.isTryPlayed)
+							{
+								StaticVars.tryPlayScore += scores[i];
+								StaticVars.tryPlayScore += TScore.parseFloatEx(JinBiInfo_2.text);
+								theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+							}
+							else
+							{
+								var score:Number = _theModel.m_User.GetSelfData().UserScoreInfo.lScore;
+								score += scores[i];
+								score += TScore.parseFloatEx(JinBiInfo_2.text);
+								theuser.UpdateGameScore(score, 2);
+							}
+						}
+						
+						color = (scores[i] > 0?0xCCFF00:0xFFFFFF);
+						this['winlose_'   + wViewChairID].setStyle('color', color);
+						this['winlose_'   + wViewChairID].text = (scores[i] > 0?"赢":"");
+						
+						this['JinBiInfo_' + wViewChairID].setStyle('color', color);
+						this['JinBiInfo_' + wViewChairID].text = (scores[i] > 0?"+":"") + TScore.toStringEx(scores[i]);
+					}
+				}
+			}
+			
+			
+			public function SetTheUserAddScore(wChairID : uint,addScore : Number,fScore : Number) : void
+			{
+				var wViewChairID:uint = _user.SwitchViewChairID(wChairID);
+				if(wViewChairID > 5)return;
+				this['gp_jinbi'  + wViewChairID].visible = true;
+				this['JinBiInfo_'+wViewChairID].text = TScore.toStringEx(fScore);
+				if(wViewChairID == 2) { 
+					//					Controller.dispatchEvent(GameEvent.USER_GAME_SCORE,0,wChairID,ZjhModel._getInstance().m_User.GetSelfData().UserScoreInfo.lScore-addScore); 
+					
+					if(StaticVars.isTryPlayed)
+					{
+						StaticVars.tryPlayScore -= addScore;
+						theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+					}
+					else
+						Controller.dispatchEvent(GameEvent.USER_GAME_SCORE,0,wChairID,ZjhModel._getInstance().m_User.GetSelfData().UserScoreInfo.lScore-addScore); 
+				}
+			}
+			
+			
+			private function delayAppendChip():void
+			{
+				var wViewChairID : uint = 0;
+				for(var i : uint = 0;i<ZjhConst.GAME_PLAYER;i++)
+				{
+					if(_theModel.m_User.GetUserByChair(i) != null) {
+						wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+						AppendChip(_theModel.m_lGuoDiScore,wViewChairID);
+						//扣除自己的金币
+					}
+				}
+			}
+			
+			
+			private function AppendChip(count : Number,wChairID : uint) : void
+			{
+				if(wChairID > ZjhConst.GAME_PLAYER) return;
+				var model : ZjhModel = ZjhModel._getInstance();
+				//				var rands : Array  = ChipEmbed.GetChips(count,36,27,model.lChipCell,50000);
+				var rands : Array  = YBChipEmbed.GetChips(TScore.toFloatEx(count));
+				for(var i : uint=0;i<rands.length;i++)
+				{
+					rands[i].x = 440 + int(Math.random() * 140);
+					rands[i].y = 210+int(Math.random() * 100);
+					TweenMax.from(rands[i],0.3,{x:_chipArrs[wChairID].x,y:_chipArrs[wChairID].y});
+					_chipUI.addChild(rands[i]);
+				}
+				
+				playSoundEffect(TConst.INVALID_CHAIR,'xiazhu');
+				_chips = _chips.concat(rands);
+			}
+			 
+			private function SetLookCard(wViewChairID : uint) : void
+			{
+				var img:Image = new Image;
+				img.source = ZjhSkinClass.GetCard(0, 82, 112, "look");
+				img.depth  = 89;
+				
+				if(wViewChairID > 2)
+					updateCardPosition(img, wViewChairID, 3, 0, 15);
+				else
+					updateCardPosition(img, wViewChairID, 3, 0, 15);
+				this.addElement(img);
+				
+				_mingCard[wViewChairID] = img;
+			}
+			
+			private function setLookDropCard(wViewChairID : uint) : void
+			{
+				if(_mingCard[wViewChairID])
+				{
+					var img : Image = _mingCard[wViewChairID];
+					img.source = ZjhSkinClass.GetCard(0, 82, 112, 'lookdrop');
+				}
+			}
+			
+			private function removeLookCard(wViewChairID : uint) : void
+			{
+				if(_mingCard[wViewChairID])
+				{
+					_mingCard[wViewChairID].visible = false;
+					var img:Image = _mingCard[wViewChairID];
+					if(this.contains(img))	this.removeElement(img);
+				}
+				
+			}
+			
+			private function setCompareLoseCard(wViewChairID:uint):void
+			{
+				for(var i:int=0; i<3; i++)
+				{
+					var img:CardImage = _userCards[wViewChairID][i];
+					img.cardValue	  = 101;
+				}
+			}
+			
+			private function SetGiveupCard(wViewChairID : uint) : void
+			{
+				for(var i:int=0; i<3; i++)
+				{
+					var img:CardImage = _userCards[wViewChairID][i];
+					
+					if(wViewChairID == 2 && _theModel.bMingzhu[_theModel.m_User.GetMeChairID()] == 2)
+					{
+						//						var mat : Array = [	.44,.44,.44,0,0,
+						//							.44,.44,.44,0,0,
+						//							.44,.44,.44,0,0,
+						//							0,0,0,.8,0
+						//						]
+						//						var filter:spark.filters.ColorMatrixFilter = new spark.filters.ColorMatrixFilter(mat);
+						//						img.filters = [filter];
+						img.addFilter(true);
+					}
+					else
+						img.cardValue = 100;
+				}
+				
+				setLookDropCard(wViewChairID);
+			}
+			
+			
+			private var _cardPostion:Array = [[240, 102], [130, 262], [412, 413], [809, 262], [699, 102]]
+			private function moveCard(card : DisplayObject, wViewChairID:uint, index:int, bPlay : Boolean = true) : void
+			{
+				card.visible = true;
+				playSoundEffect(TConst.INVALID_CHAIR,'sendcard');
+				if(bPlay)
+				{
+					var gp:Group = this['gp_user' + wViewChairID];
+					card.x = 590;
+					card.y = 70;
+					card.alpha = .8;
+					var cardRotation:int = Math.random()*30 + index*30;
+					card.rotation = cardRotation - 90;
+					
+					var toX:int = _cardPostion[wViewChairID][0];
+					var toY:int = _cardPostion[wViewChairID][1];
+					TweenMax.to(card, 1, {x:toX, y:toY, scaleX:1, scaleY:1, alpha:1, ease:Expo.easeOut, 
+						rotation:cardRotation+360, visible:true, onComplete:completeMove,onCompleteParams:[card, wViewChairID, index]});
+				}
+				else
+				{
+					completeMove(card, wViewChairID, index);
+				}
+			}
+			
+			private function completeMove(target:*, wViewChairID:uint, index:int):void
+			{
+				_sendCardCount++;
+				if(_sendCardCount == _theModel.UserCount*3)
+				{
+					var delay:Number = isReconnect?0:1;
+					TweenMax.delayedCall(delay, completeMoveUpdate);
+				}
+				
+			}
+			
+			private function completeMoveUpdate():void
+			{
+				//				sendmask.visible = false;
+				_completeSend = true;
+				
+				var wViewChairID : uint = 0xff;
+				for(var i:int=0; i<3; i++)
+				{
+					for(var j:int=0;j<ZjhConst.GAME_PLAYER;j++)
+					{
+						//判断该位置是否有人
+						if(_user.GetUserByChair(j) != null && ZjhModel._getInstance().bPlayerStatus[j]==1) 
+						{
+							wViewChairID = _user.SwitchViewChairID(j);
+							
+							_userCards[wViewChairID][i].rotation = 0;
+							updateCardPosition(_userCards[wViewChairID][i], wViewChairID, i);
+						}
+					}
+				}
+				
+				control1.visible = true;
+//				zjh_rollText.playedRollText();
+			}
+			
+			
+			private function sendCard(bPlay : Boolean = true):Number
+			{
+				var i : uint = 0, j:uint = 0;
+				
+				var wViewChairID : uint = 2048;
+				var sendCount : uint = 0;
+				
+				_sendCardCount = 0;
+				
+				for(i=0; i<3; i++)
+				{
+					for(j=0;j<ZjhConst.GAME_PLAYER;j++)
+					{
+						//判断该位置是否有人
+						if(_user.GetUserByChair(j) != null && ZjhModel._getInstance().bPlayerStatus[j]==1) 
+						{
+							wViewChairID = _user.SwitchViewChairID(j);
+							var img:CardImage = gettheCard(0, 82, 112, "b2");
+							img.visible = false;
+							
+							img.transformX = 41;
+							img.transformY = 56;
+							
+							img.x = 722;
+							img.y = 92;
+							
+							this.addElement(img);
+							_userCards[wViewChairID].addItem(img);
+							
+							
+							if(bPlay)
+							{
+								TweenMax.delayedCall(sendCount * SENDCARD_DELAY,moveCard,[img,wViewChairID,i,true]);
+							}else {
+								moveCard(img,wViewChairID,i,false);
+							}
+							sendCount++;
+						}
+					}
+				}
+				
+				return Number(sendCount * SENDCARD_DELAY);
+			}
+			
+			private function gettheCard(value:int, w:uint=82, h:uint=112, cardType:String="b"):CardImage
+			{
+				var img:CardImage = new CardImage;
+				img.source = YBCardEmbed.GetCard(value, w, h, cardType);
+				img.name = value.toString();
+				
+				img.top 			= undefined;
+				img.bottom 			= undefined;
+				img.left 			= undefined;
+				img.right 			= undefined;
+				img.horizontalCenter= undefined;
+				img.verticalCenter 	= undefined;
+				img.visible = true;
+				
+				return img;
+			}
+			
+			private function updateCardPosition(card:*, wViewChairID:uint, index:int, xoffset:int=0, yoffset:int=0):void
+			{
+				card.top 				= undefined;
+				card.bottom 			= undefined;
+				card.left 				= undefined;
+				card.right 				= undefined;
+				card.horizontalCenter	= undefined;
+				card.verticalCenter 	= undefined;
+				
+				switch(wViewChairID)
+				{
+					case 0:
+						card.left = 230 + index*23 + xoffset;
+						card.verticalCenter = -150 + yoffset;
+						break;
+					case 1:
+						card.left = 95 + index*23 + xoffset;
+						card.verticalCenter = 10 + yoffset;
+						break;
+					case 2:
+						card.bottom = 80 + xoffset;
+						card.horizontalCenter = -130 + index*85 + yoffset;
+						break;
+					case 3:
+						card.right = 140 - index*23 + xoffset;  
+						card.verticalCenter = 10 + yoffset;
+						break;
+					case 4:
+						card.right = 260 - index*23 + xoffset;
+						card.verticalCenter = -150 + yoffset;
+						break;
+				}
+			}
+			
+			
+			private function updateClockPosition(clock:*, wViewChairID:uint, xoffset:int=0, yoffset:int=0):void
+			{
+				clock.top 				= undefined;
+				clock.bottom 			= undefined;
+				clock.left 				= undefined;
+				clock.right 			= undefined;
+				clock.horizontalCenter	= undefined;
+				clock.verticalCenter 	= undefined;
+				
+				switch(wViewChairID)
+				{
+					case 0:
+						clock.left = 235 + xoffset;
+						clock.verticalCenter = -255 + yoffset;
+						break;
+					case 1:
+						clock.left = 15 + xoffset;
+						clock.verticalCenter = 20 + yoffset;
+						break;
+					case 2:
+						clock.bottom = -5 + xoffset;
+						clock.horizontalCenter = -40 + yoffset;
+						break;
+					case 3:
+						clock.right = 15 + xoffset;  
+						clock.verticalCenter = 20 + yoffset;
+						break;
+					case 4:
+						clock.right = 235 + xoffset;
+						clock.verticalCenter = -255 + yoffset;
+						break;
+				}
+			}
+			
+			
+			private function hideUserCard(wViewChairID:uint=2):void
+			{
+				if(_userCards[wViewChairID].length)
+				{
+					for(var i:int=0;i<_userCards[wViewChairID].length; i++)
+					{
+						_userCards[wViewChairID][i].visible = false;
+						var img:CardImage = _userCards[wViewChairID][i];
+						if(this.contains(img))	this.removeElement(img);
+					}
+				}
+				
+				_userCards[wViewChairID] = new ArrayCollection;
+			}
+			
+			
+			private function ShowUserCard(cards:Array, wViewChairID:uint=2):void
+			{
+				removeLookCard(wViewChairID);
+				hideUserCard();
+				var i:int;
+				for(i= 0;i<3;i++)
+				{
+					var img:CardImage = gettheCard(cards[i], 82, 112, "b2");
+					updateCardPosition(img, wViewChairID, i);
+					
+					this.addElement(img);
+					_userCards[wViewChairID].addItem(img);
+				}
+			}
+			
+			private function startClock(wChairID : uint,time:Number):void
+			{
+				var repeat : uint = time / 1000;
+				StopClock();
+				_timer = new Timer(1000,repeat);
+				_timer.addEventListener(TimerEvent.TIMER,onTimerEvent);
+				_timer.start();
+				
+				var wViewChairID:int = _user.SwitchViewChairID(wChairID);
+				if(wViewChairID == 2)
+					updateClockPosition(gp_clock, _user.SwitchViewChairID(wChairID), 4, -8);
+				else if(wViewChairID < 2)
+					updateClockPosition(gp_clock, _user.SwitchViewChairID(wChairID), -3, -2);
+				else
+					updateClockPosition(gp_clock, _user.SwitchViewChairID(wChairID), -1, -2);
+				
+				theTime.text = repeat.toString();
+//				time_image.source = getClockNum(repeat);
+				gp_clock.visible = true;
+			}
+			
+			private function onTimerEvent(e : TimerEvent) : void
+			{
+				var time : int = _timer.repeatCount - _timer.currentCount;
+				if(time <= 0) {
+					StopClock(); 
+					return;
+				}
+				theTime.text = time > 9?time.toString() : ('0' + time);
+//				time_image.source = getClockNum(time);
+				if(Number(theTime.text) <= 5)
+				{
+					playSoundEffect(TConst.INVALID_CHAIR,'time');
+				}
+			}
+			
+			public function StopClock() : void
+			{
+				if(_timer) {
+					_timer.stop();
+					_timer.removeEventListener(TimerEvent.TIMER,onTimerEvent);
+					_timer = null;
+				}
+				theTime.text = '00';
+				gp_clock.visible = false;
+			}
+			
+			
+			
+			private function CheckShowButton():void
+			{
+				if(_endGame)
+				{
+					HideButton();
+					control1.visible = false;
+					return;
+				}
+				if(btn_continue.visible)	return;
+				
+				var contrls : Array = new Array();
+				var wMeChairID : uint = _theModel.m_User.GetMeChairID();
+				
+				var i : uint = 0;
+				if(_theModel.lCurrentTimes >= 1) {
+					contrls.push(2);	//跟注
+				}
+				
+				var temp : uint = _theModel.bMingzhu[wMeChairID];
+				var allTimes : uint = 10 * temp;
+				var addTimes : uint = _theModel.lCurrentTimes *  temp;
+				
+				allTimes = Memory._min(allTimes, (100 * _theModel.lCellScore - _theModel.lTableScore[wMeChairID])/_theModel.lCellScore);
+				if(_theModel.IsAllAction()) {
+					if( (_theModel.lTableScore[wMeChairID] + addTimes * _theModel.lCellScore * 2) <= 100 * _theModel.lCellScore)
+					{
+						if(_theModel.UserCount == 2)
+							contrls.push(11);	//开牌
+						else
+							contrls.push(3);	//比牌
+					}
+				}
+				if(addTimes < allTimes)
+					contrls.push(4, 5, 6, 7, 8);
+				
+				if(_theModel.wCurrentUser == _theModel.m_User.GetMeChairID())
+				{
+						Btn_1.enabled = true;
+						if(_theModel.bMingzhu[_theModel.m_User.GetMeChairID()] == 2)
+							Btn_0.enabled = false;
+						else
+							Btn_0.enabled = true;
+				}
+				else
+				{
+					Btn_1.enabled = false;
+					if(_theModel.bMingzhu[_theModel.m_User.GetMeChairID()] == 2)
+						Btn_0.enabled = false;
+					else
+						Btn_0.enabled = true;
+				}
+				for( i = 0;i<contrls.length;i++)
+				{
+					this['Btn_'+contrls[i]].visible = true;
+					this['Btn_'+contrls[i]].addEventListener(MouseEvent.CLICK,onButtonEvent);
+				}
+				var containAdd:Boolean = contrls[contrls.length-1]>3&&contrls[contrls.length-1]<9;
+				btn_add.visible = containAdd;
+				control3.visible = false;
+				control2.visible = true;
+				control1.visible = true;
+			}
+			
+			private function onButtonEvent(e : MouseEvent) : void
+			{
+				var btn : GameMCButton = e.currentTarget as GameMCButton;
+				if(btn == null) return;
+				//				HideButton();
+				HideCompare();
+				switch(btn.id)
+				{
+					case 'Btn_2':			//跟注
+					{
+						HideButton();
+						SendAddScore();
+						break;
+					}
+					case 'Btn_12':			//跟注
+					{
+						HideButton();
+						SendAddScore();
+						break;
+					}
+						//					case 'Btn_0':			//看注
+						//					{
+						//						btn.enabled = false;
+						//						_theModel.SendTcpEvent(GameCmd.MDM_GF_GAME,ZjhCMD.SUB_C_LOOK_CARD,null,0);
+						//						break;
+						//					}
+						//					case 'Btn_1':			//弃注
+						//					{
+						//						btn.enabled = false;
+						//						_theModel.SendTcpEvent(GameCmd.MDM_GF_GAME,ZjhCMD.SUB_C_GIVE_UP,null,0);
+						//						break;
+						//					}
+					case 'Btn_11':
+					case 'Btn_3':			//比牌
+					{
+						HideButton();
+						//SendAddScore(0,true);
+						
+						//只剩下两个人
+						if(_theModel.UserCount == 2) 
+						{
+							for(var i : uint = 0;i<ZjhConst.GAME_PLAYER;i++)
+							{
+								if(i !=_theModel.m_User.GetMeChairID() && (_theModel.bPlayerStatus[i]==1)){
+									//发送加注
+									SendCompare(i);
+									break;
+								}
+							}
+						}else {
+							//等待玩家选择比牌
+							ShowCompare(true);
+							//_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,ZjhCMD.SUB_C_WAIT_COMPARE);
+						}
+						break;
+					}
+					case 'Btn_4':			//X1
+					{
+						//						SendAddScore(1);
+						setUserAddScore(1);
+						break;
+					}
+					case 'Btn_5':			//X2
+					{
+						setUserAddScore(2);
+						break;
+					}
+					case 'Btn_6':			//X3
+					{
+						setUserAddScore(5);
+						break;
+					}
+					case 'Btn_7':			//X3
+					{
+						setUserAddScore(10);
+						break;
+					}
+					case 'Btn_8':			//最大
+					{
+						setUserAddScore(100);
+						break;
+					}
+				}
+			}
+			
+			public function ShowCompare(bSelf : Boolean) : void
+			{
+				if(bSelf)
+				{
+					var wViewChairID : uint = 0;
+					for(var i : uint = 0;i<5;i++)
+					{
+						wViewChairID = _user.SwitchViewChairID(i);
+						if(_user.GetUserByChair(i) != null && ZjhModel._getInstance().bPlayerStatus[i] == 1 && wViewChairID != 2 )
+						{
+							this['Compare_' + wViewChairID].visible = true;
+							this['Compare_' + wViewChairID].addEventListener(MouseEvent.CLICK,onSelectCompare);
+						}
+					}
+					
+					CheckShowButton();
+				}else {
+					
+				}
+			}
+			
+			private function onSelectCompare(e : MouseEvent) : void
+			{
+				var compareName : String = e.currentTarget.name;
+				var index : uint = parseInt(compareName.charAt(compareName.length-1));
+				
+				for(var i : uint = 0;i<5;i++)
+				{
+					if( index == _user.SwitchViewChairID(i))
+					{
+						SendCompare(i);
+						break;
+					}
+				}
+				HideButton();
+				HideCompare();
+			}
+			
+			public function HideCompare() : void
+			{
+				for(var i : uint = 0;i<5;i++)
+				{
+					if(i==2) continue;
+					this['Compare_' + i].visible = false;
+					if(this['Compare_' + i].hasEventListener(MouseEvent.CLICK))
+					{
+						this['Compare_' + i].removeEventListener(MouseEvent.CLICK,onSelectCompare);
+					}
+				}
+			}
+			
+			
+			private function SendCompare(wChairID : uint) : void
+			{
+				if(wChairID != TConst.INVALID_CHAIR)
+				{
+					var SendCompare : CMD_C_CompareCard = new CMD_C_CompareCard();
+					SendCompare.wCompareUser = wChairID;
+					_theModel.SendTcpEvent(GameCmd.MDM_GF_GAME,ZjhCMD.SUB_C_COMPARE_CARD,SendCompare.toByteArray(),SendCompare.size);
+				}else {
+					CheckShowButton();
+				}
+			}
+			
+			public function HideButton() : void
+			{
+				for(var i : uint = 2;i<7;i++)
+				{
+					this['Btn_'+i].visible = false;
+					this['Btn_'+i].removeEventListener(MouseEvent.CLICK,onButtonEvent);
+				}
+				
+				Btn_11.visible   = false;
+				control2.visible = false;
+				control3.visible = false;
+			}
+			
+			public function SendAddScore(times : uint = 0,bCompare : Boolean = false) : void
+			{
+				if( _theModel.wCurrentUser != _theModel.m_User.GetMeChairID())  return;
+				_theModel.wCurrentUser = TConst.INVALID_CHAIR;
+				var addTimes : uint = _theModel.bMingzhu[_theModel.m_User.GetMeChairID()];
+				
+				//				trace(addTimes + "  ----------  "  + _theModel.m_User.GetMeChairID())
+				
+				var allTimes : uint = 10 * addTimes * (bCompare?2:1);
+				//				if(_theModel.m_bFirstUser)
+				//				{
+				//					addTimes = times * addTimes;
+				//				}else {
+				addTimes = (_theModel.lCurrentTimes + times ) * addTimes;
+				//				}
+				addTimes *= bCompare?2:1;
+				addTimes = addTimes>allTimes?allTimes:addTimes;
+				var addScore : Number = addTimes * _theModel.lCellScore;
+				
+				_addScore == 0xff;
+				if(_theModel.bMingzhu[_theModel.m_User.GetMeChairID()] == 2)
+					lab_addScore.text = '您已看牌，请选择下注';
+				else
+					lab_addScore.text = '您未看牌，请选择下注';
+				btn_addsure.visible = false;
+				
+				var SendAdd	: CMD_C_AddScore = new CMD_C_AddScore();
+				SendAdd.lScore = addScore;
+				SendAdd.wState = bCompare?1:0;
+				
+				
+				_theModel.SendTcpEvent(GameCmd.MDM_GF_GAME,ZjhCMD.SUB_C_ADD_SCORE,SendAdd.toByteArray(),SendAdd.size);
+				
+				
+				//				wait_operate.visible = true;
+			}
+			
+			private function setUserAddScore(add:Number) : Number
+			{
+				var str:String;
+				if(_addScore == 0xff)
+					_addScore = _theModel.lCurrentTimes*TScore.toFloatEx(_theModel.lCellScore);
+				
+				var addTimes : uint = _theModel.bMingzhu[_theModel.m_User.GetMeChairID()];
+				str = addTimes==2?'您已看牌':'您未看牌';
+				
+				_addScore += add*TScore.toFloatEx(_theModel.lCellScore);
+				
+				if(_addScore >= TScore.toFloatEx(_theModel.lMaxAddScore))
+				{
+					_addScore = TScore.toFloatEx(_theModel.lMaxAddScore);
+					
+					str += '，下注达最大值  ';
+					
+					setAddScoreButtonEnabled(false);
+				}
+				else
+					str += '，将要下注  ';
+				
+				str += (_addScore*addTimes).toFixed(2);
+				lab_addScore.text = str;
+				btn_addsure.visible = true;
+				
+				return _addScore*addTimes;
+			}
+			
+			private function setAddScoreButtonEnabled(used:Boolean):void
+			{
+				for(var i:int=4; i<9; i++)
+				{
+					this['Btn_'+i].enabled = used;
+				}
+			}
+			
+			
+			public function setAddScoreValue():void
+			{
+				Btn_4.showValue = getAddNumStr( TScore.toFloatEx(_theModel.lCellScore) );
+				Btn_5.showValue = getAddNumStr( TScore.toFloatEx(_theModel.lCellScore*2) );
+				Btn_6.showValue = getAddNumStr( TScore.toFloatEx(_theModel.lCellScore*5) );
+				Btn_7.showValue = getAddNumStr( TScore.toFloatEx(_theModel.lCellScore*10) );
+			}
+			
+			private function getAddNumStr(num:Number):String
+			{
+				if(num < 1 && num > 0)	return num.toFixed(1);
+				return num.toFixed(0);
+			}
+			
+			
+			private function playSoundEffect(wChairID : uint,action : String,type : int=-1,value : int=-1,rand : int = -1):void
+			{
+				if(_theModel == null)	return;
+				try
+				{
+					_theModel.m_Sound.PlayEffect(wChairID, action, type, value, rand);
+				}
+				catch(e:Error){	};
+			}
+			
+			
+			
+			public function onDestroyAllDos() : void
+			{
+				
+				StopClock();
+				TweenMax.killAll();
+				
+				if(vsPlaying)
+					cartoonEndHandler();
+				
+				for(var i:int=0; i<5; i++)
+				{
+					this['gp_jinbi'   + i].visible = false;
+					this['JinBiInfo_' + i].text = '';
+					this['JinBiInfo_' + i].setStyle('color', 0xFF9900);
+					this['winlose_'   + i].text = '';
+					hideUserCard(i);
+					removeLookCard(i);
+				}
+				for each(var chip : DisplayObject in _chips)
+				{
+					removeChip(chip);
+				}
+				
+				if(!StaticVars.isTryPlayed)
+				{
+					tryplay.visible = false;
+//					tryplay1.visible= false;
+				}
+				showOpenCard = false;
+				isReconnect  = false;
+				_endGame = false;
+				
+				_fengding.visible = false;
+				
+				control1.visible 	= false;
+				theZhongZhu.text 	= '';
+				theServerName.text 	= '';
+				theServerNum.text 	= '';
+				btn_continue.visible = false;
+				_zhuang.visible 	= false;
+				Btn_0.enabled 		= false;
+				Btn_1.enabled 		= false;
+				_addScore 			= 0xff;
+				lab_addScore.text 	= '您未看牌，请选择下注';
+				btn_addsure.visible = false;
+				
+				if(_theModel)
+					_theModel.m_gameStart = false;
+				theuser.Destroy();
+				_user = null;
+				_theModel = null;
+				
+				System.gc();
+			}
+			
+			
+			private function getObjcetProperties(obj:Object):String
+			{
+				var str:String = '';
+				var ary:Array = ObjectUtil.getClassInfo(obj).properties;
+				for(var i:int=0, leng:int=ary.length; i<leng; i++)
+				{
+					str += "---" + ary[i].localName + ":" + obj[ary[i].localName] + "  ";
+				}
+				return str;
+			}
+			
+			
+			
+			protected function lookCard_clickHandler(event:MouseEvent):void
+			{
+				Btn_0.enabled = false;
+				Btn_1.enabled = true;
+				
+				_theModel.m_bFollow = false;
+				_theModel.bMingzhu[_theModel.m_User.GetMeChairID()] = 2;
+				
+				_theModel.SendTcpEvent(GameCmd.MDM_GF_GAME,ZjhCMD.SUB_C_LOOK_CARD,null,0);
+			}
+			
+			protected function dropCard_clickHandler(event:MouseEvent):void
+			{
+				Btn_1.enabled = false;
+				control1.visible = false;
+				_theModel.SendTcpEvent(GameCmd.MDM_GF_GAME,ZjhCMD.SUB_C_GIVE_UP,null,0);
+			}
+			
+			
+			
+			protected function showCompareCartoon(compareArrs : Array):void
+			{
+				playSoundEffect(TConst.INVALID_CHAIR,'VSkaishi');
+				
+				control1.visible = false;
+				
+				var wViewChairID : uint = 0;
+				vsPlaying = true;
+				compareArrs.sort(Array.NUMERIC);
+				for(var i : uint = 0;i<2;i++)
+				{
+					wViewChairID = _user.SwitchViewChairID(compareArrs[i]);
+					
+					if(_mingCard[wViewChairID])
+						_mingCard[wViewChairID].visible = false;
+					
+					for(var j : uint = 0;j<3;j++)
+					{
+						var img : CardImage = _userCards[wViewChairID][j];
+						var gp:Group = this['gp_user' + wViewChairID];
+						img.top 			= undefined;
+						img.bottom 			= undefined;
+						img.left 			= undefined;
+						img.right 			= undefined;
+						img.horizontalCenter= undefined;
+						img.verticalCenter 	= undefined;
+						
+						img.x = gp.x-130-j*10;
+						img.y = gp.y;
+						
+						TweenMax.to(img,1,{x:gp_vs.x-185+j*15+i*270,y:gp_vs.y-50});
+					}
+				}
+				TweenMax.delayedCall(1,showVS);
+			}
+			
+			private function showVS():void
+			{
+				if(mc_vs == null)
+				{
+					mc_vs = ZjhSkinClass.GetCartoon();
+					ui_cartoon.addChild(mc_vs);
+				}
+				
+				if(mc_vslight11 == null)
+				{
+					mc_vslight11 = new ZjhSkinClass.vs_light1() as MovieClip;
+					ui_light11.addChild(mc_vslight11);
+				}
+				if(mc_vslight12 == null)
+				{
+					mc_vslight12 = new ZjhSkinClass.vs_light1() as MovieClip;
+					ui_light12.addChild(mc_vslight12);
+				}
+				mc_vslight11.gotoAndPlay(1);
+				mc_vslight12.gotoAndPlay(2);
+				mc_vslight11.addEventListener(Event.ENTER_FRAME, vsLight_enterFrameHandler);
+				mc_vslight12.addEventListener(Event.ENTER_FRAME, vsLight_enterFrameHandler);
+				
+				
+				playSoundEffect(TConst.INVALID_CHAIR,'VSbaozha');
+				
+				mc_vs.gotoAndPlay(1);
+				mc_vs.addEventListener(Event.ENTER_FRAME, vsCartoon_enterFrameHandler);
+			}
+			
+			private function vsCartoon_enterFrameHandler(event:Event):void
+			{
+				if(mc_vs.currentFrame == mc_vs.totalFrames)
+				{
+					cartoonEndHandler();
+				}
+				else if(mc_vs.currentFrame == 40)
+				{
+					setCompLoserCard();
+				}
+			}
+			
+			private function setCompLoserCard():void
+			{
+				var wViewChairID:uint;
+				wViewChairID = _theModel.m_User.SwitchViewChairID(compareloser);
+				
+				removeLookCard(wViewChairID);
+				setCompareLoseCard(wViewChairID);
+			}
+			
+			private function cartoonEndHandler():void
+			{
+				if(mc_vs)
+				{
+					mc_vs.removeEventListener(Event.ENTER_FRAME, vsCartoon_enterFrameHandler);
+					mc_vs.gotoAndStop(1);
+				}
+				//				vsPlaying = false;
+				//				TweenMax.killAll();
+				
+				
+				
+				var img:CardImage;
+				var wViewChairID:int;
+				var poX:int;
+				var poY:int;
+				var gp:Group;
+				
+				if(_user == null)	return;
+				
+				for(var i:int=0; i<2; i++)
+				{
+					wViewChairID			= _user.SwitchViewChairID(compareArr[i]);
+					gp = this['gp_user' + wViewChairID]
+					for(var j:int=0; j<3; j++)
+					{
+						img = _userCards[wViewChairID][j];
+						
+						if(wViewChairID == 2)
+						{
+							poX = gp.x - 70 + j*85 + 1;
+							poY = gp.y + 3;
+						}
+						else if(wViewChairID < 2)
+						{
+							poX = gp.x - 20 + j*15;
+							poY = gp.y - 3;
+						}
+						else
+						{
+							poX = gp.x + j*15 - 3;
+							poY = gp.y - 3;
+						}
+						
+						TweenMax.to(img, 1, {x:poX, y:poY});
+					}
+				}
+				
+				
+				TweenMax.delayedCall(1, cartoonEndUpdateCard);
+				//				cartoonEndUpdateCard();
+				
+			}	
+			
+			
+			
+			private function cartoonEndUpdateCard():void	
+			{
+				vsPlaying = false;
+				TweenMax.killAll();
+				
+				
+				var wViewChairID:uint;
+				
+				for(var i:int, length:int=compareArr.length; i<length; i++)
+				{
+					wViewChairID = _user.SwitchViewChairID(compareArr[i]);
+					
+					if(_mingCard[wViewChairID])
+						_mingCard[wViewChairID].visible = true;
+					
+					updateUserCard(compareArr[i]);
+				}
+				
+				wViewChairID = _theModel.m_User.SwitchViewChairID(compareloser);
+				
+				//				removeLookCard(wViewChairID);
+				//				setCompareLoseCard(wViewChairID);
+				
+				if(!_endGame)
+					control1.visible = true;
+				
+				if(wViewChairID == 2)
+				{
+					Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,1);
+					HideCompare();
+					HideButton();
+					OnDestroyOnline();
+					
+					control1.visible = false;
+					
+					if(_theModel.UserCount > 1)
+						btn_continue.visible = true;
+				}
+			}
+			
+			private function updateUserCard(wChairID : uint = -1):void
+			{
+				var wViewChairID:uint = _user.SwitchViewChairID(wChairID);
+				for(var i:int=0;i<_userCards[wViewChairID].length; i++)
+				{
+					updateCardPosition(_userCards[wViewChairID][i], wViewChairID, i);
+				}
+			}
+			
+			
+			private function vsLight_enterFrameHandler(e:Event):void
+			{
+				var mc:MovieClip = e.target as MovieClip;
+				if(mc.currentFrame == mc.totalFrames)
+				{
+					mc.gotoAndStop(1);
+					mc.removeEventListener(Event.ENTER_FRAME, vsLight_enterFrameHandler);
+				}
+			}
+			
+			
+			
+			
+			protected function controlAdd_clickHandler(event:MouseEvent):void
+			{
+				setAddScoreButtonEnabled(true);
+				control3.visible = !control3.visible;
+				
+				Btn_7.visible = false;
+//				if(control3.visible)
+//				{
+//					Btn_2.visible  = false;
+//					Btn_12.visible = true;
+//				}
+//				else
+//				{
+//					Btn_2.visible  = true;
+//					Btn_12.visible = false;
+//				}
+			}
+			
+			protected function addSure_clickHandler(event:MouseEvent):void
+			{
+				HideButton();
+				var num1:int = _addScore/TScore.toFloatEx(_theModel.lCellScore);
+				SendAddScore(num1-_theModel.lCurrentTimes);
+			}
+			
+			protected function addCancel_clickHandler(event:MouseEvent):void
+			{
+				if(_theModel.bMingzhu[_theModel.m_User.GetMeChairID()] == 2)
+					lab_addScore.text = '您已看牌，请选择下注';
+				else
+					lab_addScore.text = '您未看牌，请选择下注';
+				btn_addsure.visible = false;
+				
+				_addScore = 0xff;
+				Btn_2.visible  = true;
+				Btn_12.visible = false;
+				control3.visible = false;
+			}
+			
+			protected function continue_clickHandler(event:MouseEvent):void
+			{
+				//super.onRemoveSocketSink();
+				
+				if(vsPlaying)	cartoonEndUpdateCard();
+				if(checkPlayed())	return;
+				
+				onDestroyAllDos();
+				
+				Controller.dispatchEvent(GameEvent.CONTINUE_GAME);
+			}
+			
+			private function exitGame():void
+			{
+				Controller.dispatchEvent('gameModuleExit');
+				
+				MsgManager.getInstance().showMessage1('由于您长时间未参与游戏！系统自动返回大厅！');
+			}
+			
+			
+			protected function btn_follow_clickHandler(event:MouseEvent):void
+			{
+				if(_theModel.m_bFollow)
+				{
+					btn_follow.targetClass = ZjhSkinClass.control_aoto;
+					_theModel.m_bFollow = false;
+					
+					if(_theModel.m_User.GetMeChairID() == _theModel.wCurrentUser)
+						Btn_1.enabled = true;
+					else
+						Btn_1.enabled = false;
+					
+					//					if(_theModel.bMingzhu[_theModel.m_User.GetMeChairID()] == 2)
+					//						Btn_0.enabled = false;
+					//					else
+					//						Btn_0.enabled = true;
+				}
+				else
+				{
+					btn_follow.targetClass = ZjhSkinClass.control_aoto1;
+					_theModel.m_bFollow = true;
+					
+					HideButton();
+					Btn_1.enabled = false;
+					//					Btn_0.enabled = false;
+					
+					if(_theModel.wCurrentUser == _theModel.m_User.GetMeChairID())
+						SendAddScore(0, false);
+					//						TweenMax.delayedCall(.5,SendAddScore,[0,false]);
+				}
+			}
+			
+			
+			
+			protected function endPlayOpenCard(dataAry:Array):void
+			{
+				playSoundEffect(TConst.INVALID_CHAIR,'VSfangda');
+				
+				var cardValue:int;
+				var userImg:CardImage;
+				var wViewChairID:int;
+				var poX:int;
+				var poY:int;
+				for(var i:int=0; i<2; i++)
+				{
+					openCard[i] = new Array(3);
+					wViewChairID			= _user.SwitchViewChairID(compareArr[i]);
+					removeLookCard(wViewChairID);
+					
+					for(var j:int=0; j<3; j++)
+					{
+						cardValue 	= dataAry[compareArr[i]][j];
+						var img:CardImage= gettheCard(cardValue, 82, 112, "b2");
+						openCard[i][j] = img;
+						
+						
+						userImg 				= _userCards[wViewChairID][j];
+						userImg.top 			= undefined;
+						userImg.bottom 			= undefined;
+						userImg.left 			= undefined;
+						userImg.right 			= undefined;
+						userImg.horizontalCenter= undefined;
+						userImg.verticalCenter 	= undefined;
+						
+						poX = -400 + gp_vs.x + i*200 + j*50;
+						poY = gp_vs.y - 450;
+						TweenMax.to(userImg, 1, {x:poX, y:poY, scaleX:8, scaleY:8, alpha:0});
+					}
+				}
+				
+				TweenMax.delayedCall(.6, showCard);
+			}
+			
+			private function showCard():void
+			{
+				playSoundEffect(TConst.INVALID_CHAIR,'VSbaozha');
+				var img:CardImage;
+				for(var i:int=0; i<2; i++)
+				{
+					for(var j:int=0; j<3; j++)
+					{
+						img = openCard[i][j];
+						img.rotation = -30 + j*30;
+						img.x = -300 + gp_vs.x + j*50 + i*400;
+						img.y = gp_vs.y - 50 - 10;
+						if(j == 0)	img.y += 30;
+						this.addElement(img);
+						
+						img.alpha = 0;
+						img.scaleX = 1.5;
+						img.scaleY = 1.5;
+						TweenMax.to(img, .5, {y:img.y+10, alpha:1, scaleX:1, scaleY:1});
+					}
+				}
+				if(mc_vslight21 == null)
+				{
+					mc_vslight21 = new ZjhSkinClass.vs_light2() as MovieClip;
+					ui_light21.addChild(mc_vslight21);
+				}
+				if(mc_vslight22 == null)
+				{
+					mc_vslight22 = new ZjhSkinClass.vs_light2() as MovieClip;
+					ui_light22.addChild(mc_vslight22);
+				}
+				mc_vslight21.gotoAndPlay(1);
+				mc_vslight22.gotoAndPlay(2);
+				mc_vslight21.addEventListener(Event.ENTER_FRAME, vsLight_enterFrameHandler);
+				mc_vslight22.addEventListener(Event.ENTER_FRAME, vsLight_enterFrameHandler);
+				
+				//				TweenMax.delayedCall(3, showCardOver);
+				TweenMax.delayedCall(2, moveToUserPosition);
+			}
+			
+			private function moveToUserPosition():void
+			{
+				var img:CardImage;
+				var wViewChairID:int;
+				var poX:int;
+				var poY:int;
+				var gp:Group;
+				for(var i:int=0; i<2; i++)
+				{
+					wViewChairID			= _user.SwitchViewChairID(compareArr[i]);
+					gp = this['gp_user' + wViewChairID]
+					for(var j:int=0; j<3; j++)
+					{
+						img = openCard[i][j];
+						
+						if(wViewChairID == 2)
+						{
+							poX = gp.x + j*50;
+							poY = gp.y - 50;
+						}
+						else
+						{
+							poX = gp.x - 50 + j*50;
+							poY = gp.y;
+						}
+						if(j == 0)	poY += 30;
+						TweenMax.to(img, .5, {x:poX, y:poY, alpha:1, scaleX:1, scaleY:1});
+					}
+				}
+			}
+			
+			
+			private function showCardOver():void
+			{
+				if(!openCard)	return;
+				
+				var img:CardImage;
+				for(var i:int=0; i<2; i++)
+				{
+					if(!openCard[i])	return;
+					for(var j:int=0; j<3; j++)
+					{
+						img = openCard[i][j];
+						img.visible = false;
+						if(img && this.contains(img))
+							this.removeElement(img);
+					}
+				}
+			}
+			
+			
+			
+			protected function playOpenCardCartoon(chairID:uint, bopen:Boolean):void
+			{
+				playSoundEffect(TConst.INVALID_CHAIR,'VSzimu');
+				
+				var wViewChairID:int = _user.SwitchViewChairID(chairID);
+				
+				var ui:UIComponent;
+				var mc:MovieClip;
+				
+				if(wViewChairID == 2)
+				{
+					ui = openCard1;
+					mc = openMC1;
+					updateCardPosition(ui, wViewChairID, 0, 250, 0);
+				}
+				else
+				{
+					ui = openCard2;
+					mc = openMC2;
+					
+					if(wViewChairID < 2)
+						updateCardPosition(ui, wViewChairID, 0, 150, -80);
+					else
+						updateCardPosition(ui, wViewChairID, 0, 230, -80);
+				}
+				
+				if(mc && ui.contains(mc))
+				{
+					ui.removeChild(mc);
+					mc = null;
+				}
+				
+				mc = getOpenCardCartoon(wViewChairID, bopen);
+				mc.addEventListener(Event.ENTER_FRAME, openMC_enterFrameHandler);
+				ui.addChild(mc);
+			}
+			
+			private function openMC_enterFrameHandler(e:Event):void
+			{
+				var mc:MovieClip = e.target as MovieClip;
+				if(mc.currentFrame == mc.totalFrames)
+				{
+					mc.stop();
+					mc.removeEventListener(Event.ENTER_FRAME, openMC_enterFrameHandler);
+				}
+			}
+			
+			
+			protected function getOpenCardCartoon(wViewChairID:uint, bopen:Boolean):MovieClip
+			{
+				var str:String = wViewChairID<2?'left':(wViewChairID==2?'center':'right');
+				if(bopen)	str += '1';
+				else		str += int(Math.random()*2)+2;
+				
+				if(str == 'left1')		return new ZjhSkinClass.open_left1() as MovieClip;
+				if(str == 'left2')		return new ZjhSkinClass.open_left2() as MovieClip;
+				if(str == 'left3')		return new ZjhSkinClass.open_left3() as MovieClip;
+				if(str == 'center1')	return new ZjhSkinClass.open_center1() as MovieClip;
+				if(str == 'center2')	return new ZjhSkinClass.open_center2() as MovieClip;
+				if(str == 'center3')	return new ZjhSkinClass.open_center3() as MovieClip;
+				if(str == 'right1')		return new ZjhSkinClass.open_right1() as MovieClip;
+				if(str == 'right2')		return new ZjhSkinClass.open_right2() as MovieClip;
+				if(str == 'right3')		return new ZjhSkinClass.open_right3() as MovieClip;
+				return null;
+			}
+			
+			
+			
+			public function changeBackground(val:int):void
+			{
+				if(val == 1)
+					_bg.source = ZjhSkinClass.bg_col1;
+				else if(val == 2)
+					_bg.source = ZjhSkinClass.bg_col2;
+				else if(val == 3)
+					_bg.source = ZjhSkinClass.bg_col3;
+				else if(val == 4)
+					_bg.source = ZjhSkinClass.bg_col4;
+				else
+					_bg.source = ZjhSkinClass.bg_col2;
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+	</fx:Declarations>
+	
+	<s:Image horizontalCenter="0" verticalCenter="14" source="{ZjhSkinClass.bg_col2}" id="_bg"/>
+	<s:Image x="6" y="-12" source="{ZjhSkinClass.zjh_bg2}"/>
+	<s:Image  x="395" y="255" source="{ZjhSkinClass.tryplay}" id="tryplay" visible="false"/>
+	<!--<s:Image horizontalCenter="30" verticalCenter="90" source="{ZjhSkinClass.tryplay1}" id="tryplay1" visible="false"/>-->
+	
+	
+	<zjh:ZjhUserAir x="0" y="0" id="theuser" horizontalCenter="0" verticalCenter="0" width="100%" height="100%">
+	</zjh:ZjhUserAir>
+	<mx:UIComponent id="_chipUI" x="0" y="0" width="210" height="150"/>
+	
+	<s:Group id="gp_center" horizontalCenter="210" verticalCenter="-210"/>
+	<s:Group id="gp_user0" left="240" verticalCenter="-200"/>
+	<s:Group id="gp_user1" left="130" verticalCenter="-40"/>
+	<s:Group id="gp_user2" bottom="190" horizontalCenter="-100"/>
+	<s:Group id="gp_user3" right="215" verticalCenter="-40"/>
+	<s:Group id="gp_user4" right="325" verticalCenter="-200"/>
+	
+	<s:Group id="gp_vs" horizontalCenter="0" verticalCenter="0"/>
+	<mx:UIComponent horizontalCenter="0" verticalCenter="0" id="ui_cartoon" depth="101"/>
+	
+	<mx:UIComponent horizontalCenter="-300" verticalCenter="-50" id="ui_light11" depth="50"/>
+	<mx:UIComponent horizontalCenter="0" verticalCenter="-50" id="ui_light12" depth="50"/>
+	
+	<mx:UIComponent horizontalCenter="-220" verticalCenter="0" id="ui_light21"/>
+	<mx:UIComponent horizontalCenter="180" verticalCenter="0" id="ui_light22"/>
+	
+	<mx:UIComponent bottom="150" horizontalCenter="0" id="openCard1" depth="100"/>
+	<mx:UIComponent id="openCard2" depth="100"/>
+	
+	<s:Image id="Compare_0" name="Compare_0" visible="false" x="231" y="96" buttonMode="true" depth="100" source="{ZjhSkinClass.control_comparebg}"/>
+	<s:Image id="Compare_1" name="Compare_1" x="93"  y="257" buttonMode="true"  visible="false" depth="100" source="{ZjhSkinClass.control_comparebg}"/>
+	<s:Image id="Compare_3" name="Compare_3" x="800" y="255"  buttonMode="true" visible="false" depth="100" source="{ZjhSkinClass.control_comparebg}"/>
+	<s:Image id="Compare_4" name="Compare_4" x="680" y="95" buttonMode="true" visible="false" depth="100" source="{ZjhSkinClass.control_comparebg}"/>
+	
+	
+	
+	<s:Group x="50" y="50" width="80" height="85" id="gp_clock" visible="false"  depth="500">
+		<mx:UIComponent x="40" y="45" id="ui_clock"/>
+		<s:Label x="27" y="34" color="#FFFF00" fontSize="26" fontWeight="bold" text="20" id="theTime"/>
+		<!--<s:Image x="10" y="22" id="time_image"/>-->
+	</s:Group>
+	
+	<s:Group width="336" height="160" bottom="-30" horizontalCenter="320" id="_control" depth="100" visible="true">
+		
+		<s:Group width="336" height="104" x="0" y="55" id="control1" visible="false">
+			<s:Image source="{ZjhSkinClass.control_scorebg2}" x="0" y="0"/>
+			
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_aoto}" x="5" y="55" buttonMode="true" id="btn_follow" click="btn_follow_clickHandler(event)"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_look}" x="115" y="55" buttonMode="true" id="Btn_0" click="lookCard_clickHandler(event)"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_drop}" x="225" y="55" buttonMode="true" id="Btn_1" click="dropCard_clickHandler(event)"/>
+		</s:Group>
+		
+		<s:Group width="250" x="0" y="50" id="control2" visible="false">
+			<!--<s:Image source="{ZjhSkinClass.control_addbg}" 	x="0" 	y="0"/>-->
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_follow}" x="5" y="10" buttonMode="true" id="Btn_2" visible="false"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_add}"    x="115"  y="10" buttonMode="true" id="btn_add" visible="false" click="controlAdd_clickHandler(event)"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_compare}" x="225" y="10" buttonMode="true" id="Btn_3" visible="false"/>
+			
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_compare}" x="225" y="10" buttonMode="true" id="Btn_11" visible="false"/>
+			<!--<com:GameMCButton targetClass="{ZjhSkinClass.control_open}"   x="225" y="10" buttonMode="true" id="Btn_11" visible="false"/>-->
+		</s:Group>
+		<s:Group width="407" x="0" y="0" id="control3" visible="false">
+			<s:Image source="{ZjhSkinClass.control_scorebg1}" x="15" y="-28"/>
+			<s:Label x="20" y="-20" color="#666666" fontFamily="宋体" fontSize="14" text="您未看牌，请选择下注" id="lab_addScore"/>
+			
+			
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_add1}" x="25" y="5" buttonMode="true" id="Btn_4" visible="false"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_add2}" x="70" y="5" buttonMode="true" id="Btn_5" visible="false"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_add5}" x="115" y="5" buttonMode="true" id="Btn_6" visible="false"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_add10}" x="160" y="5" buttonMode="true" id="Btn_7" visible="false"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_addmax}" x="160" y="5" buttonMode="true" id="Btn_8" visible="false"/>
+			
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_follow1}" x="10" y="35" buttonMode="true" id="Btn_12" visible="false" click="onButtonEvent(event)"/>
+			
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_sure}" x="205" y="5" buttonMode="true" visible="true" id="btn_addsure" click="addSure_clickHandler(event)"/>
+			<com:GameMCButton targetClass="{ZjhSkinClass.control_cancel}" x="260" y="5" buttonMode="true" id="btn_addCancel" click="addCancel_clickHandler(event)"/>
+		</s:Group>
+	</s:Group>
+	
+	
+	<s:Image id="_zhuang" source="{ZjhSkinClass.card_zhuang}" visible="false"/>
+	<s:Label filters="{[gf01]}" horizontalCenter="440" verticalCenter="-295" width="100" id="theFd" color="#EFA155"/>
+	<s:Label filters="{[gf01]}" horizontalCenter="440" verticalCenter="-218" width="100" id="theDiFen" color="#EFA155"/>
+	<s:Label filters="{[gf01]}" horizontalCenter="440" verticalCenter="-276" width="100" id="theCurrentTimes" color="#EFA155"/>
+	<s:Label filters="{[gf01]}" horizontalCenter="440" verticalCenter="-257" width="100" id="theOpenTimes" color="#EFA155"/>
+	<s:Label filters="{[gf01]}" horizontalCenter="440" verticalCenter="-237" width="100" id="theLookTimes" color="#EFA155"/>
+	<!--<com:GameRollText  horizontalCenter="0" verticalCenter="-140" RollText="{StaticVars.gameRollTextStr}" visible="false" id="zjh_rollText"/>-->
+	<s:Label filters="{[gf01]}" fontSize="18" color="#FFFFCC" fontWeight="bold" horizontalCenter="0" y="0" id="theZhongZhu"/>
+	
+	<s:Label filters="{[gf01]}" fontSize="14" color="#1D581A" fontFamily="宋体" fontWeight="bold" horizontalCenter="0" y="20" id="theServerName"/>
+	<s:Label filters="{[gf01]}" fontSize="14" color="#1D581A" fontFamily="宋体" horizontalCenter="0" y="40" id="theServerNum" />
+	
+	
+	<s:Group width="80" height="30" id="gp_jinbi0" left="363" verticalCenter="-110" visible="false" >
+		<s:Image source="{ZjhSkinClass.userscore_bg}" x="0" y="0"/>
+		<s:Label filters="{[gf01]}" id="JinBiInfo_0" fontSize="16" y="8" color="#FFFFFF" width="80" x="0" textAlign="center"/>
+	</s:Group>
+	<s:Group width="80" height="30" id="gp_jinbi1" left="235" verticalCenter="50" visible="false" >
+		<s:Image source="{ZjhSkinClass.userscore_bg}" x="0" y="0"/>
+		<s:Label filters="{[gf01]}" id="JinBiInfo_1" fontSize="16" y="8" color="#FFFFFF" width="80" x="0" textAlign="center"/>
+	</s:Group>
+	<s:Group width="80" height="30" id="gp_jinbi2" bottom="80" horizontalCenter="130" visible="false">
+		<s:Image source="{ZjhSkinClass.userscore_bg}" x="0" y="0"/>
+		<s:Label filters="{[gf01]}" id="JinBiInfo_2" fontSize="16" y="8" color="#FFFFFF" width="80" x="0" textAlign="center"/>
+	</s:Group>
+	<s:Group width="80" height="30" id="gp_jinbi3" right="235" verticalCenter="50" visible="false">
+		<s:Image source="{ZjhSkinClass.userscore_bg}" x="0" y="0"/>
+		<s:Label filters="{[gf01]}" id="JinBiInfo_3" fontSize="16" y="8" color="#FFFFFF" width="80" x="0" textAlign="center"/>
+	</s:Group>
+	<s:Group width="80" height="30" id="gp_jinbi4" right="345" verticalCenter="-110" visible="false">
+		<s:Image source="{ZjhSkinClass.userscore_bg}" x="0" y="0"/>
+		<s:Label filters="{[gf01]}" id="JinBiInfo_4" fontSize="16" y="8" color="#FFFFFF" width="80" x="0" textAlign="center"/>
+	</s:Group>
+	
+	<s:Label filters="{[gf01]}" id="winlose_0" fontFamily="黑体" fontSize="30" left="385" verticalCenter="-140"/>
+	<s:Label filters="{[gf01]}" id="winlose_1" fontFamily="黑体" fontSize="30" left="255" verticalCenter="20"/>
+	<s:Label filters="{[gf01]}" id="winlose_2" fontFamily="黑体" fontSize="30" bottom="112" horizontalCenter="130"/>
+	<s:Label filters="{[gf01]}" id="winlose_3" fontFamily="黑体" fontSize="30" right="265" verticalCenter="20"/>
+	<s:Label filters="{[gf01]}" id="winlose_4" fontFamily="黑体" fontSize="30" right="375" verticalCenter="-140"/>
+	
+	<s:Image source="{ZjhSkinClass.auto_opencard}" horizontalCenter="0" verticalCenter="80" visible="false" id="_fengding"/>
+
+	<com:GameMCButton targetClass="{ZjhSkinClass.control_continue}" buttonMode="true" id="btn_continue" visible="false"
+					  horizontalCenter="0" verticalCenter="0" click="continue_clickHandler(event)"/>
+		
+</base:GameBaseModule>

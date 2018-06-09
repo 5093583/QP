@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:user="games.zjh.user.*"
+		 width="800" height="600"
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 implements="cx.gamebase.Interface.IUserViewSink, cx.gamebase.Interface.IReadyGame, cx.gamebase.Interface.IDestroy" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import cx.assembly.head.HeadEmbed;
+			import cx.client.logon.model.UserModel;
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.model.GameUserModel;
+			import cx.gamebase.model.GlobalModel;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			import cx.ip.IPLocation;
+			import cx.ip.IPScanner;
+			import cx.ip.IPScannerNew;
+			
+			import gameAssets.sparrow.SparrowSkinClass;
+			
+			import games.sparrow.model.MjModel;
+			import games.sparrow.utils.MjConst;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.IDConvert;
+			
+			
+			protected var _user : GameUserModel;
+			
+			public function init():void
+			{
+				_user = GameUserModel.GetInstance();
+				Controller.addEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+				
+				Controller.addEventListener('tryPlayedScore', onUpdateTryPlayedScore);
+			}
+			
+			private function onUpdateTryPlayedScore(e:TEvent):void
+			{
+				//trace("onUpdateTryPlayedScore*********************************" + StaticVars.tryPlayScore)
+				UpdateGameScore(StaticVars.tryPlayScore, 2);
+			}
+			
+			private function onUserGameScore(e : TEvent) : void
+			{
+				var wChairID : uint = e.nWParam;
+				var lScore : Number = e.nLParam;
+				var userInfo : tagUserInfoHead = _user.GetUserByChair(wChairID);
+				if(userInfo != null)
+				{
+					userInfo.UserScoreInfo.lScore = lScore;
+					UpdateGameScore(lScore,_user.SwitchViewChairID(wChairID));
+				}
+			}
+			
+			public function UpdateGameScore(score : Number,wViewChairID : uint) : void
+			{
+				if(wViewChairID == 2)
+				{
+					spa_jinqian.text = TScore.toStringEx(score);
+				}
+			}
+			
+			
+			
+			public function ReadyGameEvent(e:TEvent):Boolean
+			{
+				return true;
+			}
+			private var otherId:int;
+			public function UpdateUserCome(userInfo:tagUserInfoHead, wViewChairID:uint):Boolean
+			{
+				if(userInfo != null &&( userInfo.dwUserRight != 0 || userInfo.dwMasterRight != 0)) {
+					//trace('玩家：'+IDConvert.Id2View(userInfo.dwUserID),userInfo.dwUserRight,userInfo.dwMasterRight);
+				}
+				if(wViewChairID == 1)
+				{
+					spa_name.text = IDConvert.Id2View(userInfo.dwViewID).toString();
+//					var localIP : IPLocation = IPScanner._getInstance().Query(userInfo.ip);
+//					spa_quyu.text = localIP.country + ' ' + localIP.local;
+					spa_quyu.text = IPScannerNew._getInstance().getIpnew(userInfo.ip); /////////新;
+					Face(userInfo.cbGender,1);
+					theUser.visible = true;
+					spa_jinqian.text = TScore.toStringEx(_user.GetSelfData().UserScoreInfo.lScore); 
+					if(StaticVars.isTryPlayed)
+					{
+						spa_jinqian.text = TScore.toStringEx(StaticVars.tryPlayScore);
+					}
+				}else{
+					otherId = IDConvert.Id2View(userInfo.dwViewID);
+					spa_name_2.text ="游戏玩家";
+//					var localIP2 : IPLocation = IPScanner._getInstance().Query(userInfo.ip);/////////旧
+//					var localIP2 : IPLocation = IPScannerNew._getInstance().getIpnew(userInfo.ip); /////////新
+//					spa_quyu_2.text = localIP2.country + ' ' + localIP2.local;
+					spa_quyu_2.text = IPScannerNew._getInstance().getIpnew(userInfo.ip); /////////新;
+					//spa_quyu_2.text = userInfo.ip;
+					Face2(userInfo.cbGender,2);
+					theOther.visible = true;
+					spa_duanxin_2.visible = false;
+					spa_duanxin_2.text = "";
+				}
+				return true;
+			}
+			public function Face(index : uint,id:uint) : void
+			{
+				if(id == 1)
+				{
+					
+					if(index == 2)
+						headBg.source = SkinClass.hall_head_female_small;
+					else
+						headBg.source = SkinClass.hall_head_male_small;
+					hd_my.visible = true;
+				}
+				
+			}
+			public function Face2(index : uint,id:uint) : void
+			{
+				if(id == 2)
+				{
+					if(index == 2)
+					{
+						headBg_2.source = SkinClass.hall_head_female_small;
+					}else{
+						headBg_2.source = SkinClass.hall_head_male_small;
+					}
+					headBg_2.visible = true;
+					hd_other.visible = true;
+				}
+			}
+			public function UpdateUserScore(userID:int, wViewChairID:uint, fScore:Number):Boolean
+			{
+				if(wViewChairID == 2)
+				{
+					spa_jinqian.text = _user.GetSelfData().UserScoreInfo.lScore.toString(); 
+				}
+				return true;
+			}
+			
+			public function UpdateUserStatus(userID:int, cbStatus:uint, wTableID:int, wViewChairID:uint):Boolean
+			{
+				if(cbStatus < TConst.US_SIT || cbStatus == TConst.US_LOOKON || wViewChairID == TConst.INVALID_CHAIR ) 
+				{
+					if(GlobalModel( GlobalModel.GetInstance() ).m_bReadyGame && _user.count == 1) {
+						Controller.dispatchEvent('ready_leave');
+						return true;
+					}
+				}
+				
+				
+				var i : uint = 0;
+				if(cbStatus < TConst.US_SIT || cbStatus == TConst.US_LOOKON || wViewChairID >= MjConst.GAME_PLAYER ) return true;
+				if(cbStatus == TConst.US_OFFLINE)
+				{
+					Offlie(30000,wViewChairID);
+					return true;
+				}
+				if(cbStatus > TConst.US_FREE)
+				{
+					Offlie(0,wViewChairID);
+				}
+				return true;
+			}
+			
+			public function Destroy():Boolean
+			{
+				Controller.removeEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+				Controller.removeEventListener('tryPlayedScore', onUserGameScore);
+				theUser.visible = false;
+				spa_duanxin.visible = false;
+				spa_duanxin.text = "";
+				theOther.visible = false;
+				spa_duanxin_2.visible = false;
+				spa_duanxin_2.text = "";
+				//				_user.Destroy();
+				hd_my.visible = false;
+				hd_other.visible = false;
+				headBg_2.visible = false;
+				_user = null;
+				return true;
+			}
+			
+			private var _time : Timer;
+			private var bool1:Boolean = true;
+			private var bool2:Boolean = true;
+			public function Offlie(timelen : int,index:uint) : void
+			{
+				destroyTime();
+				if(timelen > 0)
+				{
+					_time = new Timer(1000,timelen/1000);
+					_time.addEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time.start();
+					
+					//					setChildIndex(OffLineTxt,this.numChildren-1);
+					if(index == 1)
+					{
+					}else{
+						spa_duanxin_2.visible = true;
+//						theOther.setElementIndex(spa_duanxin_2,theOther.numChildren-1);
+						spa_duanxin_2.text = '断线' + _time.repeatCount;
+						bool2 = false;
+					}
+					
+				}
+			}
+			
+			
+			private function onOfflieTime(e : TimerEvent) : void
+			{
+				if(bool1 == false)
+				{
+					if(_time.repeatCount-_time.currentCount == 0)
+					{
+						spa_duanxin_2.text = '断线';
+					}else{
+						spa_duanxin_2.text="断线" + (_time.repeatCount-_time.currentCount).toString();
+					}
+				}
+				if(bool2 == false)
+				{
+					if(_time.repeatCount-_time.currentCount == 0)
+					{
+						spa_duanxin_2.text = '断线';
+					}else{
+						spa_duanxin_2.text="断线" + (_time.repeatCount-_time.currentCount).toString();
+					}
+				}
+				if(_time.repeatCount == _time.currentCount) { destroyTime(); }
+			}
+			
+//			private function onButtonExClick(e : MouseEvent) : void
+//			{
+//				Controller.dispatchEvent('addFriendInGame', 0, otherId);
+//			}
+			
+			private function destroyTime() : void
+			{
+				if(_time != null)
+				{
+					_time.reset();
+					_time.removeEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time = null;
+				}
+				spa_duanxin.text = '';
+			}
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{	
+				if(_user == null)	init();
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<mx:GlowFilter id="glow"  blurX="5" blurY="5" strength="2.5" color="#000000" />
+	</fx:Declarations>
+	
+	<s:HGroup bottom="-60" horizontalCenter="100" id="theUser" visible="true" gap="7">
+		<s:Label color="#c9e4ad" fontSize="14" width="140" height="20" id="spa_name" textAlign="center" fontFamily="宋体" filters="{[glow]}"/>
+		<s:Label color="#c9e4ad" fontSize="14" width="140" height="20" id="spa_quyu" textAlign="center" fontFamily="宋体" filters="{[glow]}"/>
+		<s:Label color="#c9e4ad" fontSize="14" width="140" height="20" id="spa_jinqian" textAlign="center" fontFamily="宋体" filters="{[glow]}"/>
+	</s:HGroup>
+	<s:Image bottom="-58" horizontalCenter="-180" source="{SparrowSkinClass.user_head}" id="hd_my" visible="false"/>
+	<s:Image bottom="-50" horizontalCenter="-178" id="headBg"/>
+	<s:Label bottom="-35" horizontalCenter="-178" color="#FF0000" fontSize="12" width="91" height="16" depth="200" id="spa_duanxin" fontFamily="宋体" textAlign="center" visible="false" filters="{[glow]}"/>
+	<s:HGroup top="-7" horizontalCenter="20" id="theOther" visible="true" gap="7">
+		<s:Label color="#c9e4ad" fontSize="14" width="140" height="20" id="spa_name_2" textAlign="center" fontFamily="宋体" filters="{[glow]}"/>
+		<s:Label color="#c9e4ad" fontSize="14" width="140" height="20" id="spa_quyu_2" textAlign="center" fontFamily="宋体" filters="{[glow]}"/>
+		<!--<com:MCButton x="16" y="138" targetClass="{SparrowSkinClass.add_friend}" id="friend_add" click="onButtonExClick(event)"/>-->
+	</s:HGroup>
+	<s:Image top="-11" horizontalCenter="-180" source="{SparrowSkinClass.user_head}" id="hd_other" visible="false"/>
+	<s:Image top="-5" horizontalCenter="-180" id="headBg_2"/>
+	<s:Label top="38" horizontalCenter="-120" color="0xFF0000" fontSize="16" width="91" height="25" depth="200" id="spa_duanxin_2" fontFamily="宋体" textAlign="center" visible="false" filters="{[glow]}"/>
+</s:Group>

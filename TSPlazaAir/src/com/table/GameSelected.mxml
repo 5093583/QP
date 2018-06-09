@@ -1,0 +1,609 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 currentState="type"
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 width="534" height="508" xmlns:table="com.table.*" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.NavigateURL;
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import com.BufferManager;
+			
+			import cx.client.logon.model.ServerList;
+			import cx.client.logon.model.events.MsgEvent;
+			import cx.client.logon.model.events.RoomEvents;
+			import cx.client.logon.model.vo.KindOption;
+			import cx.gamebase.sturuct.tagMatch;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.file.TPather;
+			import t.cx.air.utils.serialization.json.JSON;
+			import t.cx.cmd.struct.tagGameServer;
+			
+			protected var m_serverList 	: ServerList;
+			private var m_data:Vector.<Object>;
+			
+			
+			
+			private var _wCurrentKind:int;
+			
+			private var sroommoveid : Array;
+			
+			private var stypemoveid : Array;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				Controller.addEventListener("selectGame", selectGame);
+				
+				Controller.addEventListener(MsgEvent.MSG_UPDATE_SERVER, updateRoomCount);
+			}
+			
+			private function updateRoomCount(e:TEvent):void
+			{
+				if( currentState != 'room' ) 	return;
+				var GameServer : tagGameServer = e.nWParam as tagGameServer;
+				if( GameServer == null ) return;
+				if(e.m_nMsg == 1)
+				{
+					var score:Number;
+					var scoreStr:String;
+					var btn:GameRoom;
+					for(var i:int=0; i<gp_room.numElements; i++)
+					{
+						btn = gp_room.getElementAt(i) as GameRoom;
+						if(btn && btn.wServerID == GameServer.wServerID)
+						{
+//							btn.szServerName 	= GameServer.szServerName
+//							btn.roomLessScore	= GameServer.lRoomLessScore;
+							btn.dwOnLineCount	= GameServer.dwOnLineCount;
+							btn.labperson.text 	=  '在线人数：'  + GameServer.dwOnLineCount ;
+							
+//							btn.tryPlayed 		= GameServer.RoomType==8?true:false;
+//							if(btn.tryPlayed)
+//								btn.lab_desc.text = '免费试玩';
+//							else
+//								btn.lab_desc.text = '所需金币：' + TScore.toStringEx(GameServer.lRoomLessScore);
+						}
+					}
+					
+					var onLineCount:int = 0;
+					for( i=0; i<gp_room.numElements; i++)
+					{
+						btn = gp_room.getElementAt(i) as GameRoom;
+						onLineCount += btn.dwOnLineCount;
+					}
+					
+					_gamenum.text = '当前游戏人数： ' + onLineCount + ' 人';
+				}
+			}
+			
+			
+			private function selectGame(e:TEvent):void
+			{
+				if(e.m_nMsg > 0)
+				{
+					var m_kindOption:KindOption = m_serverList.GetKindOption(e.m_nMsg);
+					if(m_kindOption == null) return;
+					
+					
+					this.currentState = 'room';
+					
+					_gamename.text = m_kindOption.name;
+					_gamenum.text = '当前游戏人数： ' + 0 + ' 人';
+					var onLineCount:int = 0;
+					
+					var serverArr : Array= m_serverList.GetServerList( m_kindOption.wKindID );
+					serverArr.sortOn(['RoomType', 'lCellScore'], [2|16, 16]);
+					
+					if(gp_room.numElements)
+						gp_room.removeAllElements();
+					var length:int = serverArr.length;
+					var score:Number;
+					
+					if(sroommoveid == null) sroommoveid = new Array();
+					else {
+						sroommoveid = null;
+						sroommoveid = new Array();
+					}
+					//var scoreStr:String;
+					for(var i:int=0; i<length; i++)
+					{
+						var btn:GameRoom = new GameRoom;
+						var tag:tagGameServer = serverArr[i];
+						
+						btn.tryPlayed = tag.RoomType==8?true:false;
+						
+						score = TScore.toFloatEx(tag.lCellScore);
+//						if(score < .1)
+//							scoreStr = score.toFixed(2);
+//						else if(score < 1)
+//							scoreStr = score.toFixed(1);
+//						else
+//							scoreStr = score.toFixed(0);
+//						
+						//btn.img_game.source = 'assets/ui/game/' + m_kindOption.exe + '.png';
+						btn.labname.text = tag.szServerName;// + '(底注' + scoreStr + ')';
+						btn.lab_sell.text = '房间底注：'+TScore.toStringEx(tag.lCellScore);
+						btn.id = 'room_'+i;
+						sroommoveid.push(btn);
+						if(tag.wKindID == 1004)
+							btn.labname.text = tag.szServerName;
+						
+						//						btn.labnum.text = TScore.toStringEx(tag.lRoomLessScore);
+						if(btn.tryPlayed)
+						{
+							btn.lab_desc.text = '入场金币：'+ '试玩金币1000';
+							btn.labperson.text = '在线人数：' + tag.dwOnLineCount  ;
+						}
+						else
+						{
+							btn.lab_desc.text = '入场金币：' + TScore.toStringEx(tag.lRoomLessScore);
+							btn.labperson.text = '在线人数：'+tag.dwOnLineCount;
+						}
+//						btn.labperson.text = tag.dwOnLineCount + '人';
+						btn.wServerID 		= tag.wServerID;
+						btn.wKindID 		= tag.wKindID;
+						btn.roomLessScore 	= tag.lRoomLessScore;
+						btn.szServerName 	= tag.szServerName;
+						btn.lCellScore = tag.lCellScore;
+						btn.iRevenuel = tag.iRevenuel;
+						
+						var tagmatch:tagMatch = m_serverList.ExistMatchByServerID(tag.wServerID);
+						if(tagmatch == null)
+							btn.isMatch = false;
+						else
+							btn.isMatch = true;
+						
+						btn.addEventListener(MouseEvent.CLICK, roombtn_clickHandler);
+						
+						onLineCount += tag.dwOnLineCount;
+						
+						var pos:int = i%2;
+						btn.x = pos*244;
+						pos = i/2;
+						btn.y = 33 + pos*118;
+						
+						gp_room.addElement(btn);
+					}
+					
+					_gamenum.text = '当前游戏人数： ' + onLineCount + ' 人';
+				}
+				else if(e.m_nMsg == 0)
+				{
+					this.currentState = 'type';
+					
+					left_clickHandler(null);
+				}
+			}
+			
+			
+			private function roombtn_clickHandler(e:Event):void
+			{
+				StaticVars.serverID = parseInt(e.currentTarget.wServerID);
+				StaticVars.kindID 	= parseInt(e.currentTarget.wKindID);
+				StaticVars.isMatch = e.currentTarget.isMatch;
+				//				StaticVars.serverName = e.currentTarget.szServerName;
+				StaticVars.serverName = e.currentTarget.labname.text;
+				StaticVars.enterGameLessScore = e.currentTarget.roomLessScore;
+				StaticVars.scellScore = e.currentTarget.lCellScore;
+				StaticVars.iRevenuel = e.currentTarget.iRevenuel;
+				Controller.dispatchEvent("join_game");
+			}
+			
+			
+			
+			
+			
+			protected function image1_clickHandler(event:MouseEvent):void
+			{
+				this.currentState = 'room';
+			}
+			
+			protected function image2_clickHandler(event:MouseEvent):void
+			{
+				this.currentState = 'type';
+			}
+			
+			
+			
+			
+			
+			protected function state1_enterStateHandler(event:FlexEvent):void
+			{
+				if( gp_type && gp_type.numChildren ==0 )
+				{
+					initData();
+					initChildren();
+				}
+				
+			//	getGamePlayerCount();
+				
+			}
+			
+			
+			private function getGamePlayerCount():void
+			{
+				var urlloader:URLLoader = new URLLoader;
+				var url:String = NavigateURL.plaza_navigate + '/Gameapi/GetPlayerCount';
+				var request:URLRequest = new URLRequest(url); 
+				urlloader.addEventListener(Event.COMPLETE, loadCompleteHandelr);
+				urlloader.addEventListener(IOErrorEvent.IO_ERROR, ioerrorHandler);
+				urlloader.load(new URLRequest(url));
+			}
+			
+			private function loadCompleteHandelr(evt:Event):void
+			{
+				var str:String = evt.target.data;
+				var obj:Object = t.cx.air.utils.serialization.json.JSON.decode(str);
+				if(obj['Status'] == 1 && obj['Data'].length)
+				{
+					if(gp_type.numChildren)
+					{
+						var playerCountAry:Array = obj['Data'] as Array;
+						var btn:GameType;
+						for(var i:int=0; i<gp_type.numChildren; i++)
+						{
+							btn = gp_type.getElementAt(i) as GameType;
+//							for(var j:int=0, leng:uint=playerCountAry.length; j<leng; j++)
+//							{
+//								if(btn.kindID == playerCountAry[j].KindID)
+//									btn.lab_num.text = playerCountAry[j].Count;
+//							}
+						}
+					}
+				}
+			}
+			
+			
+			private function initData():void
+			{
+				m_serverList		= ServerList._getInstance();
+				var ary:Array = m_serverList.kindOption;
+				ary.sortOn( 'index', 16);
+				var m_listCount:int 		= ary.length;
+				if(m_listCount <= 0 ) return;
+				
+				m_data = new Vector.<Object>;
+				for(var i : uint = 0; i<m_listCount;i++) 
+				{
+					var kind : KindOption = ary[i];
+					if(kind) {
+						var obj : Object= new Object;
+						obj.index 		= kind.index;
+						obj.kindName	= kind.name;
+						obj.kindID 		= kind.wKindID;
+						obj.status		= kind.status;
+						obj.path 		= kind.exe;
+						obj.bitmapData  = kind.iconBitmapData;
+						
+						m_data.push(obj);
+					}
+				}
+				m_data.sort(onSortData);
+			}
+			
+			private function onSortData(obj1 : Object,obj2 : Object) : int
+			{
+				if(obj1.index > obj2.index)  {
+					return 1;
+				}else if(obj1.index < obj2.index) {
+					return -1;
+				}
+				return 0;
+			}
+			
+			private function initChildren():void
+			{
+				if(gp_type.numElements)	return;
+				var length:int = m_data.length;
+				
+				if(length > 8)
+				{
+					length = 8;
+					_left.selected  = true;
+					_right.selected = false;
+					
+					_right.addEventListener(MouseEvent.CLICK, right_clickHandler);
+				}
+				else
+				{
+					_left.selected  = true;
+					_right.selected = true;
+				}
+				
+				var index:int = 0;
+				for(var i:int=0; i<length; i++)
+				{
+					var path:String = TPather._fullPath(getGameLogoSource(m_data[i].path));
+					if(TPather._exist(path))
+					{
+						var btn:GameType = new GameType;
+						btn.kindID = m_data[i].kindID;
+						btn.img_game.source = path;
+//						btn.lab_name.text = m_data[i].kindName;
+//						btn.lab_num.text = '0';
+						
+						var pos:int = index%2;
+						btn.x = pos*244;
+						pos = index/2;
+						btn.y = pos*128;
+						index++;
+						
+						gp_type.addElement(btn);
+						
+						btn.addEventListener(MouseEvent.CLICK, btn_clickHandler);
+					}
+				}
+			}
+			
+			private function right_clickHandler(e:MouseEvent):void
+			{
+				if(gp_type && gp_type.numElements)	gp_type.removeAllElements();
+				var length:int = m_data.length;
+				
+				var index:int = 0;
+				
+				if(stypemoveid == null) stypemoveid = new Array();
+				else {
+					stypemoveid = null;
+					stypemoveid = new Array();
+				}
+				for(var i:int=8; i<length; i++)
+				{
+					var path:String = TPather._fullPath(getGameLogoSource(m_data[i].path));
+					if(TPather._exist(path))
+					{
+						var btn:GameType = new GameType;
+						btn.kindID = m_data[i].kindID;
+						btn.img_game.source = path;
+						//btn.lab_name.text = m_data[i].kindName;
+						//btn.lab_num.text = '0';
+						
+						var pos:int = index%2;
+						btn.x = pos*244;
+						pos = index/2;
+						btn.y = pos*128;
+						index++;
+						
+						gp_type.addElement(btn);
+						var msroom : Array = new Array();
+						msroom.push(btn);
+						stypemoveid.push(msroom);
+						btn.addEventListener(MouseEvent.CLICK, btn_clickHandler);
+					}
+				}
+				_left.selected  = false;
+				_right.selected = true;
+				
+				_left.addEventListener(MouseEvent.CLICK, left_clickHandler);
+				_right.removeEventListener(MouseEvent.CLICK, right_clickHandler);
+				
+				
+				var ranMove : uint = Math.random()*100;
+				if(ranMove > 60)
+				{
+					var msroom1 : Array = new Array();
+					msroom1.push(gp_type);
+					myMove.play(msroom1);
+				}
+				else
+				{
+					for(var j : uint = 0 ; j < stypemoveid.length;j++)
+					{
+						this['myMove_'+j].end();
+						this['myMove_'+j].play(stypemoveid[j]);
+					}
+				}
+			}
+			
+			private function left_clickHandler(e:MouseEvent):void
+			{
+				if(gp_type && gp_type.numElements)	gp_type.removeAllElements();
+				var length:int = m_data.length;
+				
+				if(length > 8)
+					length = 8;
+				
+				var index:int = 0;
+				
+				
+				if(stypemoveid == null) stypemoveid = new Array();
+				else {
+					stypemoveid = null;
+					stypemoveid = new Array();
+				}
+				for(var i:int=0; i<length; i++)
+				{
+					var path:String = TPather._fullPath(getGameLogoSource(m_data[i].path));
+					if(TPather._exist(path))
+					{
+						var btn:GameType = new GameType;
+						btn.kindID = m_data[i].kindID;
+						btn.img_game.source = path;
+//						btn.lab_name.text = m_data[i].kindName;
+//						btn.lab_num.text = '0';
+						
+						var pos:int = index%2;
+						btn.x = pos*244;
+						pos = index/2;
+						btn.y = pos*128;
+						index++;
+						
+						gp_type.addElement(btn);
+						
+						var msroom : Array = new Array();
+						msroom.push(btn);
+						stypemoveid.push(msroom);
+						
+						btn.addEventListener(MouseEvent.CLICK, btn_clickHandler);
+					}
+				}
+				
+				_left.selected  = true;
+				_right.selected = false;
+				
+				_left.removeEventListener(MouseEvent.CLICK, left_clickHandler);
+				_right.addEventListener(MouseEvent.CLICK, right_clickHandler);
+				
+				
+				var ranMove : uint = Math.random()*100;
+				if(ranMove > 60)
+				{
+					var msroom1 : Array = new Array();
+					msroom1.push(gp_type);
+					myMove.play(msroom1);
+				}
+				else
+				{
+					for(var j : uint = 0 ; j < stypemoveid.length;j++)
+					{
+						this['myMove_'+j].end();
+						this['myMove_'+j].play(stypemoveid[j]);
+					}
+				}
+			}
+			
+			
+			
+			private function btn_clickHandler(e:Event):void
+			{
+				var listBtn:GameType = e.currentTarget as GameType;
+				var m_kindOption:KindOption = m_serverList.GetKindOption( listBtn.kindID );
+				if(m_kindOption == null) return;
+				
+				_wCurrentKind = m_kindOption.wKindID;
+				//LogonNet._getInstance().GetRoomList(_wCurrentKind,onGetRoomList);
+				
+				Controller.addEventListener(RoomEvents.ROOMLIST_EVENT,onRoomListEvent);
+				
+				m_serverList.m_sendUserID   = true;
+				m_serverList.m_wCurrentKind = _wCurrentKind;
+			}
+			
+			
+			private function onRoomListEvent(e : TEvent) : void
+			{
+				switch(e.m_nMsg)
+				{
+					case RoomEvents.ROOM_SELECT:
+					{
+						onShowRoom(e.nWParam);
+						break;
+					}
+					case RoomEvents.ROOM_UPDATE:
+					{
+						onShowRoom(e.nWParam);
+						break;
+					}
+					case RoomEvents.ROOM_LOADING:
+					{
+						BufferManager.getInstance().showBufferView(true);
+						break;
+					}
+				}
+			}
+			
+			protected function onShowRoom(wKindID : int) : void
+			{
+				BufferManager.getInstance().showBufferView(false);
+				
+				Controller.dispatchEvent("selectGame", wKindID);
+				
+				var ranMove : uint = Math.random()*100;
+				if(ranMove > 60)
+				{
+					myMove.play([gp_room]);
+				}
+				else
+				{
+					for(var i : uint = 0 ; i < sroommoveid.length;i++)
+					{
+						this['myMove_'+i].end();
+						this['myMove_'+i].play([sroommoveid[i]]);
+					}
+				}
+			}
+			
+			
+			
+			private function getGameLogoSource(str:String):String
+			{
+				return 'assets\\ui\\game\\pj' + str + '.png';
+			}
+			
+			
+			private function ioerrorHandler(error:IOErrorEvent):void
+			{
+				trace("load io error")
+			}
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				Controller.dispatchEvent("selectGame", 0);
+			}
+			
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="type" enterState="state1_enterStateHandler(event)"/>
+		<s:State name="room"/>
+	</s:states>
+	<fx:Declarations>
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		
+		<mx:Move id="myMove" yFrom="600" duration="400">
+		</mx:Move>
+		<mx:Move id="myMove_0" xFrom="-800"  yFrom="-600" duration="400">
+		</mx:Move>
+		<mx:Move id="myMove_1" xFrom="800"  yFrom="-600" duration="400">
+		</mx:Move>
+		<mx:Move id="myMove_2" xFrom="-800"  yFrom="-600"  duration="400">
+		</mx:Move>
+		<mx:Move id="myMove_3" xFrom="800"   yFrom="-600"   duration="400">
+		</mx:Move>
+		<mx:Move id="myMove_4" xFrom="-800" yFrom="600" duration="400">
+		</mx:Move>
+		<mx:Move id="myMove_5" xFrom="800"   yFrom="600" duration="400">
+		</mx:Move>
+		<mx:Move id="myMove_6" xFrom="-800"  yFrom="600" duration="400">
+		</mx:Move>
+		<mx:Move id="myMove_7" xFrom="800"  yFrom="600" duration="400">
+		</mx:Move>
+	</fx:Declarations>
+	 
+	
+	<s:Image source.type="{SkinClass.hall_types_bg}" source.room="{SkinClass.hall_games_bg}" x="0" y="0"/>
+	
+	<s:Group includeIn="type" x="3" y="0" width="528" height="370" id="gp_type">
+		<!--
+		<s:Image source="{SkinClass.hall_game_bg}" x="0" y="0" click="image1_clickHandler(event)"/>
+		<s:Image source="{SkinClass.hall_game_bg}" x="266" y="0"/>
+		<s:Image source="{SkinClass.hall_game_bg}" x="0" y="124"/>
+		<s:Image source="{SkinClass.hall_game_bg}" x="266" y="124"/>
+		<s:Image source="{SkinClass.hall_game_bg}" x="0" y="248"/>
+		<s:Image source="{SkinClass.hall_game_bg}" x="266" y="248"/>
+		-->
+	</s:Group>
+	
+	<!--<s:Image includeIn="room" source="assets/back/table.png" x="0" y="0" click="image2_clickHandler(event)"/>-->
+	<s:Label filters="{[gf01]}"  includeIn="room" x="20" y="5" id="_gamename" color="0xFFCC00" fontFamily="微软雅黑" fontWeight="bold" fontSize="18"/>
+	<s:Label filters="{[gf01]}"  includeIn="room" x="150" y="10" id="_gamenum" color="0xDFCD9A" fontFamily="微软雅黑" fontSize="14"/>
+		
+	<com:MCButton includeIn="room" x="450" y="2" targetClass="{SkinClass.hall_back}" click="button1_clickHandler(event)" />
+	
+	<s:Group includeIn="room" x="3" y="0" id="gp_room" >
+	</s:Group>
+	<com:MCButton includeIn="type" x="492" y="140" targetClass="{SkinClass.hall_turnright}" id="_right"/>
+	<com:MCButton includeIn="type" x="492" y="280" targetClass="{SkinClass.hall_turnleft}" id="_left"/>
+	
+	
+</s:Group>

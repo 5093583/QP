@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="true" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="cx.gamebase.sturuct.CMD_MSG_GetMatchInfo"/>
+    <classEntry path="cx.gamebase.view.skins.ColumnUint"/>
+    <classEntry path="cx.gamebase.view.skins.Column"/>
+    <classEntry path="cx.gamebase.view.SetSoundView"/>
+    <classEntry path="cx.gamebase.Interface.IReadyGame"/>
+    <classEntry path="cx.gamebase.Interface.IDestroy"/>
+    <classEntry path="cx.gamebase.view.ReadyLeaveView"/>
+    <classEntry path="cx.gamebase.view.GameNotice"/>
+    <classEntry path="cx.gamebase.sturuct.CMD_GR_PlayWithFriend"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>

@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 width="800" height="600"
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 implements="cx.gamebase.Interface.IUserViewSink, cx.gamebase.Interface.IReadyGame, cx.gamebase.Interface.IDestroy" xmlns:com="com.*" xmlns:user="games.landlord.user.*">
+	<fx:Script>
+		<![CDATA[
+			import base.StaticVars;
+			
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.model.GameUserModel;
+			import cx.gamebase.model.GlobalModel;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			
+			import gameAssets.landlord.LandlordSkinClass;
+			
+			import games.landlord.model.LandModel;
+			import games.landlord.utils.LandConst;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.IDConvert;
+			import t.cx.air.utils.Memory;
+			
+			protected var _user : GameUserModel;
+			public function init():void
+			{
+				_user = GameUserModel.GetInstance();
+				Controller.addEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+				
+				Controller.addEventListener('tryPlayedScore', onUpdateTryPlayedScore);
+			}
+			private function onUpdateTryPlayedScore(e:TEvent):void
+			{
+				//trace("onUpdateTryPlayedScore*********************************" + StaticVars.tryPlayScore)
+				UpdateGameScore(StaticVars.tryPlayScore, 2);
+			}
+			private function onUserGameScore(e : TEvent) : void
+			{
+				var wChairID : uint = e.nWParam;
+				var lScore : Number = e.nLParam;
+				var userInfo : tagUserInfoHead = _user.GetUserByChair(wChairID);
+				if(userInfo != null)
+				{
+					userInfo.UserScoreInfo.lScore = lScore;
+					UpdateGameScore(lScore,_user.SwitchViewChairID(wChairID));
+				}
+			}
+			public function UpdateGameScore(score : Number,wViewChairID : uint) : void
+			{
+				if(wViewChairID == 2)
+				{
+					UV_1.JinBi = score;
+//					UV_1.JinBi = TScore.toStringEx(score);
+				}
+			}
+			public function ReadyGameEvent(e:TEvent):Boolean
+			{
+				return true;
+			}
+			
+			public function UpdateUserCome(userInfo:tagUserInfoHead, wViewChairID:uint):Boolean
+			{
+				if(userInfo != null &&( userInfo.dwUserRight != 0 || userInfo.dwMasterRight != 0)) {
+//					trace('玩家：'+IDConvert.Id2View(userInfo.dwUserID),userInfo.dwUserRight,userInfo.dwMasterRight);
+				}
+				if(wViewChairID < LandConst.GAME_PLAYER)			//如果用户座位ID不为0
+				{
+					var user : *;
+					if(wViewChairID == 1)
+						user = this['UV_' + wViewChairID] as UserSelf;
+					else
+						user = this['UV_' + wViewChairID] as UserOther;
+					if(user != null) 
+					{
+						if(LandModel._getInstance().m_playerInfo == null)
+							LandModel._getInstance().m_playerInfo = Memory._newArrayAndSetValue(5,0);
+						if( userInfo.dwUserRight!=0 || userInfo.dwMasterRight!=0 )
+						{
+							user.userID = userInfo.dwViewID;
+							LandModel._getInstance().m_playerInfo[wViewChairID] = userInfo.dwViewID;
+						}else{
+							user.userID = IDConvert.Id2View(userInfo.dwUserID);
+							LandModel._getInstance().m_playerInfo[wViewChairID] = IDConvert.Id2View(userInfo.dwUserID);
+						}
+						user.IP = userInfo.ip;
+						user.Face = userInfo.cbGender;
+						user.Offlie(0);
+						user.visible = true;
+						if(wViewChairID == 2) 
+						{ 
+							///GameFrame中sendUserInfoToGame函数发送自己消息
+							user.JinBi = _user.GetSelfData().UserScoreInfo.lScore; 
+						}
+					}
+				}
+				return true;
+			}
+			public function UpdateUserScore(userID:int, wViewChairID:uint, fScore:Number):Boolean
+			{
+				if(wViewChairID == 1)
+				{
+					var user : UserSelf = this['UV_' + wViewChairID];
+					if(user != null) {
+						user.JinBi = _user.GetSelfData().UserScoreInfo.lScore; 
+					}
+				}
+				return true;
+			}
+			
+			public function UpdateUserStatus(userID:int, cbStatus:uint, wTableID:int, wViewChairID:uint):Boolean
+			{
+				if(cbStatus < TConst.US_SIT || cbStatus == TConst.US_LOOKON || wViewChairID == TConst.INVALID_CHAIR ) 
+				{
+					if(GlobalModel( GlobalModel.GetInstance() ).m_bReadyGame && _user.count == 1) {
+						Controller.dispatchEvent('ready_leave');
+						return true;
+					}
+				}
+				var i : uint = 0;
+				if(cbStatus < TConst.US_SIT || cbStatus == TConst.US_LOOKON || wViewChairID >= LandConst.GAME_PLAYER ) return true;
+				if(cbStatus == TConst.US_OFFLINE)
+				{
+					this['UV_' + wViewChairID].Offlie(30000);
+					//					if(_user.SwitchViewChairID(ZjhModel._getInstance().wCurrentUser) == wViewChairID) { 
+					//						StopClock();
+					//					}
+					return true;
+				}
+				if(cbStatus > TConst.US_FREE)
+				{
+					this['UV_' + wViewChairID].Offlie(0);
+				}
+				return true;
+			}
+			public function Destroy():Boolean
+			{
+				Controller.removeEventListener(GameEvent.USER_GAME_SCORE,onUserGameScore);
+				Controller.removeEventListener('tryPlayedScore', onUserGameScore);
+				UV_0.visible = false;
+				UV_1.visible = false;
+				UV_2.visible = false;
+				_user = null;
+				return true;
+			}
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				if(_user == null)	init();
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<user:UserOther id="UV_0" left="10" verticalCenter="-90" visible="false"/>
+	<user:UserSelf id="UV_1" horizontalCenter="-350" bottom="5" visible="false"/>
+	<user:UserOther id="UV_2" right="10" verticalCenter="-90" visible="false"/>
+</s:Group>

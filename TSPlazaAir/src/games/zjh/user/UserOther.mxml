@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="95" height="177" creationComplete="group1_creationCompleteHandler(event)"
+		 fontFamily="宋体" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			
+			import cx.assembly.head.HeadEmbed;
+			import cx.ip.IPScannerNew;
+			import cx.net.utils.NetWork;
+			
+			import gameAssets.zjh.ZjhSkinClass;
+			
+			import games.zjh.model.ZjhModel;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			
+			private var headMC:MovieClip;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				addHeadStatus();
+			}
+			
+			private function addHeadStatus():void
+			{
+				if(!ui_head.numChildren)
+				{
+					headMC = new ZjhSkinClass.head_statusbg() as MovieClip;
+					ui_head.addChild(headMC);
+				}
+			}
+			
+			
+			
+			
+			private var _userid : int;
+			public function set userID(val : int) : void
+			{
+				_userid = val;
+//				IDTxt.text = val.toString();
+				IDTxt.text = '游戏玩家';
+				if(_userid == ZjhModel._getInstance().m_User.selfID)
+				{
+					SelfTxt.text = TScore.toStringEx(ZjhModel._getInstance().m_User.GetSelfData().UserScoreInfo.lScore);
+				}
+				
+				_leave.visible = false;
+				IDTxt.visible  = true;
+			}
+			public function get userID() : int
+			{
+				return _userid;
+			}
+			public function set IP(val : String) : void
+			{
+//				var localIP : IPLocation = IPScanner._getInstance().Query(val);
+//				IPTxt.text = localIP.country;
+//				IPTxt.text = CxGetIpInfo(val);
+				
+				IPTxt.text = IPScannerNew._getInstance().getIpnew(val);
+				
+				_leave.visible = false;
+				IPTxt.visible  = true;
+			}
+			
+			
+			public function set JinBi(val : Number) : void
+			{
+				if(_userid == ZjhModel._getInstance().m_User.selfID)
+				{
+					SelfTxt.text = TScore.toStringEx(val);
+				}
+			}
+			
+			private var _time : Timer;
+			public function Offlie(timelen : int) : void
+			{
+				destroyTime();
+				if(timelen > 0)
+				{
+					_time = new Timer(1000,timelen/1000);
+					_time.addEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time.start();
+					
+//					setChildIndex(OffLineTxt,this.numChildren-1);
+					setElementIndex(OffLineTxt,this.numChildren-1);
+					OffLineTxt.text = '断线' + _time.repeatCount;
+					
+					_leave.visible = false;
+				}
+			}
+			private var _bitmap : Bitmap;
+			public function set Face(index : uint) : void
+			{
+				if(index == 2)
+					head.source = SkinClass.hall_head_female_small;
+				else
+					head.source = SkinClass.hall_head_male_small;
+				
+				if(!headMC)
+					addHeadStatus();
+				headMC.gotoAndStop(2);
+				
+			}
+			private function onOfflieTime(e : TimerEvent) : void
+			{
+				OffLineTxt.text="断线" + (_time.repeatCount-_time.currentCount).toString();
+				if(_time.repeatCount == _time.currentCount) { destroyTime(); }
+			}
+			private function destroyTime() : void
+			{
+				if(_time != null)
+				{
+					_time.reset();
+					_time.removeEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time = null;
+				}
+				OffLineTxt.text = '';
+			}
+			public function Destroy() : void
+			{
+			}
+			
+			public function userLeave():void
+			{
+				_leave.visible = true;
+				IDTxt.visible  = false;
+				IPTxt.visible  = false;
+			}
+			
+			protected function friend_add_clickHandler(event:MouseEvent):void
+			{
+				if(_leave.visible)	return;
+				Controller.dispatchEvent('addFriendInGame', 0, userID);
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+	</fx:Declarations>
+	
+	<s:Image x="0" y="0" source="{ZjhSkinClass.user_bg1}"/>
+	<!--
+	<s:Group x="15" y="20" id="head_mask">
+		<s:Ellipse width="66" height="66">
+			<s:fill>
+				<s:SolidColor color="0xcccccc"/>
+			</s:fill>
+		</s:Ellipse>
+	</s:Group>
+	-->
+	<mx:UIComponent x="6" y="10" id="ui_head"/>
+	
+	<s:Image x="17" y="20" id="head"/>
+	<s:Label filters="{[gf01]}" color="0xFF0000" id="OffLineTxt" x="0" y="-25" width="80" fontSize="16" fontWeight="bold" textAlign="center"/>
+	<s:Label filters="{[gf01]}" id="IDTxt" x="0" y="105" width="95" color="#FFFFFF" textAlign="center"/>
+	
+	
+	<s:Label filters="{[gf01]}" id="IPTxt" x="0" y="123" width="95" color="#758FA8" textAlign="center"/>
+	<s:Label filters="{[gf01]}" id="SelfTxt" x="35" y="153"/>
+	
+	<s:Label filters="{[gf01]}" x="22" y="37" text="离开" color="0xFFFFFF" fontFamily="微软雅黑" fontSize="25" fontWeight="bold" id="_leave"/>
+	
+</s:Group>

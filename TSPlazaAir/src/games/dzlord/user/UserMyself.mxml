@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 fontFamily="宋体" 
+		 width="65" height="110" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import cx.assembly.head.HeadEmbed;
+			import cx.client.logon.model.UserModel;
+			import cx.ip.IPScannerNew;
+			
+			import gameAssets.DDZhouHL.DDZhouHLSkinClass;
+			
+			import games.dzlord.model.DeZhouModel;
+			
+			import t.cx.air.TScore;
+			
+			
+			
+			private var _userid : int;
+			private var _time : Timer;
+			private var _bitmap : Bitmap;
+			
+			public function set userID(val : int) : void
+			{
+				_userid = val;
+				IDTxt.text = "ID : " + val.toString();
+//				IDTxt.text = UserModel._getInstance().selfInfo.szAccount;
+				if(_userid == DeZhouModel._getInstance().m_User.selfID)
+				{
+					SelfTxt.text = TScore.toStringEx(DeZhouModel._getInstance().m_User.GetSelfData().UserScoreInfo.lScore);
+					if(StaticVars.isTryPlayed)
+						SelfTxt.text = TScore.toStringEx(StaticVars.tryPlayScore);
+				}
+			}
+			public function get userID() : int
+			{
+				return _userid;
+			}
+			public function set IP(val : String) : void
+			{
+				//IPTxt.text = val;
+				//				var localIP : IPLocation = IPScanner._getInstance().Query(val);
+				//				IPTxt.text = localIP.country;
+				IPTxt.text = IPScannerNew._getInstance().getIpnew(val);
+			}
+			public function set JinBi(val : Number) : void
+			{
+				SelfTxt.text = TScore.toStringEx(val);
+				if(StaticVars.isTryPlayed)
+					SelfTxt.text = TScore.toStringEx(StaticVars.tryPlayScore);
+			}
+			
+			
+			public function Offlie(timelen : int) : void
+			{
+				destroyTime();
+				if(timelen > 0)
+				{
+					_time = new Timer(1000,timelen/1000);
+					_time.addEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time.start();
+					
+					setElementIndex(OffLineTxt,this.numChildren-1);
+					OffLineTxt.text = '断线' + _time.repeatCount;
+				}
+			}
+			
+			public function set Face(index : uint) : void
+			{
+				if(index == 2)
+					head.source = SkinClass.hall_head_female_small;
+				else
+					head.source = SkinClass.hall_head_male_small;
+			}
+			
+			private function onOfflieTime(e : TimerEvent) : void
+			{
+				OffLineTxt.text="断线" + (_time.repeatCount-_time.currentCount).toString();
+				if(_time.repeatCount == _time.currentCount) { destroyTime(); }
+			}
+			private function destroyTime() : void
+			{
+				if(_time != null)
+				{
+					_time.reset();
+					_time.removeEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time = null;
+				}
+				OffLineTxt.text = '';
+			}
+			public function Destroy() : void
+			{
+				destroyTime();
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<mx:GlowFilter id="glow"  blurX="5" blurY="5" strength="2.5" color="#000000" />
+	</fx:Declarations>
+	<s:Image source="{DDZhouHLSkinClass.user_head}" x="0" y="0"/>
+	<s:Image x="6" y="6" id="head"/>
+	
+	<s:Label id="IDTxt" horizontalCenter="0" y="70" color="#FFEE00" filters="{[glow]}"/>
+	<s:Label id="IPTxt" horizontalCenter="0" y="110" color="#FFEE00" filters="{[glow]}"/>
+	<s:Label id="SelfTxt" x="20" y="90" color="#F1E9C4" filters="{[glow]}"/>
+	<s:Image x="-10" y="90" source="{DDZhouHLSkinClass.user_score}" width="15" height="15"/>
+	
+	<s:Label id="OffLineTxt" color="0xFFFFFF" x="22" y="28" width="38" fontSize="16" fontWeight="bold" textAlign="center" filters="{[glow]}"/>
+	
+</s:Group>

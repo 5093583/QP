@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="120" height="100">
+	<fx:Script>
+		<![CDATA[
+			import com.greensock.TweenMax;
+			
+			import gameAssets.DDZhouHL.DDZhouHLSkinClass;
+			
+			import t.cx.air.TScore;
+			private var _score : Number = 0;
+			public function addScore(lscore : Number) : void
+			{
+				_score = lscore ;
+				
+			}
+			public function show():void
+			{
+				if(_score > 0)
+				{	
+					this.visible = true;
+					lab.text = TScore.toStringEx(_score);
+					_bg.visible = true;	
+				}else
+				{
+					lab.text = '';
+					_bg.visible = false;	
+				}
+			}
+			public function hide():void
+			{
+				_bg.visible = false;	
+			}
+			public function Destroy() : void
+			{
+				lab.text = '';
+				this.visible = false;	
+				_bg.top = undefined;
+				_bg.bottom = undefined;
+				_bg.left = undefined;
+				_bg.right = undefined;
+				_bg.horizontalCenter = undefined;
+				_bg.verticalCenter = undefined;
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<mx:GlowFilter id="glow"  blurX="5" blurY="5" strength="2.5" color="#000000" />
+	</fx:Declarations>
+	<s:Image id="_bg" source="{DDZhouHLSkinClass.DiChiChip}" verticalCenter="0" horizontalCenter="0"/>
+	<s:Label id="lab" x="0" y="0" width="100%" color="#FFFFFF" fontSize="14" 
+			 textAlign="center" verticalAlign="bottom" filters="{[glow]}"/>
+</s:Group>

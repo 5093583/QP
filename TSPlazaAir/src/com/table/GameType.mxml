@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 fontFamily="微软雅黑"
+		 width="241" height="121">
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				this.buttonMode = true;
+				this.addEventListener(MouseEvent.ROLL_OVER, rollOverHandler);
+				this.addEventListener(MouseEvent.ROLL_OUT, rollOutHandler);
+				
+				this.alpha = 1;
+			}
+			
+			private function rollOverHandler(event:MouseEvent):void
+			{
+//				_bg.visible = true;
+				img.source = 'assets/back/type2.png';
+				this.alpha = .8;
+			}
+			
+			private function rollOutHandler(event:MouseEvent):void
+			{
+//				_bg.visible = false;
+				img.source = 'assets/back/type1.png';
+				this.alpha = 1;
+			}
+			
+			
+			
+			
+			private var _kindID:uint;
+			public function get kindID():uint
+			{
+				return _kindID;
+			}
+			
+			public function set kindID(value:uint):void
+			{
+				_kindID = value;
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+	</fx:Declarations>
+	
+	<s:Image source="assets/back/type1.png" x="0" y="0" id="img"/>
+	<!--
+	<s:Rect x="0" y="0" width="241" height="121" id="_bg" visible="false" radiusX="4" radiusY="4">
+		<s:fill>
+			<s:SolidColor color="0xdae8f6" alpha=".4"/>
+		</s:fill>
+	</s:Rect>
+	-->
+	<s:Image id="img_game" x="4" y="17" source="assets/ui/game/pjzjh.png" />
+	<s:Label  filters="{[gf01]}" id="lab_name" x="3" y="5" width="71" color="0xDFCD9A" fontSize="14" textAlign="center"/>
+	<s:Label  filters="{[gf01]}" id="lab_num" x="166" y="5" width="71" color="0xDFCD9A" fontSize="14" textAlign="center"/>
+	
+</s:Group>

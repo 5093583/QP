@@ -1,0 +1,3376 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base:GameBaseModule xmlns:fx="http://ns.adobe.com/mxml/2009"
+					 xmlns:s="library://ns.adobe.com/flex/spark"
+					 xmlns:mx="library://ns.adobe.com/flex/mx"
+					 xmlns:zjh="games.zjh.*"
+					 horizontalCenter="0" verticalCenter="0"
+					 backgroundColor="0xb0bc0c" backgroundAlpha="0"
+					 maxWidth="1300" maxHeight="900"
+					 width="800" height="600"
+					 creationComplete="gamebasemodule1_creationCompleteHandler(event)"
+					 implements="base.IModuleGame" xmlns:base="base.*" xmlns:com="com.*" xmlns:view="games.sparrow.view.*" xmlns:view1="games.landlord.view.*">
+	<fx:Script>
+		<![CDATA[
+			import base.StaticVars;
+			
+			import com.CardImage;
+			import com.greensock.TweenMax;
+			import com.plaza.MsgManager;
+			
+			import cx.gamebase.Interface.IUserViewSink;
+			import cx.gamebase.enum.enTimeType;
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.model.SoundModel;
+			import cx.gamebase.sturuct.GameCmd;
+			import cx.gamebase.sturuct.tagServerTimer;
+			import cx.net.Interface.IClientSocket;
+			import cx.sound.SoundBase;
+			import cx.sound.SoundMusic;
+			
+			import gameAssets.card.YBCardEmbed;
+			import gameAssets.landlord.LandlordSkinClass;
+			
+			import games.landlord.enum.enGameStatus;
+			import games.landlord.enum.enTimeTK;
+			import games.landlord.model.LandModel;
+			import games.landlord.model.vo.tagOutCardResult;
+			import games.landlord.struct.CMD_C_DoubleScore;
+			import games.landlord.struct.CMD_C_LandScore;
+			import games.landlord.struct.CMD_C_OutCard;
+			import games.landlord.struct.CMD_C_UserTrustee;
+			import games.landlord.struct.CMD_S_GameEnd;
+			import games.landlord.struct.CMD_S_GameStart;
+			import games.landlord.struct.CMD_S_LandScore;
+			import games.landlord.struct.CMD_S_OutCard;
+			import games.landlord.struct.CMD_S_PassCard;
+			import games.landlord.struct.CMD_S_SendAllCard;
+			import games.landlord.struct.CMD_S_StatusDoubleScore;
+			import games.landlord.struct.CMD_S_StatusFree;
+			import games.landlord.struct.CMD_S_StatusPlay;
+			import games.landlord.struct.CMD_S_StatusScore;
+			import games.landlord.struct.CMD_S_UserDouble;
+			import games.landlord.utils.LandCmd;
+			import games.landlord.utils.LandConst;
+			
+			import mx.charts.CategoryAxis;
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.Memory;
+			
+			private var _theModel:LandModel;
+			private var _handCards : Array;
+			private var _GameEnd : Boolean;
+			
+			//选牌
+			private var _MouseDownCard  : CardImage;
+			private var _shootCards: Array;
+			private var _outCards  : Array;
+			private var _backCards : Array;
+			private var _count_0:int = 0;
+			private var _count_2:int = 0;
+			private var _sortType		: uint;
+			public var _searchIndex		: uint;
+			private var _timer	: Timer;///////////////////////////定时器
+			private var _timerID : uint = 0;
+			
+			private var img0:MovieClip;
+			private var img1:MovieClip;
+			private var img2:MovieClip;
+			
+			private var img_left:MovieClip;
+			private var img_right:MovieClip;
+			private var img_my:MovieClip;
+			
+			private var img_huo:MovieClip;
+			private var img_feiji:MovieClip;
+			private var img_zhadan:MovieClip;
+			private var img_chun0:MovieClip;
+			private var img_chun1:MovieClip;
+			private var img_chun2:MovieClip;
+			private var img_JB_left:MovieClip;
+			private var img_JB_right:MovieClip;
+			private var img_landTs:MovieClip;
+			//农民两个地主1个
+			private var img_nomin1:MovieClip;
+			private var img_nomin2:MovieClip;
+			private var img_dizhu1:MovieClip;
+			//光效
+			private var img_sun:MovieClip;
+			//公共牌
+			private var array_dipai:Array = new Array();
+			private var bool_paixu:Boolean = true;
+			//上一轮
+			private var _bShowLast		: Boolean;
+			private var _lastChaild:Array;
+			private var array_card:Array = new Array();
+			//判断不出状态
+			private var no_send_left:int = 0;
+			private var no_send_right:int = 0;
+			
+			private var cardAll:Array;
+			private var user_:int = 0;
+			private var shumu_left:int = 0;
+			private var shumu_my:int = 0;
+			private var shumu_right:int = 0;
+			private var index_card:int = 0;
+			//判断当前状态是否断线
+			private var bool_duanxian:Boolean = true;
+			private var bool_duanxian_other:Boolean = true;
+			//判断是否加倍
+			private var bool_jiabei:Boolean = true;
+			//试玩
+			private var firstTryPlay:Boolean = true;
+			private var bool_try:Boolean = true;
+			//房间低分
+			private var room_score:Number = 0;
+			
+			private var _curBackSound : uint;
+			protected function gamebasemodule1_creationCompleteHandler(event:FlexEvent):void
+			{
+				
+			}
+			
+			
+			public function logonSuccess():void
+			{
+				if(theuser)	theuser.init();
+				super.addToStage();
+			}
+			
+			override protected function OnPreInit():Boolean
+			{
+				_theModel = LandModel._getInstance();
+				return true;
+			}
+			override protected function OnInit():Boolean
+			{
+				if( !super.OnInit() ) return false;
+				//设置用户回调钩子
+				_theModel.m_User.SetUserViewSink(theuser as IUserViewSink);
+				//初始化游戏服务配置
+				
+				//设置用户回调钩子
+				//初始化游戏服务配置4001001297
+				_theModel.m_Attribute.playerCount = LandConst.GAME_PLAYER;
+				//加载音乐
+				//				_theModel.m_Sound.StartLoad('data/sound/CxlandSound.swf');
+				_theModel.m_Sound.StartLoad('data/sound/CxlandSound' + (TConst.TC_DEUBG == 1?'.swf':'.cxm'));
+				//锁定用户进入
+				//				Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,0);
+				return true;
+			}
+			
+			override protected function OnSoundLoadComplete(e : TEvent) : void
+			{
+				super.OnSoundLoadComplete(e);
+				//				_theModel.m_Sound.Play('m_back_1',true);
+				_curBackSound = Math.random() * 3;
+				_theModel.m_Sound.Play('m_back_' + _curBackSound,false,nextSound);
+			}
+			private function nextSound() : void
+			{
+				//				_curBackSound = (_curBackSound+1)%3;
+				_curBackSound = Math.random() * 3;
+				_theModel.m_Sound.Play('m_back_' + _curBackSound,false,nextSound);
+			}
+			override protected function OnInitComplete() : Boolean
+			{
+				if(super.OnInitComplete())
+				{
+					if(_theModel.m_Attribute.Server) {
+						txt_dizhu.text = TScore.toStringEx(_theModel.m_Attribute.Server.lCellScore);
+						room_score = _theModel.m_Attribute.Server.lCellScore;
+					}
+					return true;
+				}
+				return false;
+			}
+			public function updateGameNum():void
+			{
+				if(theServerNum)
+					theServerNum.text	= '牌局:' + StaticVars.szGameNum;
+			}
+			
+			override protected function OnGameFrameScene(pBuffer:ByteArray, wDataSize:int, pIClientSocket:IClientSocket):Boolean
+			{
+				//				trace("_theModel.m_bGameStatus========="+_theModel.m_bGameStatus);
+				super.OnGameFrameScene(pBuffer,wDataSize,pIClientSocket);
+				Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,0);
+				var i : uint = 0;
+				switch(_theModel.m_bGameStatus)
+				{
+					case TConst.GS_FREE:
+					{
+						var StatusFre : CMD_S_StatusFree = CMD_S_StatusFree._readBuffer(pBuffer);
+						if(txt_dizhu.text == "")
+						{
+							txt_dizhu.text = TScore.toStringEx(StatusFre.lBaseScore);
+							room_score = StatusFre.lBaseScore;
+						}
+						StaticVars.isTryPlayed = StatusFre.cbIsTryPlay == 1?true:false;
+						if(firstTryPlay && StaticVars.isTryPlayed)
+						{
+							firstTryPlay = false;
+							StaticVars.tryPlayScore= StatusFre.lTryPlayScore;
+							theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+							if((StaticVars.isTryPlayed) && (bool_try == true) )
+								MsgManager.getInstance().showMessage1('您当前进入的是试玩房间，只为体验游戏而设，输赢金额不参与房间外结算！');
+						}
+						if(StaticVars.isTryPlayed)
+						{
+							tryplay.visible = true;
+						}
+						return true;
+					}
+					case enGameStatus.GS_WK_FREE:
+					{
+						var StatusFree : CMD_S_StatusFree = CMD_S_StatusFree._readBuffer(pBuffer);
+						txt_dizhu.text = TScore.toStringEx(StatusFree.lBaseScore);
+						//防作弊 自动开始游戏
+						return wDataSize == CMD_S_StatusFree.SIZE;
+					}
+					case enGameStatus.GS_WK_SCORE:		//叫分状态
+					{
+						var StatusScore : CMD_S_StatusScore = CMD_S_StatusScore._readBuffer(pBuffer);
+						if(txt_dizhu.text == "")
+						{
+							txt_dizhu.text = TScore.toStringEx(StatusScore.lBaseScore);
+							room_score = StatusScore.lBaseScore;
+						}
+						StaticVars.isTryPlayed = StatusScore.cbIsTryPlay == 1?true:false;
+						if(firstTryPlay && StaticVars.isTryPlayed)
+						{
+							firstTryPlay = false;
+							StaticVars.tryPlayScore= StatusScore.lTryPlayScore;
+							theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+							
+							if((StaticVars.isTryPlayed) && (bool_try == true) )
+								MsgManager.getInstance().showMessage1('您当前进入的是试玩房间，只为体验游戏而设，输赢金额不参与房间外结算！');
+						}
+						if(StaticVars.isTryPlayed)
+						{
+							tryplay.visible = true;
+						}
+						//初始化桌面扑克
+						var cards1 : Array = Memory._newTwoDimension(3,20,0);
+						cards1[_theModel.m_User.GetMeChairID()] = StatusScore.bCardData;
+						InitCardList(cards1,[17,17,17],[0,0,0],false);
+						sendCard();
+						for(i = 0;i<LandConst.GAME_PLAYER;i++) {
+							_theModel.m_EndUserID[_theModel.m_User.SwitchViewChairID(i)] = _theModel.m_User.GetUserByChair(i).dwUserID;
+						}
+						_theModel.m_LandScore = StatusScore.bLandScore;
+						_theModel.m_wCurrentUser = StatusScore.wCurrentUser;
+						//显示托管
+						for( i = 0;i<LandConst.GAME_PLAYER;i++)
+						{
+							if(StatusScore.bUserTrustee[i] == 1)
+							{
+								if(i == _theModel.m_User.GetMeChairID())
+								{
+									_theModel.m_bTrust = true;
+									RegistBtn(unTG_btn,true);
+									RegistBtn(tuoguanBtn,false);
+									TG_card.visible = true;
+									onTrustCard(true);
+								}
+							}
+						}
+						txt_beishu.text = _theModel.m_LandScore.toString();
+						return true;
+					}
+					case enGameStatus.GS_WK_DOUBLE_SCORE://加倍状态
+					{
+						var RecvDouble : CMD_S_StatusDoubleScore = CMD_S_StatusDoubleScore._readBuffer(pBuffer);
+						if(txt_dizhu.text == "")
+						{
+							txt_dizhu.text = TScore.toStringEx(RecvDouble.lBaseScore);
+							room_score = RecvDouble.lBaseScore;
+						}
+						StaticVars.isTryPlayed = RecvDouble.cbIsTryPlay == 1?true:false;
+						if(firstTryPlay && StaticVars.isTryPlayed)
+						{
+							firstTryPlay = false;
+							StaticVars.tryPlayScore= RecvDouble.lTryPlayScore;
+							theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+							
+							if((StaticVars.isTryPlayed) && (bool_try == true) )
+								MsgManager.getInstance().showMessage1('您当前进入的是试玩房间，只为体验游戏而设，输赢金额不参与房间外结算！');
+						}
+						if(StaticVars.isTryPlayed)
+						{
+							tryplay.visible = true;
+						}
+						
+						_theModel.m_wLnadUser = RecvDouble.wLandUser;
+						_theModel.m_LandScore = RecvDouble.bLandScore;
+						//初始化桌面扑克
+						var cards2 : Array = Memory._newTwoDimension(3,20,0);
+						cards2[_theModel.m_User.GetMeChairID()] = RecvDouble.bCardData;
+						InitCardList(cards2,RecvDouble.bCardCount,RecvDouble.bBackCard,false);
+						sendCard();
+						//显示托管
+						for( i = 0;i<LandConst.GAME_PLAYER;i++)
+						{
+							if(RecvDouble.bDoubleUser[i] == 1)
+							{
+								ShowJiaBei(i);
+								_theModel.m_EndDouble[0]++;
+							}
+							if(RecvDouble.bUserTrustee[i] == 1)
+							{
+								if(i == _theModel.m_User.GetMeChairID())
+								{
+									_theModel.m_bTrust = true;
+									RegistBtn(unTG_btn,true);
+									RegistBtn(tuoguanBtn,false);
+									TG_card.visible = true;
+									onTrustCard(true);
+								}
+							}
+						}
+						Land( _theModel.m_wLnadUser);
+						txt_beishu.text = _theModel.m_EndDouble[0].toString();
+						return true;
+					}
+					case enGameStatus.GS_WK_PLAYING:	//游戏状态
+					{
+						this.doubleClickEnabled = true;
+						this.addEventListener(MouseEvent.DOUBLE_CLICK,doubleClickHandle);
+						this.stage.addEventListener('rightClick',onMouseRightClick);
+						var RecvPlay : CMD_S_StatusPlay = CMD_S_StatusPlay._readBuffer(pBuffer);
+						if(txt_dizhu.text == "")
+						{
+							txt_dizhu.text = TScore.toStringEx(RecvPlay.lBaseScore);
+							room_score = RecvPlay.lBaseScore;
+						}
+						StaticVars.isTryPlayed = RecvPlay.cbIsTryPlay == 1?true:false;
+						if(firstTryPlay && StaticVars.isTryPlayed)
+						{
+							firstTryPlay = false;
+							StaticVars.tryPlayScore= RecvPlay.lTryPlayScore;
+							theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+							
+							if((StaticVars.isTryPlayed) && (bool_try == true) )
+								MsgManager.getInstance().showMessage1('您当前进入的是试玩房间，只为体验游戏而设，输赢金额不参与房间外结算！');
+						}
+						if(StaticVars.isTryPlayed)
+						{
+							tryplay.visible = true;
+						}
+						
+						sendCard();
+						//显示托管 上一轮 排序按钮
+						StartGame();
+						sy_0.visible = true;
+						sy_2.visible = true;
+						_theModel.m_bGameStart = true;
+						_theModel.m_wCurrentUser = RecvPlay.wCurrentUser;
+						_theModel.m_wLnadUser = RecvPlay.wLandUser;
+						_theModel.m_LandScore = RecvPlay.bLandScore;
+						_theModel.m_wLastOutCard = RecvPlay.wLastOutUser;
+						_theModel.m_bTurnCardCount = RecvPlay.bTurnCardCount;
+						_theModel.m_bTurnCardData = new Array(20);
+						Memory._copyArray(_theModel.m_bTurnCardData,RecvPlay.bTurnCardData,20,0,0);
+						if(RecvPlay.bTurnCardCount != 0)
+						{
+							for(i = 0;i<RecvPlay.bTurnCardCount;i++)
+							{
+								array_card.push(RecvPlay.bTurnCardData[i]);
+							}
+						}
+						//发牌
+						var cards3 : Array = Memory._newTwoDimension(3,20,0);
+						cards3[_theModel.m_User.GetMeChairID()] = RecvPlay.bCardData;
+						InitCardList(cards3,RecvPlay.bCardCount,RecvPlay.bBackCard,false);
+						HideOutCard(RecvPlay.wLastOutUser);
+						var viewId:uint = _theModel.m_User.SwitchViewChairID(RecvPlay.wLastOutUser);
+						if(viewId == 0)
+						{
+							_count_0 += RecvPlay.bTurnCardCount;
+							sy_0.text = _handCards[0].length+RecvPlay.bTurnCardCount;
+							bool_duanxian = false;
+							bool_duanxian_other = false;
+						}
+						if(viewId == 1)
+						{
+							bool_duanxian = false;
+						}
+						if(viewId == 2)
+						{
+							_count_2 += RecvPlay.bTurnCardCount;
+							sy_2.text = _handCards[2].length+RecvPlay.bTurnCardCount;
+							bool_duanxian = false;
+							bool_duanxian_other = false;
+						}
+						//当前玩家Id
+						var w_Id:uint = _theModel.m_User.SwitchViewChairID(RecvPlay.wCurrentUser);
+						if(_handCards[w_Id].length != 20)
+						{
+							OutCardImage(RecvPlay.wLastOutUser,array_card,RecvPlay.bTurnCardCount);
+						}
+						SortCard(_sortType);
+						for( i = 0;i<LandConst.GAME_PLAYER;i++)
+						{
+							if(RecvPlay.bDoubleUser[i] == 1)
+							{
+								ShowJiaBei(i);
+								_theModel.m_EndDouble[0]++;
+							}
+							if(RecvPlay.bUserTrustee[i] == 1)
+							{
+								if(i == _theModel.m_User.GetMeChairID())
+								{
+									_theModel.m_bTrust = true;
+									RegistBtn(unTG_btn,true);
+									RegistBtn(tuoguanBtn,false);
+									TG_card.visible = true;
+									onTrustCard(true);
+								}
+							}
+						}
+						StartClock(_theModel.m_wCurrentUser,RecvPlay.UserLessTime);
+						Land(_theModel.m_wLnadUser);
+						var bTotle : uint = RecvPlay.bLandScore;
+						for(i = 0;i<3;i++)
+						{
+							if(RecvPlay.bDoubleUser[i]!=0) { bTotle *=2; }
+						}
+						if(RecvPlay.wBombTime != 0) {
+							bTotle *= RecvPlay.wBombTime;
+						}
+						txt_beishu.text = bTotle.toString();
+						return true;
+					}
+				}
+				return false;
+			}
+			override protected function OnTcpGameEvent(wSubCmd : uint,pBuffer : ByteArray,wDataSize : int,pIClientSocket:IClientSocket) : Boolean
+			{
+				if(wSubCmd==LandCmd.SUB_S_GAME_END) {
+					_theModel.StopOnLineCheck();
+				}else {
+					if(!_GameEnd)
+						_theModel.ResetOnLineCheck();
+				}
+				
+				if(super.OnTcpGameEvent(wSubCmd,pBuffer,wDataSize,pIClientSocket)) return true;
+				var wMeChairID : uint = _theModel.m_User.GetMeChairID();
+				var i : uint = 0;
+				switch(wSubCmd) 
+				{
+					case LandCmd.SUB_S_SEND_CARD:		//发牌
+					{
+						isHaveCard();
+						var recvCard : CMD_S_SendAllCard = CMD_S_SendAllCard._readBuffer(pBuffer);
+						hideCard(recvCard.bCardData,[17,17,17]);
+						sendCard();
+						//						trace("-------------------",recvCard.bCardData);
+						showAllCard(recvCard.bCardData,recvCard.bBackCardData);
+						txt_beishu.text = '0';
+						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,0);
+						return true;	
+					}
+					case LandCmd.SUB_S_LAND_SCORE:		//玩家叫分
+					{
+						var landScore : CMD_S_LandScore = CMD_S_LandScore._readBuffer(pBuffer);
+						//赋值最新叫分纪录
+						if(landScore.bCurrentScore > _theModel.m_LandScore) {
+							_theModel.m_LandScore = landScore.bCurrentScore;
+						}
+						//						_theModel.m_Sound.PlayEffect(landScore.bLandUser,'jiao',landScore.bLandScore);
+						playSoundEffect(landScore.bLandUser,'jiao',landScore.bLandScore);
+						//显示叫分玩家状态
+						ShowZhuangTai(landScore.bLandUser,landScore.bLandScore+2);
+						if(landScore.bLandUser == wMeChairID) {
+							OnDestroyOnline();
+							_theModel.m_MeCallScore = landScore.bLandScore;
+							showJiaoFen(0,true);
+						}
+						//查看地主
+						if(landScore.bStartDoubleScore == 1) {
+							_theModel.m_wLnadUser = landScore.wBankUser;
+							//显示身份
+							Land(landScore.wBankUser);
+							//显示底牌
+							if(_theModel.m_backArray != null)
+								_theModel.m_backArray = new Array();
+							_theModel.m_backArray = landScore.bBackCard;
+							SetBackCard(landScore.bBackCard,_theModel.m_wLnadUser);
+							//记录底分
+							_theModel.m_EndDouble[0] = _theModel.m_LandScore;
+							txt_beishu.text = _theModel.m_LandScore.toString();
+						}
+						return true;
+					}
+					case LandCmd.SUB_S_USER_DOUBLE:		//玩家加倍
+					{
+						var recvDouble : CMD_S_UserDouble = CMD_S_UserDouble._readBuffer(pBuffer);
+						//						_theModel.m_Sound.PlayEffect(recvDouble.wDoubleUser,'Add',-1,recvDouble.bDoubleScore);
+						playSoundEffect(recvDouble.wDoubleUser,'Add',-1,recvDouble.bDoubleScore);
+						//显示加倍
+						if(recvDouble.wDoubleUser == wMeChairID) { 
+							OnDestroyOnline();
+							showJiaBei(true);
+							StopClock(wMeChairID);
+						}
+						if(recvDouble.bDoubleScore != 0) {
+							ShowJiaBei(recvDouble.wDoubleUser);
+							if(theDizhu.horizontalCenter == -170)
+							{
+								txt_beishu.text = "6";
+							}
+							if(recvDouble.wDoubleUser == wMeChairID) { 
+								_theModel.m_EndDouble[1] = 1; 
+								txt_beishu.text = (parseInt(txt_beishu.text) * 2).toString();
+							}
+						}
+						return true;
+					}
+					case LandCmd.SUB_S_GAME_START:		//游戏开始
+					{
+						var recvStart : CMD_S_GameStart = CMD_S_GameStart._readBuffer(pBuffer);
+						var viewLandId:uint = _theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser);
+						sy_0.visible = true;
+						sy_2.visible = true;
+						//显示托管 上一轮 排序按钮
+						StartGame();
+						if(_theModel.m_bGameStart == false)
+						{
+							_theModel.m_bGameStart = true;
+						}
+						this.doubleClickEnabled = true;
+						this.addEventListener(MouseEvent.DOUBLE_CLICK,doubleClickHandle);
+						this.stage.addEventListener('rightClick',onMouseRightClick);
+						return onStartGameEvent(recvStart);
+					}
+					case LandCmd.SUB_S_OUT_CARD:		//玩家出牌
+					{
+						var OutCard : CMD_S_OutCard = CMD_S_OutCard._readBuffer(pBuffer);
+						_theModel.m_wCurrentUser = OutCard.wCurrentUser;
+						_theModel.m_bTurnOutType = _theModel.m_logic.GetCardType(OutCard.bCardData, OutCard.bCardCount);
+						var bShound : Boolean = _theModel.m_wLastOutCard ==OutCard.wOutCardUser?false:(Math.random() * 100 > 80);
+						HideOutCard(OutCard.wOutCardUser);
+						if(wMeChairID == OutCard.wOutCardUser) {
+							OnDestroyOnline();
+							hidePaiBtn();
+						}
+						if(OutCard.wOutCardUser != OutCard.wCurrentUser) {
+							//隐藏当前牌型
+							HideOutCard(OutCard.wCurrentUser,true);
+						}
+						if(_theModel.m_bTurnOutType == 13) //如果是火箭 清空当前出牌
+						{
+							_theModel.m_bTurnCardCount = 0;
+							Memory._zeroArray(_theModel.m_bTurnCardData,0);
+							
+							for( i = 0;i<3;i++)
+							{
+								if(i != OutCard.wCurrentUser)
+								{
+									HideOutCard(i);
+								}
+							}
+						}else {
+							_theModel.m_bTurnCardCount = OutCard.bCardCount;
+							_theModel.m_bTurnCardData = new Array(20);
+							Memory._zeroArray(_theModel.m_bTurnCardData,0);
+							Memory._copyArray(_theModel.m_bTurnCardData,OutCard.bCardData,OutCard.bCardCount);
+						}
+						OutCardImage(OutCard.wOutCardUser,OutCard.bCardData,OutCard.bCardCount);
+						var cardValue : uint = _theModel.m_logic.GetCardValue(OutCard.bCardData[0]);
+						switch(_theModel.m_bTurnOutType)
+						{
+							case 1:
+							case 2:
+							{
+								if(!bShound){
+									//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',_theModel.m_bTurnOutType,cardValue,0);
+									playSoundEffect(OutCard.wOutCardUser,'OutCard',_theModel.m_bTurnOutType,cardValue,0);
+								}
+								break;
+							}
+							case 3:
+							{
+								if(!bShound){
+									//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',3,cardValue,0);
+									playSoundEffect(OutCard.wOutCardUser,'OutCard',3,cardValue,0);
+								}
+								break;
+							}
+							case 4:
+							{
+								if(!bShound){
+									//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',4,0,0);
+									playSoundEffect(OutCard.wOutCardUser,'OutCard',4,0,0);
+								}
+								break;
+							}
+							case 5:
+							{
+								if(!bShound){
+									//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',5,0,Math.random()*3);
+									playSoundEffect(OutCard.wOutCardUser,'OutCard',5,0,Math.random()*3);
+								}
+								break;
+							}
+							case 6:
+							{
+								//								if(!bShound){
+								//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',5,0,1);
+								//								}
+								break;
+							}
+							case 7:
+							{
+								if(!bShound){
+									//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',7,0,0);
+									playSoundEffect(OutCard.wOutCardUser,'OutCard',7,0,0);
+								}
+								break;
+							}
+							case 8:
+							{
+								if(!bShound){
+									//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',8,0,Math.random()*2);
+									playSoundEffect(OutCard.wOutCardUser,'OutCard',8,0,Math.random()*2);
+								}
+								break;
+							}
+							case 9:
+							{
+								if(!bShound){
+									//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',10,0,0);
+									playSoundEffect(OutCard.wOutCardUser,'OutCard',10,0,0);
+								}
+								break;
+							}
+							case 10:
+							{
+								if(!bShound){
+									//									_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',10,0,0);
+									playSoundEffect(OutCard.wOutCardUser,'OutCard',10,0,0);
+								}
+								break;
+							}
+							case 11: 
+							{
+								//								_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',13,0,0);
+								playSoundEffect(OutCard.wOutCardUser,'OutCard',13,0,0);
+								playSoundEffect(TConst.INVALID_CHAIR,'plane');
+								//飞机动画
+								Fj_StartPlay();
+								bShound = false;
+								break;
+							}
+							case 12: 
+							{
+								_theModel.m_EndDouble[4]++;
+								txt_beishu.text = (parseInt(txt_beishu.text) * 2).toString();
+								//								_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',11,0,Math.random()*3);
+								playSoundEffect(OutCard.wOutCardUser,'OutCard',11,0,Math.random()*3);
+								playSoundEffect(TConst.INVALID_CHAIR,'bomb');
+								//炸弹动画
+								Zd_StartPlay();
+								bShound = false;
+								break;
+							}
+							case 13:
+							{
+								_theModel.m_EndDouble[3]++;
+								txt_beishu.text = (parseInt(txt_beishu.text) * 2).toString();
+								//								_theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'OutCard',12,0,Math.random()*2);
+								playSoundEffect(OutCard.wOutCardUser,'OutCard',12,0,Math.random()*2);
+								playSoundEffect(TConst.INVALID_CHAIR,'rocket');
+								//火箭动画
+								Hj_StartPlay(OutCard.wOutCardUser);
+								bShound = false;
+								break;
+							}
+						}
+						if(bShound) { _theModel.m_Sound.PlayEffect(OutCard.wOutCardUser,'have',-1,-1,Math.random()*3); }
+						_theModel.m_wLastOutCard = OutCard.wOutCardUser;
+						return true;
+					}
+					case LandCmd.SUB_S_PASS_CARD:		//玩家过牌
+					{
+						var PassCard : CMD_S_PassCard = CMD_S_PassCard._readBuffer(pBuffer);
+						if(PassCard.bNewTurn == 1) {
+							_theModel.m_bTurnCardCount 	= 0;
+							_theModel.m_bTurnOutType 	= 0;
+							Memory._zeroArray(_theModel.m_bTurnCardData,0);
+						}
+						_theModel.m_wCurrentUser = PassCard.wCurrentUser;
+						if(wMeChairID == PassCard.wPassUser) { 
+							OnDestroyOnline();
+							hidePaiBtn(); 
+						}
+						ShowZhuangTai(PassCard.wPassUser,6);
+						//						_theModel.m_Sound.PlayEffect(PassCard.wPassUser,'pass',-1,-1,Math.random()*5);
+						playSoundEffect(PassCard.wPassUser,'pass',-1,-1,Math.random()*5);
+						//隐藏当前牌型
+						HideOutCard(PassCard.wCurrentUser);
+						return true;
+					}
+					case LandCmd.SUB_S_GAME_END:		//游戏结束
+					{
+						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,1);
+						OnDestroyOnline();
+						_theModel.m_bGameStart = false;
+						var EndMsg : CMD_S_GameEnd = CMD_S_GameEnd._readBuffer(pBuffer);
+						var wViewChairID : uint;
+						var bChunTian  : uint = 0;
+						for( i = 0;i<LandConst.GAME_PLAYER;i++)
+						{
+							wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+							_theModel.m_EndScore[wViewChairID] = EndMsg.lGameScore[i];
+							if(i != _theModel.m_wLnadUser && EndMsg.bCardCount[i] >= 17) { bChunTian++; }
+						}
+						ShowShengYuCard(EndMsg.bCardCount,EndMsg.bCardData);
+						//判断春天
+						if(EndMsg.bCardCount[_theModel.m_wLnadUser] <= 0 && bChunTian >= 2) {
+							_theModel.m_EndDouble[2]++;
+							txt_beishu.text = (parseInt(txt_beishu.text) * 2).toString();
+							ChunTianStartPlay();
+							TweenMax.delayedCall(2,onEndGame,[EndMsg.lGameScore[_theModel.m_wLnadUser] > 0]);
+						}else {
+							onEndGame(EndMsg.lGameScore[_theModel.m_wLnadUser] > 0);
+						}
+						_theModel.m_LandScore = 0;
+						_theModel.m_bTurnCardCount 	= 0;
+						//删除出牌提示
+						removeCard();
+						this.doubleClickEnabled = true;
+						this.removeEventListener(MouseEvent.DOUBLE_CLICK,doubleClickHandle)
+						return true;
+					}
+					case LandCmd.SUB_S_CLEARTABLE: 		//清理桌面
+					{
+						_theModel.m_bTurnCardCount = 0;
+						Memory._zeroArray(_theModel.m_bTurnCardData,0);
+						_theModel.m_bGameStart = false;
+						return true;
+					}
+					case LandCmd.SUB_C_TRUSTEE:
+					{
+						var RecvTrust : CMD_C_UserTrustee = CMD_C_UserTrustee._readBuffer(pBuffer);
+						var viewId:uint = _theModel.m_User.SwitchViewChairID(RecvTrust.wUserChairID);
+						//						if(viewId == 1)
+						//						{
+						//							if(RecvTrust.bTrustee == 1)
+						//							{
+						//								TG_card.visible = true;
+						//								RegistBtn(unTG_btn,true);
+						//								RegistBtn(tuoguanBtn,false);
+						//							}else{
+						//								TG_card.visible = false;
+						//								RegistBtn(unTG_btn,false);
+						//								RegistBtn(tuoguanBtn,true);
+						//							}
+						//						}
+						switch(viewId)
+						{
+							case 0:
+							{
+								if(RecvTrust.bTrustee == 1)
+								{
+									pic_1.visible = true;
+								}else{
+									pic_1.visible = false;
+								}
+								break;
+							}
+							case 1:
+							{
+								if(RecvTrust.bTrustee == 1)
+								{
+									_theModel.m_bTrust = true;
+									TG_card.visible = true;
+									RegistBtn(unTG_btn,true);
+									RegistBtn(tuoguanBtn,false);
+									onTrustCard(true);
+								}else{
+									_theModel.m_bTrust = false;
+									TG_card.visible = false;
+									RegistBtn(unTG_btn,false);
+									RegistBtn(tuoguanBtn,true);
+									onTrustCard(false);
+								}
+								break;
+							}
+							case 2:
+							{
+								if(RecvTrust.bTrustee == 1)
+								{
+									pic_2.visible = true;
+								}else{
+									pic_2.visible = false;
+								}
+								break;
+							}
+						}
+						return true;
+					}
+					case LandCmd.SUB_S_CLIENT_ONLINE:
+					{
+						if(_GameEnd)
+							_theModel.StopOnLineCheck();
+						return true;
+					}
+				}
+				return false;
+			}
+			override protected function OnGameTimerEvent(pTimer : tagServerTimer) : Boolean
+			{
+				if(pTimer == null) return false;
+				try
+				{
+					var wMeChairID : uint = _theModel.m_User.GetMeChairID();
+					var bShow : Boolean = pTimer.bTimerType == enTimeType.TT_SHOW;
+					var i : uint = 0;
+					switch(pTimer.bTimerKind)
+					{
+						case enTimeTK.TK_READY:
+						{
+							return true;
+						}
+						case enTimeTK.TK_SCORE:				//叫分倒计时
+						{
+							StartClock(pTimer.wChairID,pTimer.lTimer);
+							Ts_land(pTimer.wChairID);
+							
+							//显示叫分按钮
+							if(wMeChairID == pTimer.wChairID) {
+								if(_theModel.m_bTrust) {
+									sendCallScore(0);
+								}else{
+									showJiaoFen(_theModel.m_LandScore);
+									SendOnLine(pTimer.lTimer);
+								}
+							}
+							
+							return true;
+						}
+						case enTimeTK.TK_DOUBLE:			//加倍定时器 pTimer.wChairID为地主玩家
+						{
+							img_landTs.gotoAndStop(1);
+							for( i  = 0;i<3;i++) {
+								if(pTimer.wChairID != i) {
+									StartClockDouble(i,pTimer.lTimer);
+								}
+							}
+							if(bool_jiabei == true)
+							{
+								showJiaBei();
+								SendOnLine(pTimer.lTimer);
+							}
+							//							if(wMeChairID != pTimer.wChairID) {
+							//								if(_theModel.m_MeCallScore != 0)
+							//								{
+							//									if(_theModel.m_bTrust) {
+							//										sendCallDouble(0);
+							//									}else {
+							//										showJiaBei();
+							//									}
+							//								}
+							//								SendOnLine(pTimer.lTimer);
+							//							}
+							return true;
+						}
+						case enTimeTK.TK_ACTION:			//玩家操作倒计时
+						{
+							showJiaBei(true);
+							StartClock(pTimer.wChairID,pTimer.lTimer);
+							if(wMeChairID == pTimer.wChairID) {
+								if(!_theModel.m_bTrust) {
+									showPaiBtn();
+								}
+								SendOnLine(pTimer.lTimer);
+							}
+							return true;
+						}
+						case enTimeTK.TK_CONTINUE:             //玩家继续倒计时
+						{
+							StartClock(_theModel.m_User.GetMeChairID(),20000);
+							return true;
+						}
+						case enTimeTK.TK_OFFLINE:
+						{
+							StartClock(pTimer.wChairID,pTimer.lTimer);
+							return true;
+						}
+					}
+					
+				}catch(e : Error) {
+					throw new Error('Land OnGameTimerEvent' + e);
+				}
+				return false;
+			}
+			private function playSoundEffect(wChairID : uint,action : String,type : int=-1,value : int=-1,rand : int = -1):void
+			{
+				if(_theModel == null)	return;
+				try
+				{
+					_theModel.m_Sound.PlayEffect(wChairID, action, type, value, rand);
+				}
+				catch(e:Error){	};
+			}
+			private function hideCard(cards : Array,cardCount : Array):void
+			{
+				var wViewChairID : uint = 0;
+				var i : uint = 0;
+				if(_handCards == null) {
+					_handCards = new Array(3);
+				}
+				_GameEnd = false;
+				for(i = 0;i<3;i++)
+				{
+					wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+					_handCards[wViewChairID] = new Array();
+					for(var j : uint = 0;j<cardCount[i];j++) {
+						if(wViewChairID == 1 && cards[i][j] == 0)continue;
+						var card : CardImage = new CardImage();
+						switch(wViewChairID) 
+						{
+							case 0:
+							{
+								card = createBackCard();
+								break;
+							}
+							case 1:
+							{
+								card = createCard(cards[i][j],1);
+								break;
+							}
+							case 2:
+							{
+								card = createBackCard();
+								break;
+							}
+						}
+						_handCards[wViewChairID].push(card);
+					}
+					ReDrawCard(wViewChairID,true);
+				}
+			}
+			private function showAllCard(myCard:Array,backCard:Array):void
+			{
+				sy_0.text = "0";//////////////////////////////////////---------------------------剩余手牌
+				sy_2.text = "0";
+				_GameEnd = false;
+				//				if(_handCards == null) {
+				//					_handCards = new Array(3);
+				//				}
+				//				_handCards[0] = new Array();
+				//				_handCards[1] = new Array();
+				//				_handCards[2] = new Array();
+				if(_shootCards == null)_shootCards = new Array();
+				cardAll = new Array();
+				//				var index:int= 1;
+				var i:int = 0;
+				for(i = 0;i<54;i++)
+				{
+					var  card:CardImage = new CardImage;
+					card = createCard(0,0.7);
+					card.x = center_point.x-210+i*7;
+					card.y = center_point.y-50;
+					card.depth = 50+i;
+					this.addElement(card);
+					cardAll.push(card);
+				}
+				for(i = 0;i<54;i++)
+				{
+					TweenMax.delayedCall(0.05*i,reCard,[cardAll[53-i],myCard,backCard]);
+				}
+			}
+			private function reCard(card:CardImage,myCard:Array,backCard:Array):void
+			{
+				//发牌音效
+				playSoundEffect(TConst.INVALID_CHAIR,"sendcard");
+				if((shumu_left == 17)&&(shumu_my == 17)&&(shumu_right == 17))
+				{
+					TweenMax.to(card,0.1,{x:up_point.x,y:up_point.y,onComplete:removeAllCard,onCompleteParams:[card,4,myCard,4,backCard]});
+				}else{
+					if(user_ == 0)
+					{
+						TweenMax.to(card,0.15,{x:left_point.x,y:left_point.y,onComplete:removeAllCard,onCompleteParams:[card,user_,myCard,0,backCard]});
+						shumu_left++;
+						user_ = 1;
+						return;
+					}
+					if(user_ == 1)
+					{
+						TweenMax.to(card,0.15,{x:my_point.x-284+shumu_my*20,y:my_point.y,onComplete:removeAllCard,onCompleteParams:[card,user_,myCard,shumu_my,backCard]});
+						shumu_my++;
+						user_ = 2;
+						return;
+					}
+					if(user_ == 2)
+					{
+						TweenMax.to(card,0.15,{x:right_point.x,y:right_point.y,onComplete:removeAllCard,onCompleteParams:[card,user_,myCard,0,backCard]});
+						shumu_right++;
+						user_ = 0;
+						return;
+					}
+				}
+			}
+			private function removeAllCard(card:CardImage,_userId:int,myCard:Array,index:int,backCard:Array):void
+			{
+				if(this.contains(card))
+					this.removeElement(card);
+				cardAll.splice(cardAll.length-1,1);
+				if((shumu_left == 17)&&(shumu_my == 17)&&(shumu_right == 17)&&(index == 4))
+				{
+					if(cardAll.length == 0)
+					{
+						//						SetBackCard(backCard);
+						//显示三张背面的公共牌
+						threeBackCard(backCard);
+						img_sun.gotoAndPlay(1);
+						img_sun.addEventListener(Event.ENTER_FRAME,sunHandle);
+						land_sun.visible = true;
+						for(var i:int =0;i<_handCards[1].length;i++){
+							TweenMax.to(_handCards[1][i],0.3,{horizontalCenter:_handCards[1][0].horizontalCenter+i*2,bottom:_handCards[1][0].bottom,onComplete:returnCard});
+						}
+					}
+				}else{
+					if(_userId == 0)
+					{
+						//						card = createBackCard();
+						_count_0++;
+						sy_0.text = _count_0.toString();
+						sy_0.left = 10+_count_0*3-7;
+						_handCards[0][_count_0-1].visible = true;
+					}
+					if(_userId == 1)
+					{
+						//						card = createCard(myCard[_theModel.m_User.GetMeChairID()][index_card],1);
+						index_card++;
+						_handCards[1][index_card-1].visible = true;
+					}
+					if(_userId == 2)
+					{
+						//						card = createBackCard();
+						_count_2++;
+						sy_2.text = _count_2.toString();
+						sy_2.right = 10 + _count_2*3-2;
+						_handCards[2][_count_2-1].visible = true;
+					}
+					//					_handCards[_userId].push(card);
+					//					ReDrawCard(_userId,false);
+				}
+			}
+			private function returnCard():void
+			{
+				SortCard(_sortType);
+				for(var i:int =0;i<_handCards[1].length;i++){
+					TweenMax.to(_handCards[1][i],0.3,{horizontalCenter:_handCards[1][0].horizontalCenter+i*25,bottom:_handCards[1][0].bottom});
+				}
+				shumu_left = 0;
+				shumu_my = 0;
+				shumu_right = 0;
+				index_card = 0;
+			}
+			private function isHaveCard():void
+			{
+				shumu_left = 0;
+				shumu_my = 0;
+				shumu_right = 0;
+				if(_handCards)
+				{
+					var card:CardImage = new CardImage;
+					for(var i:int = 2;i>=0;i--)
+					{
+						for(var j:int = _handCards[i].length-1;j>=0;j--)
+						{
+							card = _handCards[i][j] as CardImage;
+							if(card && this.contains(card))
+								this.removeElement(card);
+							card = null;
+						}
+						this['timer_' + i].visible = false;
+						this['timer_' + i].text = '';
+						this['clock_' + i].visible = false;
+					}
+					this['timer_' + 3].visible = false;
+					this['timer_' + 3].text = '';
+					this['clock_' + 3].visible = false;
+					_count_0 = 0;
+					_count_2 = 0;
+					sy_0.text = "";
+					sy_2.text = "";
+					bool_jiabei = true;
+					_handCards = null;
+					img_left.gotoAndStop(1);
+					sendLeft.visible = false;
+					img_my.gotoAndStop(1);
+					sendMy.visible = false;
+					img_right.gotoAndStop(1);
+					sendRight.visible = false;
+					img0.gotoAndStop(1);
+					readyMc0.visible = false;
+					img1.gotoAndStop(1);
+					readyMc1.visible = false;
+					img2.gotoAndStop(1);
+					readyMc2.visible = false;
+					img_landTs.gotoAndStop(1);
+					TS_card.visible = false;
+					bg_jiaofen.visible = false;
+					if(array_dipai.length != 0)
+					{
+						for(var x:int = array_dipai.length-1;x>=0;x--)
+						{
+							card = array_dipai[x] as CardImage;
+							if(this.contains(card))
+								this.removeElement(card);
+							card = null;
+							array_dipai.splice(x,1);
+						}
+						array_dipai = null;
+						array_dipai = new Array();
+					}
+					if(_backCards.length != 0)
+					{
+						for(var o:int = _backCards.length-1;o>=0;o--)
+						{
+							card = _backCards[o] as CardImage;
+							if(this.contains(card))
+								this.removeElement(card);
+							card = null;
+							_backCards.splice(o,1);
+						}
+						_backCards = null;
+						_backCards = new Array();
+					}
+				}
+			}
+			private function doubleClickHandle(e:MouseEvent):void
+			{
+				if(e.target.parent is CardImage)	return;
+				if(e.target.parent is GameMCButton)	return;
+				ResetShoot();
+				sendBtn.enabled = false;
+//				reSelectBtn.enabled = false;
+				
+				_theModel.m_logic.index = 0;
+				_theModel.m_logic.resultIndex = 0;
+				_theModel.m_logic.cb_three_index = 0;
+				_theModel.m_logic.cardArray = new Array();
+				_theModel.m_logic.resultCard = new Array();
+			}
+			private function Zd_StartPlay():void
+			{
+				img_zhadan = new LandlordSkinClass.land_zhadan as MovieClip;
+				land_zhadan.addChild(img_zhadan);
+				land_zhadan.visible = true;
+				img_zhadan.gotoAndPlay(1);
+				img_zhadan.addEventListener(Event.ENTER_FRAME,zhadanHandle);
+			}
+			private function zhadanHandle(e:Event):void
+			{
+				if(img_zhadan.currentLabel == 'end')
+				{
+					img_zhadan.gotoAndStop(1);
+					img_zhadan.removeEventListener(Event.ENTER_FRAME,zhadanHandle);
+					land_zhadan.removeChild(img_zhadan);
+					land_zhadan.visible = false;
+				}
+			}
+			private function Fj_StartPlay():void
+			{
+				img_feiji = new LandlordSkinClass.land_feiji as MovieClip;
+				land_feiji.addChild(img_feiji);
+				land_feiji.visible = true;
+				img_feiji.gotoAndPlay(1);
+				img_feiji.addEventListener(Event.ENTER_FRAME,feijiHandle);
+			}
+			private function feijiHandle(e:Event):void
+			{
+				if(img_feiji.currentLabel == 'end')
+				{
+					img_feiji.gotoAndStop(1);
+					img_feiji.removeEventListener(Event.ENTER_FRAME,feijiHandle);
+					land_feiji.removeChild(img_feiji);
+					land_feiji.visible = false;
+				}
+			}
+			private function Hj_StartPlay(user:uint):void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(user);
+				switch(wViewChairID)
+				{
+					case 0:
+					{
+						img_my.gotoAndStop(3);
+						img_right.gotoAndStop(3);
+						break;
+					}
+					case 1:
+					{
+						img_left.gotoAndStop(3);
+						img_right.gotoAndStop(3);
+						no_send_left = 1;
+						no_send_right = 1;
+						break;
+					}
+					case 2:
+					{
+						img_my.gotoAndStop(3);
+						img_left.gotoAndStop(3);
+						break;
+					}
+				}
+				img_huo = new LandlordSkinClass.land_huojian as MovieClip;
+				land_huojian.addChild(img_huo);
+				land_huojian.visible = true;
+				img_huo.gotoAndPlay(1);
+				img_huo.addEventListener(Event.ENTER_FRAME,huojianHandle);
+				
+			}
+			private function huojianHandle(e:Event):void
+			{
+				if(img_huo.currentLabel == 'end')
+				{
+					img_huo.gotoAndStop(1);
+					img_huo.removeEventListener(Event.ENTER_FRAME,huojianHandle);
+					land_huojian.removeChild(img_huo);
+					land_huojian.visible = false;
+				}
+			}
+			private function sendCard():void
+			{
+				theServerName.text 	= StaticVars.serverName;
+				if(sendLeft.visible == true) { return;}
+				img_left = new LandlordSkinClass.land_sendCard as MovieClip;
+				img_left.gotoAndStop(1);
+				sendLeft.addChild(img_left);
+				sendLeft.visible = true;
+				img_my = new LandlordSkinClass.land_sendCard as MovieClip;
+				img_my.gotoAndStop(1);
+				sendMy.addChild(img_my);
+				sendMy.visible = true;
+				img_right = new LandlordSkinClass.land_sendCard2 as MovieClip;
+				img_right.gotoAndStop(1);
+				sendRight.addChild(img_right);
+				sendRight.visible = true;
+				img_landTs = new LandlordSkinClass.land_tishiCard as MovieClip;
+				img_landTs.gotoAndStop(1);
+				TS_card.addChild(img_landTs);
+				TS_card.visible = true;
+				//游戏开始加载光效
+				img_sun = new LandlordSkinClass.land_sun as MovieClip;
+				img_sun.gotoAndStop(1);
+				land_sun.visible = true;
+				land_sun.addChild(img_sun);
+				//叫地主图片
+				img0 = new LandlordSkinClass.land_readyMC1 as MovieClip;
+				img0.gotoAndStop(1);
+				readyMc0.addChild(img0);
+				img1 = new LandlordSkinClass.land_readyMC2 as MovieClip;
+				img1.gotoAndStop(1);
+				readyMc1.addChild(img1);
+				img2 = new LandlordSkinClass.land_readyMC3 as MovieClip;
+				img2.gotoAndStop(1);
+				readyMc2.addChild(img2);
+			}
+			private function removeCard():void
+			{
+				if(tuoguanBtn.visible == false)
+				{
+					//					_theModel.m_bTrust = false;
+					TG_card.visible = false;
+					//					SendTrust(0);
+					tuoguanBtn.visible = true;
+					unTG_btn.visible = false;
+				}
+				img_left.gotoAndStop(1);
+				sendLeft.visible = false;
+				img_my.gotoAndStop(1);
+				sendMy.visible = false;
+				img_right.gotoAndStop(1);
+				sendRight.visible = false;
+				img_JB_left.gotoAndStop(1);
+				JB_left.visible = false;
+				img_JB_right.gotoAndStop(1);
+				JB_right.visible = false;
+				img_landTs.gotoAndStop(1);
+				TS_card.visible = false;
+				bg_jiaofen.visible = false;
+				tuoguanBtn.visible = false;
+				paixuBtn.visible = false;
+				shuMuBtn.visible = false;
+				upBtn.visible = false;
+			}
+			public function ShowZhuangTai(wChairID : uint,status : uint = 1) : void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(wChairID);
+				if(status <= 5)
+				{
+					switch(wViewChairID)
+					{
+						case 0:
+						{
+							img0.gotoAndStop(status+1);
+							readyMc0.visible = true;
+							break;
+						}
+						case 1:
+						{
+							img1.gotoAndStop(status+1);
+							readyMc1.visible = true;
+							if((status == 2)||(status == 5))
+							{
+								bool_jiabei = false;
+							}
+							break;
+						}
+						case 2:
+						{
+							img2.gotoAndStop(status+1);
+							readyMc2.visible = true;
+							break;
+						}
+					}
+					if(status == 5)
+					{
+						readyMc0.visible = false;
+						readyMc1.visible = false;
+						readyMc2.visible = false;
+						return;
+					}
+				}else{
+					switch(wViewChairID)
+					{
+						case 0:
+						{
+							img_left.gotoAndStop(status - 3);
+							no_send_left = 1;
+							break;
+						}
+						case 1:
+						{
+							img_my.gotoAndStop(status - 3);
+							break;
+						}
+						case 2:
+						{
+							img_right.gotoAndStop(status - 3);
+							no_send_right = 1;
+							break;
+						}
+					}
+				}
+			}
+			public function Land(val : uint) : void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(val);
+				for(var i : uint = 0;i<3;i++) {
+					if(wViewChairID == i) {
+						if(i == 0)
+						{
+							img_dizhu1 = new LandlordSkinClass.land_dizhu1 as MovieClip;
+							theDizhu.addChild(img_dizhu1);
+							theDizhu.visible = true;
+							theDizhu.left = 24;
+							theDizhu.verticalCenter = -167;
+							img_dizhu1.gotoAndPlay(1);
+							img_dizhu1.addEventListener(Event.ENTER_FRAME,showDZ1);
+							img_nomin1 = new LandlordSkinClass.land_nomin1 as MovieClip;
+							theNongmin1.addChild(img_nomin1);
+							theNongmin1.visible = true;
+							theNongmin1.horizontalCenter = -386;
+							theNongmin1.bottom = 158;
+							img_nomin1.gotoAndPlay(1);
+							img_nomin1.addEventListener(Event.ENTER_FRAME,showNO1);
+							img_nomin2 = new LandlordSkinClass.land_nomin2 as MovieClip;
+							theNongmin2.addChild(img_nomin2);
+							theNongmin2.visible = true;
+							theNongmin2.right = 100;
+							theNongmin2.verticalCenter = -167;
+							img_nomin2.gotoAndPlay(1);
+							img_nomin2.addEventListener(Event.ENTER_FRAME,showNO2);
+							img_left.gotoAndStop(2);
+						}
+						if(i == 1)
+						{
+							img_dizhu1 = new LandlordSkinClass.land_dizhu1 as MovieClip;
+							theDizhu.addChild(img_dizhu1);
+							theDizhu.visible = true;
+							img_dizhu1.gotoAndPlay(1);
+							img_dizhu1.addEventListener(Event.ENTER_FRAME,showDZ1);
+							theDizhu.horizontalCenter = -381;
+							theDizhu.bottom = 156;
+							img_nomin1 = new LandlordSkinClass.land_nomin1 as MovieClip;
+							theNongmin1.addChild(img_nomin1);
+							theNongmin1.visible = true;
+							theNongmin1.left = 22;
+							theNongmin1.verticalCenter = -167;
+							img_nomin1.gotoAndPlay(1);
+							img_nomin1.addEventListener(Event.ENTER_FRAME,showNO1);
+							img_nomin2 = new LandlordSkinClass.land_nomin2 as MovieClip;
+							theNongmin2.addChild(img_nomin2);
+							theNongmin2.visible = true;
+							theNongmin2.right = 102;
+							theNongmin2.verticalCenter = -167;
+							img_nomin2.gotoAndPlay(1);
+							img_nomin2.addEventListener(Event.ENTER_FRAME,showNO2);
+							img_my.gotoAndStop(2);
+							if(bool_duanxian == true)
+							{
+								no_send_left = 1;
+								no_send_right = 1;	
+							}
+						}
+						if(i == 2)
+						{
+							img_dizhu1 = new LandlordSkinClass.land_dizhu2 as MovieClip;
+							theDizhu.addChild(img_dizhu1);
+							theDizhu.visible = true;
+							img_dizhu1.gotoAndPlay(1);
+							img_dizhu1.addEventListener(Event.ENTER_FRAME,showDZ1);
+							theDizhu.right = 104;
+							theDizhu.verticalCenter = -164;
+							img_nomin1 = new LandlordSkinClass.land_nomin1 as MovieClip;
+							theNongmin1.addChild(img_nomin1);
+							theNongmin1.visible = true;
+							theNongmin1.left = 20;
+							theNongmin1.verticalCenter = -167;
+							img_nomin1.gotoAndPlay(1);
+							img_nomin1.addEventListener(Event.ENTER_FRAME,showNO1);
+							img_nomin2 = new LandlordSkinClass.land_nomin1 as MovieClip;
+							theNongmin2.addChild(img_nomin2);
+							theNongmin2.visible = true;
+							theNongmin2.horizontalCenter = -388;
+							theNongmin2.bottom = 158;
+							img_nomin2.gotoAndPlay(1);
+							img_nomin2.addEventListener(Event.ENTER_FRAME,showNO2);
+							img_right.gotoAndStop(2);
+						}
+					}
+				}
+				readyMc0.visible = false;
+				readyMc1.visible = false;
+				readyMc2.visible = false;
+				bg_jiaofen.visible = false;
+			}
+			private function showDZ1(e:Event):void
+			{
+				if(img_dizhu1.currentLabel == 'start')
+				{
+					img_dizhu1.gotoAndStop(20);
+					img_dizhu1.removeEventListener(Event.ENTER_FRAME,showDZ1);
+				}
+			}
+			private function showNO1(e:Event):void
+			{
+				if(img_nomin1.currentLabel == 'start')
+				{
+					img_nomin1.gotoAndStop(20);
+					img_nomin1.removeEventListener(Event.ENTER_FRAME,showNO1);
+				}
+			}
+			private function showNO2(e:Event):void
+			{
+				if(img_nomin1.currentLabel == 'start')
+				{
+					img_nomin2.gotoAndStop(20);
+					img_nomin2.removeEventListener(Event.ENTER_FRAME,showNO2);
+				}
+			}
+			public function ShowShengYuCard(cardCounts : Array,cards : Array) : void
+			{
+				_GameEnd = true;
+				_count_0 = 0;
+				sy_0.text = "";
+				sy_0.visible = false;
+				_count_2 = 0;
+				sy_2.text = "";
+				sy_2.visible = false;
+				var cardsArr : Array;
+				var cardOffset : int = 0;
+				for(var i : uint = 0;i < 3;i++) 
+				{
+					if(i == _theModel.m_User.GetMeChairID()) {
+						cardOffset += cardCounts[i];
+						ReDrawCard(1);
+						continue;
+					}
+					if(cardCounts[i] > 0) {
+						HideOutCard(i);
+						cardsArr = Memory._newArrayByCopy(cards,cardCounts[i],cardOffset);
+						_theModel.m_logic.SortCardList(cardsArr,cardCounts[i],0);
+						OutCardImage(i,cardsArr,cardCounts[i]);
+						cardOffset += cardCounts[i];
+					}
+				}
+			}
+			private function ChunTianStartPlay():void
+			{
+				img_chun0 = new LandlordSkinClass.land_chuntian as MovieClip;
+				img_chun0.gotoAndStop(2);
+				var viewId:uint = _theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser);
+				switch(viewId)
+				{
+					case 0:
+					{
+						my_Leftchun.addChild(img_chun0);
+						my_Leftchun.visible = true;
+						break;
+					}
+					case 1:
+					{
+						my_chun.addChild(img_chun0);
+						my_chun.visible = true;
+						break;
+					}
+					case 2:
+					{
+						my_Rightchun.addChild(img_chun0);
+						my_Rightchun.visible = true;
+						break;
+					}
+				}
+			}
+			private function onEndGame(bLandWin : Boolean) : void
+			{
+				var cardImage:CardImage;
+				if(_handCards)
+				{
+					for(var i:int = 0;i<_handCards[1].length;i++)
+					{
+						cardImage = _handCards[1][i] as CardImage;
+						cardImage.removeEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+					}
+				}
+				if(bLandWin) {
+					//					theDizhuWin.StartPlay();
+					img_nomin1.gotoAndStop(20);
+					img_nomin2.gotoAndStop(20);
+				}else {
+					//					theNongMinWin.StartPlay();
+					img_dizhu1.gotoAndStop(20);
+				}
+				//播放胜利失败动画音乐
+				if(_theModel.m_EndScore[1] > 0) {
+					//					_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'win',0);
+					playSoundEffect(TConst.INVALID_CHAIR,'win',0);
+				}else {
+					//					_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'lost');
+					playSoundEffect(TConst.INVALID_CHAIR,'lost');
+				}
+				//显示结算框
+				TweenMax.delayedCall(1,ShowResult);
+				user_ = 0;
+				shumu_left = 0;
+				shumu_my = 0;
+				shumu_right = 0;
+				//到时间自动离开房间
+				TweenMax.delayedCall(StaticVars.delayedExitGame, exitGame);
+			}
+			private function exitGame():void
+			{
+				Controller.dispatchEvent('gameModuleExit');
+				
+				MsgManager.getInstance().showMessage1('由于您长时间未参与游戏！系统自动返回大厅！');
+			}
+			public function ShowResult() : void
+			{
+				var landModel : LandModel= LandModel._getInstance();
+				startBtn.visible = true;
+				var i : uint = 0;
+				for(i = 0;i<3;i++)
+				{
+					if(landModel.m_EndScore[i] >= 0) {
+						this['score_' + i].visible = true;
+						this['score_' + i].setStyle('color', 0xccff00);
+						this['score_' + i].text = '+' + TScore.toStringEx(landModel.m_EndScore[i]);
+					}else {
+						this['score_' + i].visible = true;
+						this['score_' + i].setStyle('color', 0xff9900);
+						this['score_' + i].text = TScore.toStringEx(landModel.m_EndScore[i]);
+					}
+				}
+				no_send_left = 0;
+				no_send_right = 0;
+				Btn_a.visible = false;
+				noBtn.visible = false;
+				if(StaticVars.isTryPlayed == true)
+				{
+					var index:String = landModel.m_EndScore[1];
+					StaticVars.tryPlayScore += Number(index);
+					theuser.UpdateGameScore(StaticVars.tryPlayScore, 2);
+				}
+			}
+			private function Ts_land(id:uint):void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(id);
+				switch(wViewChairID)
+				{
+					case 0:
+					{
+						img_landTs.gotoAndStop(2);
+						bg_jiaofen.visible = false;
+						break;
+					}
+					case 1:
+					{
+						img_landTs.gotoAndStop(4);
+						bg_jiaofen.visible = true;
+						break;
+					}
+					case 2:
+					{
+						img_landTs.gotoAndStop(3);
+						bg_jiaofen.visible = false;
+						break;
+					}
+				}
+			}
+			public function SearchCard() : Boolean
+			{
+				ResetShoot();
+				var i : int = 0;
+				var keys : Array = new Array();
+				for(i = 0;i<_handCards[1].length;i++ ) {
+					keys.push(_handCards[1][i].cardValue);
+				}
+				//				var OutCard : tagOutCardResult = _theModel.m_logic.SearchOutCard(keys,keys.length,_theModel.m_bTurnCardData,_theModel.m_bTurnCardCount,_searchIndex++);
+				var OutCard : tagOutCardResult = _theModel.m_logic.SearchFirestCard(keys,keys.length,_theModel.m_bTurnCardData,_theModel.m_bTurnCardCount);
+				
+				for( i = 0;i<OutCard.cbCardCount;i++)
+				{
+					for(var j : uint = 0;j<_handCards[1].length;j++)
+					{
+						var card : CardImage = _handCards[1][j] as CardImage;
+						if(card == null) { return false; }
+						if(card.cardValue == OutCard.cbResultCard[i] && _shootCards.indexOf(card) == -1) {
+							if(_theModel.m_bTrust)
+							{
+								card.bottom = 35;
+								_shootCards.push(card);
+							}else{
+								card.bottom = 55;
+								_shootCards.push(card);
+							}
+							break;
+						}
+					}
+				}
+				
+				return _shootCards.length > 0;
+			}
+			public function NoCard() : Boolean
+			{
+				var no_cardArray:Array = [];
+				var i : int = 0;
+				var keys : Array = new Array();
+				for(i = 0;i<_handCards[1].length;i++ ) {
+					keys.push(_handCards[1][i].cardValue);
+				}
+				var OutCard : tagOutCardResult = _theModel.m_logic.SearchOutCard(keys,keys.length,_theModel.m_bTurnCardData,_theModel.m_bTurnCardCount);
+				
+				for( i = 0;i<OutCard.cbCardCount;i++)
+				{
+					for(var j : uint = 0;j<_handCards[1].length;j++)
+					{
+						var card : CardImage = _handCards[1][j] as CardImage;
+						if(card == null) { return false; }
+						if(card.cardValue == OutCard.cbResultCard[i] && no_cardArray.indexOf(card) == -1) {
+							no_cardArray.push(card);
+							break;
+						}
+					}
+				}
+				
+				return no_cardArray.length > 0;
+			}
+			private function showPaiBtn() : void
+			{
+				_theModel.m_logic.index = 0;
+				_theModel.m_logic.resultIndex = 0;
+				_theModel.m_logic.cb_three_index = 0;
+				_theModel.m_logic.cardArray = new Array();
+				_theModel.m_logic.resultCard = new Array();
+				VerdictOutCard();
+				var bool_noCard:Boolean = NoCard();
+				Btn_a.visible = true;
+				tishiBtn.enabled = true;
+				if(_shootCards.length != 0)
+				{
+					reSelectBtn.enabled = true;
+				}else{
+					reSelectBtn.enabled = false;
+				}
+				if(_theModel.m_bOutCardEnable == true)
+				{
+					sendBtn.enabled = true;
+				}else{
+					sendBtn.enabled = false;
+				}
+				if((no_send_left == 1) && (no_send_right == 1))
+				{
+					passBtn.enabled = false;
+					no_send_left = 0;
+					no_send_right = 0;
+				}else{
+					passBtn.enabled = true;
+					no_send_left = 0;
+					no_send_right = 0;
+				}
+				//无牌能管上上家
+				if((!bool_noCard)&&(TG_card.visible == false))
+				{
+					noCard.visible = true;
+					passBtn.enabled = true;
+					if(_theModel.m_bTrust)
+						noBtn.visible = false;
+					else
+						noBtn.visible = true;
+					Btn_a.visible = false;
+				}else{
+					noCard.visible = false;
+					noBtn.visible = false;
+					Btn_a.visible = true;
+				}
+			}
+			public function StartClockDouble(wChairID : uint,timer : int):void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(wChairID);
+				if(wViewChairID >= LandConst.GAME_PLAYER) return;
+				StopTimer();
+				for(var i : uint = 0;i<3;i++) {
+					this['timer_' + i].visible = false;
+					this['timer_' + i].text = '';
+					this['clock_' + i].visible = false;
+				}
+				this['timer_' + 3].visible = true;
+				this['timer_' + 3].text = ( timer/1000 ).toString();
+				this['clock_' + 3].visible = true;
+				_timerID = 3;
+				_timer = new Timer(1000,timer/1000);
+				_timer.addEventListener(TimerEvent.TIMER,onTimerEvent);
+				_timer.start();
+			}
+			public function StartClock(wChairID : uint,timer : int) : void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(wChairID);
+				if(wViewChairID != 1)
+				{
+					if(noCard.visible == true)
+					{
+						noCard.visible = false;
+					}
+				}
+				if(wViewChairID >= LandConst.GAME_PLAYER) return;
+				StopTimer();
+				this['timer_' + 3].visible = false;
+				this['timer_' + 3].text = '';
+				this['clock_' + 3].visible = false;
+				for(var i : uint = 0;i<3;i++) {
+					if(wViewChairID != i) {
+						this['timer_' + i].visible = false;
+						this['timer_' + i].text = '';
+						this['clock_' + i].visible = false;
+					}else {
+						this['timer_' + wViewChairID].visible = true;
+						this['timer_' + wViewChairID].text = ( timer/1000 ).toString();
+						this['clock_' + wViewChairID].visible = true;
+					}
+				}
+				_timerID = wViewChairID;
+				_timer = new Timer(1000,timer/1000);
+				_timer.addEventListener(TimerEvent.TIMER,onTimerEvent);
+				_timer.start();
+			}
+			public function StopClock(wChairID : uint) : void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(wChairID);
+				if(wViewChairID >= LandConst.GAME_PLAYER) return;
+				StopTimer();
+			}
+			private function StopTimer() : void
+			{
+				if(_timer != null)
+				{
+					_timer.removeEventListener(TimerEvent.TIMER,onTimerEvent);
+					_timer.stop();
+					_timer = null;
+				}
+			}
+			private function onTimerEvent(e : TimerEvent) : void
+			{
+				this['timer_' + _timerID].text = (_timer.repeatCount - _timer.currentCount).toString();
+				
+				if( (_timer.repeatCount - _timer.currentCount) <= 0 )
+				{
+					this['timer_' + _timerID].text = "";
+					this['clock_' + _timerID].visible = false;
+				}
+				
+				if(int(this['timer_' + _timerID].text)<=5)
+				{
+					playSoundEffect(TConst.INVALID_CHAIR,'time');
+				}
+			}
+			private function onStartGameEvent(pStart : CMD_S_GameStart) : Boolean
+			{
+				//再一次赋值 地主玩家
+				_theModel.m_wLnadUser = pStart.wLandUser;
+				_theModel.m_wCurrentUser = pStart.wCurrentUser;
+				_theModel.m_wLastOutCard = pStart.wCurrentUser;
+				_theModel.m_bGameStart = true;
+				return true;
+			}
+			private function StartGame():void
+			{
+				//显示托管 上一轮 数目按钮
+				tuoguanBtn.visible = true;
+//				paixuBtn.visible = true;
+				upBtn.visible = true;
+				shuMuBtn.visible = true;
+				//先加载警报
+				img_JB_left = new LandlordSkinClass.land_jingbao as MovieClip;
+				img_JB_left.gotoAndStop(1);
+				JB_left.visible = true;
+				JB_left.addChild(img_JB_left);
+				
+				img_JB_right = new LandlordSkinClass.land_jingbao2 as MovieClip;
+				img_JB_right.gotoAndStop(1);
+				JB_right.visible = true;
+				JB_right.addChild(img_JB_right);
+				
+				img_landTs.gotoAndStop(5);
+			}
+			public function InitCardList(cards : Array,cardCount : Array,backCard : Array,bAn : Boolean = true) : Boolean
+			{
+				var wViewChairID : uint = 0;
+				var i : uint = 0;
+				if(_handCards == null) {
+					_handCards = new Array(3);
+				}
+				_GameEnd = false;
+				sy_0.text = "0";//////////////////////////////////////---------------------------剩余手牌
+				sy_2.text = "0";
+				for(i = 0;i<3;i++)
+				{
+					wViewChairID = _theModel.m_User.SwitchViewChairID(i);
+					_handCards[wViewChairID] = new Array();
+					for(var j : uint = 0;j<cardCount[i];j++) {
+						if(wViewChairID == 1 && cards[i][j] == 0)continue;
+						var card : CardImage;
+						switch(wViewChairID) 
+						{
+							case 0:
+							{
+								card = createBackCard();
+								_count_0++;
+								sy_0.text = _count_0.toString();
+								sy_0.left = 10+_count_0*3-7;
+								break;
+							}
+							case 1:
+							{
+								card = createCard(cards[i][j],1);
+								break;
+							}
+							case 2:
+							{
+								card = createBackCard();
+								_count_2++;
+								sy_2.text = _count_2.toString();
+								sy_2.right = 10 + _count_2*3-2;
+								break;
+							}
+						}
+						_handCards[wViewChairID].push(card);
+					}
+					ReDrawCard(wViewChairID,bAn);
+				}
+				//				SetBackCard(backCard);
+				threeBackCard(backCard);
+				return true;
+			}
+			
+			private function createCard(value : uint,scale : Number=1):CardImage
+			{
+				var card:CardImage = new CardImage();
+				card.cardValue = value;
+				card.scaleX = card.scaleY = scale;
+				return card;
+			}
+			
+			private function createBackCard():CardImage
+			{
+				var card:CardImage = new CardImage();
+				card.source = YBCardEmbed.GetCard(102, 29, 40);
+				return card;
+			}
+			
+			private function ReDrawCard(index : uint,bAn : Boolean = false) : void
+			{
+				var cardCount : uint = _handCards[index].length;
+				var delay:Number = 0;
+				var space  : Number = 1 / cardCount;
+				var point : Point;
+				var AjustNum : uint = cardCount > 19?19:cardCount;
+				var card_all:CardImage;
+				for(var i : uint = 0;i < cardCount;i++) {
+					var card:CardImage = _handCards[index][i];
+					if(card != null) {
+						if(!this.contains(card)) { this.addElement(card); }
+						switch(index)
+						{
+							case 0:
+							{
+								card.left = 10+i*3;
+								card.verticalCenter = 40;
+								card.depth = i;
+								card.name = i.toString();
+								break;
+							}
+							case 1:
+							{
+								card.bottom = 35;
+								card.horizontalCenter = (i-1)*25 + 45 - (cardCount/2)*25;
+								card.depth = i;
+								card.name = i.toString();
+								if(_GameEnd)
+								{
+									card.removeEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+									card.removeEventListener(MouseEvent.MOUSE_UP,onMouseUp);
+									if(this.stage.hasEventListener(MouseEvent.MOUSE_OVER))
+									{
+										this.stage.removeEventListener(MouseEvent.MOUSE_OVER,card_rollOverHandler);
+									}
+									ResetShoot();
+									card.addFilter();
+								}
+								break;
+							}
+							case 2:
+							{
+								card.right = -40 + i * 3;
+								card.verticalCenter = 40;
+								card.depth = i;
+								card.name = i.toString();
+								break;
+							}
+						}
+						if(bAn) {
+							card.visible = false;
+							delay = (i+1)==9?0:((i+1)<9?(9 - (i+1)%9):(i+1)%9);
+							TweenMax.delayedCall(delay * 0.2,showCardCallBack,[card,index==1]);
+						}else {
+							showCardCallBack(card,index==1);
+						}
+					}
+				}
+			}
+			
+			private function showCardCallBack(pCard:CardImage,addEvent : Boolean) : void
+			{
+				//					pCard.visible = false;
+				if(addEvent && !_theModel.m_bTrust)
+				{
+					pCard.addEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+				}
+			}
+			private var startIndex:int;
+			private function card_rollOverHandler(e:MouseEvent):void
+			{
+				if(_GameEnd)
+				{
+					return;
+				}
+				var i:int=0;
+				var pt:Point = globalToLocal(new Point(e.stageX, e.stageY));
+				for(i = 0;i<_handCards[1].length;i++)
+				{
+					if( ((pt.x>=startIndex)&&(pt.x>=_handCards[1][i].x)&&(_handCards[1][i].x >= startIndex)) || ((pt.x<=startIndex+20)&&(pt.x<=_handCards[1][i].x+20)&&(_handCards[1][i].x+20 <= startIndex+20)))
+					{
+						_handCards[1][i].addFilter();
+					}else{
+						_handCards[1][i].addFilter(false);
+					}
+				}
+			}
+			private function onMouseDown(e : MouseEvent) : void
+			{
+				e.stopImmediatePropagation();
+				_MouseDownCard = e.currentTarget as CardImage;
+				_MouseDownCard.addFilter();
+				startIndex = _MouseDownCard.x;
+				this.stage.addEventListener(MouseEvent.MOUSE_MOVE, card_rollOverHandler);
+				_MouseDownCard.addEventListener(MouseEvent.MOUSE_UP, onCardMouseUp);
+				this.addEventListener(MouseEvent.MOUSE_UP, onMouseUp);
+			}
+			private function onCardMouseUp(e : MouseEvent) : void
+			{
+				this.removeEventListener(MouseEvent.MOUSE_UP, onMouseUp);
+				this.stage.removeEventListener(MouseEvent.MOUSE_MOVE,card_rollOverHandler);
+				e.stopImmediatePropagation();
+				_MouseDownCard.addFilter(false);
+				changeShootCard(_MouseDownCard);
+				startIndex = 0;
+				_MouseDownCard.removeEventListener(MouseEvent.MOUSE_UP, onCardMouseUp);
+				_MouseDownCard = null;
+				VerdictOutCard();
+			}
+			private function onMouseUp(e : MouseEvent) : void
+			{
+				this.removeEventListener(MouseEvent.MOUSE_UP, onMouseUp);
+				this.stage.removeEventListener(MouseEvent.MOUSE_MOVE,card_rollOverHandler);
+				var card : CardImage;
+				var i:int = 0;
+				var pt:Point = globalToLocal(new Point(e.stageX, e.stageY));
+				for(i = 0;i<_handCards[1].length;i++)
+				{
+					if( ((pt.x>=startIndex)&&(pt.x>=_handCards[1][i].x)&&(_handCards[1][i].x >= startIndex)) || ((pt.x<=startIndex+20)&&(pt.x<=_handCards[1][i].x+20)&&(_handCards[1][i].x+20 <= startIndex+20)))
+					{
+						_handCards[1][i].addFilter(false);
+						card = _handCards[1][i];
+						changeShootCard(card);
+					}
+				}
+				startIndex = 0;
+				_MouseDownCard.removeEventListener(MouseEvent.MOUSE_UP, onCardMouseUp);
+				_MouseDownCard = null;
+				VerdictOutCard();
+			}
+			//出牌判断
+			public function VerdictOutCard() : void
+			{
+				_theModel.m_bOutCardEnable = false;
+				var vlues : Array = new Array();
+				for(var i : uint = 0;i<_shootCards.length;i++) {
+					vlues.push(_shootCards[i].cardValue);
+				}
+				//出牌判断
+				if (vlues.length > 0)
+				{
+					//排序扑克
+					_theModel.m_logic.SortCardList(vlues,vlues.length,_theModel.m_logic.ST_ORDER);
+					//分析类型
+					var bCardType : uint=_theModel.m_logic.GetCardType(vlues,vlues.length);
+					//类型判断
+					if (bCardType==_theModel.m_logic.CT_ERROR)
+					{
+						sendBtn.enabled = false;	
+						return;
+					}
+					//跟牌判断
+					if (_theModel.m_bTurnCardCount==0) {
+						_theModel.m_bOutCardEnable = true;
+					} else {
+						_theModel.m_bOutCardEnable = _theModel.m_logic.CompareCard(_theModel.m_bTurnCardData,vlues,_theModel.m_bTurnCardCount,vlues.length);
+					}
+					if(_theModel.m_bOutCardEnable == true)
+					{
+						sendBtn.enabled = true;	
+					}else{
+						sendBtn.enabled = false;	
+					}
+				}else{
+					sendBtn.enabled = false;	
+				}
+			}
+			private function changeShootCard(card : CardImage) : void
+			{
+				if(card == null)
+				{
+					reSelectBtn.enabled = false;
+					return;
+				}
+				if(_GameEnd)
+				{
+					card.addFilter();
+					return;
+				}
+				if(card.bottom == 35) {
+					card.bottom = 55;
+					if(_shootCards.indexOf(card) == -1) {
+						_shootCards.push(card);
+					}
+					if(_shootCards.length != 0)
+					{
+						reSelectBtn.enabled = true;
+					}
+				}else {
+					card.bottom = 35;
+					for(var j : int =_shootCards.length - 1;j >=0;j--)
+					{
+						if(_shootCards[j].cardValue == card.cardValue) { _shootCards.splice(j,1); }
+					}
+					if(_shootCards.length == 0)
+					{
+						reSelectBtn.enabled = false;
+					}
+				}
+			}
+			public function threeBackCard(values : Array,wLandUser : uint = TConst.INVALID_CHAIR):void
+			{
+				if(_shootCards == null)_shootCards = new Array();
+				if(_backCards == null)_backCards = new Array(3);
+				for(var i : uint = 0;i<3;i++) {
+					var card : CardImage = _backCards[i];
+					if(card == null) {
+						card = new CardImage();
+						card.cardValue = values[i];
+						_backCards[i] = card;
+						card.horizontalCenter = -85+i * 85;
+						card.verticalCenter = -245;
+						card.depth = 10;
+						this.addElement(card);
+						array_dipai.push(card);
+					}
+				}
+				//记录底牌
+				if(_theModel.m_backArray != null)
+					_theModel.m_backArray = new Array();
+				_theModel.m_backArray = values;
+			}
+			public function SetBackCard(values : Array,wLandUser : uint = TConst.INVALID_CHAIR) : void
+			{
+				try
+				{
+					if(_shootCards == null)_shootCards = new Array();
+					if(_backCards == null)_backCards = new Array(3);
+					var wLandViewChairID : uint = _theModel.m_User.SwitchViewChairID(wLandUser);
+					for(var i : uint = 0;i<3;i++) {
+						var card : CardImage = _backCards[i];
+						if(card == null)
+						{
+							card = new CardImage();
+							card.cardValue = values[i];
+							card.horizontalCenter = -85+i * 85;
+							card.verticalCenter = -245;
+							card.depth = 10;
+							this.addElement(card);
+							array_dipai.push(card);
+							if(i == 2)
+								showBackCard(values,wLandViewChairID);
+						}else{
+							card.transformX = 39;
+							TweenMax.to(card,0.3*i,{rotationY:180,onComplete:funCard,onCompleteParams:[card,i,values,wLandViewChairID]});
+						}
+					}
+				}
+				catch(e:Error)
+				{
+					
+				}
+			}
+			private function funCard(card:CardImage,index:int,array:Array,wLandViewChairID:uint):void
+			{
+				card.rotationY = 0;
+				switch(index)
+				{
+					case 0:
+					{
+						card.cardValue = array[0];
+						break;
+					}
+					case 1:
+					{
+						card.cardValue = array[1];
+						break;
+					}
+					case 2:
+					{
+						card.cardValue = array[2];
+						showBackCard(array,wLandViewChairID);
+						break;
+					}
+				}
+			}
+			private function showBackCard(values:Array,viewId:uint):void
+			{
+				for(var i : uint = 0;i<3;i++)
+				{
+					if(viewId != TConst.INVALID_CHAIR) {
+						var nCard : CardImage;
+						var card:CardImage = new CardImage;
+						switch(viewId)
+						{
+							case 0:
+							{
+								_count_0++;
+								sy_0.text = _count_0.toString();
+								sy_0.left = 10+_count_0*3-7;
+								card.cardValue = values[i];
+								card.horizontalCenter = array_dipai[i].horizontalCenter;
+								card.verticalCenter = array_dipai[i].verticalCenter;
+								this.addElement(card);
+								TweenMax.to(card,1,{horizontalCenter:-350,verticalCenter:30,alpha:0.3,onComplete:removeBackCard,onCompleteParams:[card,values,viewId,i]});
+								break;
+							}
+							case 2:
+							{
+								_count_2++;
+								sy_2.text = _count_2.toString();
+								sy_2.right = 10 + _count_2*3-2;
+								card.cardValue = values[i];
+								card.horizontalCenter = array_dipai[i].horizontalCenter;
+								card.verticalCenter = array_dipai[i].verticalCenter;
+								this.addElement(card);
+								TweenMax.to(card,1,{horizontalCenter:350,verticalCenter:30,alpha:0.3,onComplete:removeBackCard,onCompleteParams:[card,values,viewId,i]});
+								break;
+							}
+							case 1:
+							{
+								card.cardValue = values[i];
+								card.horizontalCenter = array_dipai[i].horizontalCenter;
+								card.verticalCenter = array_dipai[i].verticalCenter;
+								this.addElement(card);
+								TweenMax.to(card,1,{horizontalCenter:100,verticalCenter:250,alpha:0.3,onComplete:removeBackCard,onCompleteParams:[card,values,viewId,i]});
+								break;
+							}
+						}
+					}
+				}
+			}
+			private function removeBackCard(card:CardImage,values:Array,viewId:uint,index:int):void
+			{
+				if(this.contains(card))
+					this.removeElement(card);
+				//公共牌发的次数
+				if(index == 0 || index == 1)
+				{
+					return;
+				}
+				for(var i : uint = 0;i<3;i++)
+				{
+					if(viewId != TConst.INVALID_CHAIR) {
+						var nCard : CardImage;
+						switch(viewId)
+						{
+							case 0:
+							{
+								nCard = createBackCard();
+								break;
+							}
+							case 2:
+							{
+								nCard = createBackCard();
+								break;
+							}
+							case 1:
+							{
+								nCard = createCard(values[i],1);
+								if(_theModel.m_bTrust) {
+								}else {
+									nCard.addEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+								}
+								break;
+							}
+						}
+						_handCards[viewId].push(nCard);
+					}
+				}
+				if(viewId != TConst.INVALID_CHAIR) {
+					if(viewId == 1) {
+						SortCard(_sortType);
+					}else {
+						ReDrawCard(viewId);
+					}
+				}
+			}
+			public function SortCard(type : uint = 0,ViewChairID : uint = 1) : void
+			{
+				if(_handCards == null && _handCards[ViewChairID] == null || _handCards[ViewChairID].length <= 2) return;
+				ResetShoot();
+				_sortType = type;
+				var i : uint = 0;
+				var keys : Array = new Array();
+				for(i = 0;i<_handCards[ViewChairID].length;i++ ) {
+					keys.push(_handCards[ViewChairID][i].cardValue);
+				}
+				var count : uint = keys.length;
+				_theModel.m_logic.SortCardList(keys,keys.length,type);
+				var cloneArr : Array = _handCards[ViewChairID].splice(0,_handCards[ViewChairID].length);
+				var value : uint = 0;
+				for( i  = 0;i<keys.length;i++)
+				{
+					value = keys[i];
+					if(value == 0)continue;
+					for(var j : int = cloneArr.length-1;j >=0 ;j--)
+					{
+						var card : CardImage = cloneArr[j];
+						if(card == null)
+						{
+							//							trace('扑克排序错误 card == null,value = '+value); 
+							return; 
+						}
+						if(card.cardValue == value) {
+							card.addFilter(false);
+							_handCards[ViewChairID].push(card);
+							cloneArr.splice(j,1);
+							break;
+						}
+					}
+				}
+				ReDrawCard(ViewChairID);
+			}
+			public function ResetShoot() : void
+			{
+				for(var i : int = _shootCards.length - 1 ; i>=0; i--)
+				{
+					var card : CardImage = _shootCards.pop() as CardImage;
+					if(card != null) { card.bottom = 35; }
+				}
+				_theModel.m_bOutCardEnable = false;
+			}
+			//按钮加倍
+			private function showJiaBei(bHide : Boolean = false) : void
+			{
+				if(bHide) {
+					Btn_jiabei.visible = false;
+					Btn_Bujiabei.visible = false;
+				}else {
+					Btn_jiabei.visible = true;
+					Btn_Bujiabei.visible = true;
+				}
+			}
+			//边上素材加倍
+			public function ShowJiaBei(wChairID : uint) : void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(wChairID);
+				if(wViewChairID >= LandConst.GAME_PLAYER)return;
+				switch(wViewChairID)
+				{
+					case 0:
+					{
+						jiabei_left.visible = true;
+						break;
+					}
+					case 1:
+					{
+						jiabei_my.visible = true;
+						break;
+					}
+					case 2:
+					{
+						jiabei_right.visible = true;
+						break;
+					}
+				}
+			}
+			
+			public function OutCardImage(wChairID : uint,outCards : Array,count : int) : void
+			{
+				_theModel.m_logic.index = 0;
+				_theModel.m_logic.resultIndex = 0;
+				_theModel.m_logic.cb_three_index = 0;
+				_theModel.m_logic.cardArray = new Array();
+				_theModel.m_logic.resultCard = new Array();
+				img_landTs.gotoAndStop(1);
+				var bCardType : uint=_theModel.m_logic.GetCardType(outCards,outCards.length);
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(wChairID);
+				if(wViewChairID == 1)
+				{
+					ResetShoot();
+				}
+				var index_array:int = _handCards[wViewChairID].length;
+				var outCount : int = 0;
+				var leftCount : int = 0;
+				var endCount:int = 0;
+				var card : CardImage = new CardImage();
+				for(var i:int= 0;i<outCards.length;i++ )
+				{
+					if(wViewChairID == _theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser))
+					{
+						for(var A:int = 0;A<3;A++)
+						{
+							if(_theModel.m_backArray[A] == outCards[i])
+							{
+								this['check_'+A].visible = true;
+							}
+						}
+					}
+					switch(wViewChairID)
+					{
+						case 0:
+						{
+							if(bool_duanxian_other == false)
+							{
+								card = new CardImage();
+								this.addElement(card);
+							}else{
+								card = _handCards[wViewChairID].pop();
+							}
+							card.depth = outCount;
+							card.left = 120+outCount * 25-Math.floor(outCount/10)*250;
+							card.verticalCenter = -65+Math.floor(outCount/10)*35;
+							card.cardValue = outCards[outCount];
+							card.scaleX = card.scaleY = 1;
+							img_left.gotoAndStop(bCardType+3);
+							if(_GameEnd)
+							{
+								card.addFilter();
+							}else{
+								_count_0--;
+								sy_0.left = 10+(_handCards[wViewChairID].length-1)*3-3;
+								sy_0.text = _count_0.toString();
+								leftCount = _count_0;
+								if(_count_0 <= 3) {
+									img_JB_left.gotoAndStop(2);
+								}
+								if(_theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser) == 0 && (i == outCards.length-1))
+								{
+									biaozhi.visible = true;
+									biaozhi.left = 120+outCount * 25-Math.floor(outCount/10)*250 + 24;
+									biaozhi.verticalCenter = -65+Math.floor(outCount/10)*35 - 27;
+								}
+							}
+							no_send_left = 0;
+							break;
+						}
+						case 2:
+						{
+							if(bool_duanxian_other == false)
+							{
+								card = new CardImage();
+								this.addElement(card);
+							}else{
+								card = _handCards[wViewChairID].pop();
+							}
+							//							card.depth = 20-outCount;
+							//							if(outCount >= 10)
+							//								card.depth = 40-outCount;
+							//							card.right = 120+outCount * 20-Math.floor(outCount/10)*200;
+							card.verticalCenter = -65+Math.floor(outCount/10)*35;
+							if(outCards.length>10)
+							{
+								if(outCount<10)
+								{
+									card.cardValue = outCards[9-outCount];
+									card.right = 120+outCount * 25-Math.floor(outCount/10)*250;
+									card.depth = 20-outCount;
+								}else{
+									card.cardValue = outCards[outCount];
+									card.right = 345 - (outCount-10)*25;
+									card.depth = 20+outCount;
+								}
+							}else{
+								card.cardValue = outCards[outCards.length-1-outCount];
+								card.right = 120+outCount * 25-Math.floor(outCount/10)*200;
+								card.depth = 20-outCount;
+							}
+							//							card.cardValue = outCards[outCards.length-1-outCount];
+							card.scaleX = card.scaleY = 1;
+							img_right.gotoAndStop(bCardType+3);
+							if(_GameEnd)
+							{
+								card.addFilter();
+							}else{
+								_count_2--;
+								sy_2.right = 10+(_handCards[wViewChairID].length-1)*3-2;
+								sy_2.text = _count_2.toString();
+								leftCount = _count_2;
+								if(_count_2 <= 3) {
+									img_JB_right.gotoAndStop(2);
+								}
+								if(_theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser) == 2 && (i == outCards.length-1))
+								{
+									biaozhi.visible = true;
+									if(i>10)
+										biaozhi.right = 345 - (outCount-10)*25-5;
+									else
+										biaozhi.right = 115;
+									biaozhi.verticalCenter = -65+Math.floor(outCount/10)*35 - 27;
+								}
+							}
+							no_send_right = 0;
+							break;
+						}
+						case 1:
+						{
+							for(var j:int = _handCards[1].length - 1;j>=0;j--)
+							{
+								if(_handCards[1][j].cardValue == outCards[i] )
+								{
+									card = _handCards[1][j] as CardImage;
+									card.depth = outCount;
+									_handCards[1].splice(j,1);
+									if(!_GameEnd) {
+										leftCount = _handCards[wViewChairID].length;
+									}
+									card.horizontalCenter = (outCount-1) * 25+15-((outCards.length)/2)*25 ;
+									card.bottom = 200;
+									card.cardValue = outCards[outCount];
+									card.removeEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+									img_my.gotoAndStop(bCardType+3);
+									if(_theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser) == 1 && (i == outCards.length-1) && (_GameEnd == false))
+									{
+										biaozhi.visible = true;
+										biaozhi.horizontalCenter = (outCount-1) * 25+15-((outCards.length)/2)*25 + 16;
+										biaozhi.bottom = 251;
+									}
+								}
+							}
+							break;
+						}
+					}
+					_outCards[wViewChairID].push(card);
+					if(outCount >= count-1) break;
+					outCount++;
+				}
+				bool_duanxian_other = true;
+				if(wViewChairID == 1)
+				{
+					if(bool_paixu == true)
+					{
+						if(!_theModel.m_bTrust) {
+							SortCard(0);
+						}
+					}else{
+						if(!_theModel.m_bTrust) {
+							SortCard(1);
+						}
+					}
+				}
+				ReDrawCard(wViewChairID);
+				if(leftCount <= 2) {
+					playSoundEffect(wChairID,'last',leftCount,-1,0);
+				}
+			}
+			
+			public function HideOutCard(wChairID : uint,bPass : Boolean = false) : void
+			{
+				var wViewChairID : uint = _theModel.m_User.SwitchViewChairID(wChairID)
+				if(wViewChairID > LandConst.GAME_PLAYER) return;
+				var card : CardImage;
+				var i : int = 0;
+				if(_outCards == null){
+					_outCards = new Array(6);			// 0 - 2当前  3 - 5  上一轮
+					for( i = 0;i<6;i++) {
+						_outCards[i] = new Array();
+					}
+				}
+				if(_outCards[wViewChairID].length > 0 || !bPass)
+				{
+					for(i = _outCards[3+wViewChairID].length-1;i>=0;i--)
+					{
+						card = _outCards[3+wViewChairID].pop();
+						if(card) { 	card = null; }
+					}
+				}
+				for(i = _outCards[wViewChairID].length - 1;i>=0;i--)
+				{
+					card = _outCards[wViewChairID].pop();
+					if(this.contains(card)) { this.removeElement(card); }
+					_outCards[3+wViewChairID].push(card);
+				}
+				switch(wViewChairID)
+				{
+					case 0:
+					{
+						if(_theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser) == 0)
+						{
+							biaozhi.top = undefined;
+							biaozhi.bottom = undefined;
+							biaozhi.left = undefined;
+							biaozhi.right = undefined;
+							biaozhi.horizontalCenter = undefined;
+							biaozhi.verticalCenter = undefined;
+							biaozhi.visible = false;
+						}
+						img_left.gotoAndStop(1);
+						break;
+					}
+					case 1:
+					{
+						if(_theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser) == 1)
+						{
+							biaozhi.top = undefined;
+							biaozhi.bottom = undefined;
+							biaozhi.left = undefined;
+							biaozhi.right = undefined;
+							biaozhi.horizontalCenter = undefined;
+							biaozhi.verticalCenter = undefined;
+							biaozhi.visible = false;
+						}
+						img_my.gotoAndStop(1);
+						break;
+					}
+					case 2:
+					{
+						if(_theModel.m_User.SwitchViewChairID(_theModel.m_wLnadUser) == 2)
+						{
+							biaozhi.top = undefined;
+							biaozhi.bottom = undefined;
+							biaozhi.left = undefined;
+							biaozhi.right = undefined;
+							biaozhi.horizontalCenter = undefined;
+							biaozhi.verticalCenter = undefined;
+							biaozhi.visible = false;
+						}
+						img_right.gotoAndStop(1);
+						break;
+					}
+				}
+			}
+			public function onDestroyAllDos():void
+			{
+				TweenMax.killAll();
+				var i:int = 0,j:int = 0;
+				var card:CardImage = new CardImage;
+				
+				if(_handCards)
+				{
+					for(i = 2;i>=0;i--)
+					{
+						for(j = _handCards[i].length-1;j>=0;j--)
+						{
+							card = _handCards[i][j] as CardImage;
+							if(card && this.contains(card))
+								this.removeElement(card);
+							card = null;
+						}
+					}
+					_handCards = null;
+				}
+				
+				if(_shootCards != null)
+				{
+					for(i=_shootCards.length-1;i>=0;i--)
+					{
+						card = _shootCards[i] as CardImage;
+						if(card && this.contains(card))
+							this.removeElement(card);
+						_shootCards[i] = null;
+						_shootCards.splice(i,1);
+					}
+					_shootCards = null;
+					_shootCards = new Array();
+				}
+				
+				if(_backCards)
+				{
+					for(i = _backCards.length-1;i>=0;i--)
+					{
+						card = _backCards[i] as CardImage;
+						if(card && this.contains(card))
+							this.removeElement(card);
+						card = null;
+					}
+					_backCards = null;
+					_backCards = new Array();
+				}
+				
+				if(_outCards)
+				{
+					for(i = 2;i>=0;i--)
+					{
+						for(j = _outCards[i].length-1;j>=0;j--)
+						{
+							card = _outCards[i][j] as CardImage;
+							if(card && this.contains(card))
+								this.removeElement(card);
+							card = null;
+						}
+					}
+					_outCards = null;
+					_outCards = new Array(6);			// 0 - 2当前  3 - 5  上一轮
+					for( i = 0;i<6;i++) {
+						_outCards[i] = new Array();
+					}
+				}
+				
+				if(array_card != null)
+				{
+					for(i = array_card.length-1;i>=0;i--)
+					{
+						array_card[i] = null;
+						array_card.splice(i,1);
+					}
+				}
+				if(array_dipai.length != 0)
+				{
+					for(var x:int = array_dipai.length-1;x>=0;x--)
+					{
+						card = array_dipai[x] as CardImage;
+						if(this.contains(card))
+							this.removeElement(card);
+						card = null;
+						array_dipai.splice(x,1);
+					}
+					array_dipai = null;
+					array_dipai = new Array();
+				}
+				
+				tryplay.visible = false;
+				_GameEnd = false;
+				theServerName.text 	= '';
+				theServerNum.text 	= '';
+				bool_paixu = true;
+				_searchIndex = 0;
+				_sortType = 0;
+				_timerID = 0;
+				jiabei_left.visible = false;
+				jiabei_my.visible = false;
+				jiabei_right.visible = false;
+				bool_duanxian = true;
+				bool_duanxian_other = true;
+				bool_jiabei = true;
+				index_card = 0;
+				
+				removeUIChildren(sendLeft);
+				removeUIChildren(sendMy);
+				removeUIChildren(sendRight);
+				removeUIChildren(readyMc0);
+				removeUIChildren(readyMc1);
+				removeUIChildren(readyMc2);
+				removeUIChildren(land_huojian);
+				removeUIChildren(land_feiji);
+				removeUIChildren(land_zhadan);
+				removeUIChildren(JB_left);
+				removeUIChildren(JB_right);
+				removeUIChildren(TS_card);
+				theNongmin1.visible = false;
+				theNongmin1.left = undefined;
+				theNongmin1.right = undefined;
+				theNongmin1.horizontalCenter = undefined;
+				theNongmin1.verticalCenter = undefined;
+				removeUIChildren(theNongmin1);
+				theNongmin2.visible = false;
+				theNongmin2.left = undefined;
+				theNongmin2.right = undefined;
+				theNongmin2.horizontalCenter = undefined;
+				theNongmin2.verticalCenter = undefined;
+				removeUIChildren(theNongmin2);
+				theDizhu.visible = false;
+				theDizhu.left = undefined;
+				theDizhu.right = undefined;
+				theDizhu.horizontalCenter = undefined;
+				theDizhu.verticalCenter = undefined;
+				removeUIChildren(theDizhu);
+				TG_card.visible = false;
+				noCard.visible = false;
+				noBtn.visible = false;
+				check_0.visible = false;
+				check_1.visible = false;
+				check_2.visible = false;
+				my_chun.visible = false;
+				removeUIChildren(my_chun);
+				my_Leftchun.visible = false;
+				removeUIChildren(my_Leftchun);
+				my_Rightchun.visible = false;
+				removeUIChildren(my_Rightchun);
+				for(i = 0;i<3;i++)
+				{
+					this['score_' + i].text = "";
+					this['score_' + i].visible = false;
+					
+					this['timer_' + i].visible = false;
+					this['timer_' + i].text = '';
+					this['clock_' + i].visible = false;
+				}
+				this['timer_' + 3].visible = false;
+				this['timer_' + 3].text = '';
+				this['clock_' + 3].visible = false;
+				txt_beishu.text = "";
+				Btn_1.visible = false;
+				Btn_2.visible = false;
+				Btn_3.visible = false;
+				undoBtn.visible = false;
+				Btn_a.visible = false;
+				startBtn.visible = false;
+				tuoguanBtn.visible = false;
+				paixuBtn.visible = false;
+				shuMuBtn.visible = false;
+				upBtn.visible =false;
+				unTG_btn.visible = false;
+				Hide();
+				theuser.Destroy();
+				pic_1.visible = false;
+				pic_2.visible = false;
+				pic_my.visible = false;
+				biaozhi.visible = false;
+				//				if(_theModel)
+				//				{
+				//					_theModel.Destroy();
+				//				}
+				_theModel = null;
+			}
+			
+			private function removeUIChildren(ui:UIComponent):void
+			{
+				for(var i:int=ui.numChildren-1; i>=0; i--)
+					ui.removeChildAt(i);
+			}
+			
+			private function onButtonClick(e : MouseEvent) : void
+			{
+				switch(e.currentTarget.id)
+				{
+					case "Btn_1":
+					{
+						sendCallScore(1);
+						bg_jiaofen.visible = false;
+						break;
+					}
+					case "Btn_2":
+					{
+						sendCallScore(2);
+						bg_jiaofen.visible = false;
+						break;
+					}
+					case "Btn_3":
+					{
+						sendCallScore(3);
+						bg_jiaofen.visible = false;
+						break;
+					}
+					case "undoBtn":
+					{
+						sendCallScore(0);
+						bg_jiaofen.visible = false;
+						break;
+					}
+					case "Btn_jiabei":
+					{
+						sendCallDouble(1);
+						break;
+					}
+					case "Btn_Bujiabei":
+					{
+						sendCallDouble(0);
+						break;
+					}
+				}
+			}
+			private function sendCallScore(score : uint) : void
+			{
+				showJiaoFen(0,true);
+				var landScore : CMD_C_LandScore = new CMD_C_LandScore();
+				landScore.bLandScore = score;
+				_theModel.m_Tcp.SendData(GameCmd.MDM_GF_GAME,LandCmd.SUB_C_LAND_SCORE,landScore.toByteArray(),landScore.size);
+			}
+			private function sendCallDouble(type : uint) : void
+			{
+				showJiaBei(true);
+				var SendDouble : CMD_C_DoubleScore = new CMD_C_DoubleScore();
+				SendDouble.bDoubleScore = type;
+				_theModel.m_Tcp.SendData(GameCmd.MDM_GF_GAME,LandCmd.SUB_C_DOUBLE_SCORE,SendDouble.toByteArray(),SendDouble.size);
+			}
+			private function showJiaoFen(bCurScore : uint = 0,bHide : Boolean = false) : void
+			{
+				var i : uint = 0;
+				if(bCurScore >= 3) { bHide = true; }
+				if(bHide) {
+					for(i = 1;i<4;i++) {
+						this['Btn_'+i].visible = false;
+					}
+					undoBtn.visible = false;
+					bg_jiaofen.visible = false;
+					return;
+				}
+				undoBtn.visible = true;
+				for(i = 1;i<4;i++) {
+					this['Btn_'+i].visible = true;
+					if(i > bCurScore) {
+						this['Btn_'+i].visible = true;
+						this['Btn_'+i].enabled = true;
+					}else{
+						this['Btn_'+i].enabled = false;
+					}
+				}
+			}
+			private function onMouseRightClick(e : MouseEvent) : void
+			{
+				try
+				{
+					if( _theModel == null)	_theModel = LandModel._getInstance();
+					if(!_theModel.m_bGameStart || _theModel.m_bTrust) return;
+					if(_theModel.m_wCurrentUser != _theModel.m_User.GetMeChairID()) return;
+					VerdictOutCard();
+					if(_theModel.m_bOutCardEnable) {
+						hidePaiBtn();
+						sendOutCard();
+					}
+					
+				}
+				catch(e:Error)
+				{
+					//					trace(e.toString());
+				}
+			}
+			private function onButtonExClick(e : MouseEvent) : void
+			{
+				switch(e.currentTarget.id)
+				{
+//					case "reSelectBtn":
+//					{
+//						ResetShoot();
+//						_theModel.m_logic.index = 0;
+//						_theModel.m_logic.resultIndex = 0;
+//						_theModel.m_logic.cb_three_index = 0;
+//						_theModel.m_logic.cardArray = new Array();
+//						_theModel.m_logic.resultCard = new Array();
+//						reSelectBtn.enabled = false;
+//						sendBtn.enabled = false;	
+//						break;
+//					}
+					case "tishiBtn":
+					{
+						ResetShoot();
+						_theModel.m_bOutCardEnable = SearchCard();
+						if(!_theModel.m_bOutCardEnable) {
+							//不出 自动过牌
+							_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,LandCmd.SUB_C_PASS_CARD);
+							hidePaiBtn();
+							if(noCard.visible == true)
+							{
+								noCard.visible = false;
+							}
+						}else{
+							sendBtn.enabled = true;
+							reSelectBtn.enabled = true;
+						}
+						break;
+					}
+					case "passBtn":
+					{
+						hidePaiBtn();
+						ResetShoot();
+						_searchIndex = 0;
+						_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,LandCmd.SUB_C_PASS_CARD);
+						if(noCard.visible == true)
+						{
+							noCard.visible = false;
+							noBtn.visible = false;
+						}
+						break;
+					}
+					case "sendBtn":
+					{
+						hidePaiBtn();
+						sendOutCard();
+						break;
+					}
+					case "startBtn":
+					{
+						if(checkPlayed()) return;
+						if(firstTryPlay == false)
+						{
+							bool_try = false;
+						}
+						onDestroyAllDos();
+						Controller.dispatchEvent(GameEvent.CONTINUE_GAME);
+						break;
+					}
+					case "closeBtn":
+					{
+						ResetLast();
+						break;
+					}
+					case "noBtn":
+					{
+						hidePaiBtn();
+						ResetShoot();
+						_searchIndex = 0;
+						_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,LandCmd.SUB_C_PASS_CARD);
+						if(noCard.visible == true)
+						{
+							noCard.visible = false;
+							noBtn.visible = false;
+						}
+						break;
+					}
+				}
+			}
+			private function checkPlayed():Boolean
+			{
+				if(StaticVars.isTryPlayed && StaticVars.tryPlayScore < room_score*100)
+				{
+					Controller.dispatchEvent('gameModuleExit');
+					MsgManager.getInstance().showMessage1('您的金币不足！请取金币！');
+					return true;
+				}
+				return false;
+			}
+			private function onClickButton(e : MouseEvent) : void
+			{
+				switch(e.currentTarget.id)
+				{
+					case "tuoguanBtn":
+					{
+						if(!_theModel.m_bGameStart) return;
+						tuoguanBtn.mouseEnabled = false;
+						tuoguanBtn.visible = false;
+						unTG_btn.mouseEnabled = false;
+						_theModel.m_bTrust = true;
+						TweenMax.delayedCall(3,addtuoguanBtn);
+						SendTrust(1);
+						onTrustCard(true);
+						noCard.visible = false;
+						pic_my.visible = true;
+						noBtn.visible = false;
+						break;
+					}
+					case "unTG_btn":
+					{
+						//						if(_theModel.m_bTrustCount >=3) return;
+						_theModel.m_bTrust = false;
+						//						_theModel.m_bTrustCount++;
+						unTG_btn.visible = false;
+						tuoguanBtn.mouseEnabled = false;
+						unTG_btn.mouseEnabled = false;
+						TweenMax.delayedCall(3,addtuoguanBtn);
+						SendTrust(0);
+						onTrustCard(false);
+						if(!_theModel.m_bGameStart) return;
+						//						if(_theModel.m_wCurrentUser == _theModel.m_User.GetMeChairID()) {
+						//							showPaiBtn();
+						//						}
+						pic_my.visible = false;
+						break;
+					}
+					case "shuMuBtn":
+					{
+						paixuBtn.visible = true;
+						shuMuBtn.visible = false;
+						img_sun.gotoAndPlay(1);
+						land_sun.visible = true;
+						img_sun.addEventListener(Event.ENTER_FRAME,sunHandle);
+						if(!_theModel.m_bTrust) {
+							SortCard(1);
+						}
+						bool_paixu = false;
+						for(var i:int =0;i<_handCards[1].length;i++){
+							TweenMax.to(_handCards[1][i],0.3,{horizontalCenter:_handCards[1][0].horizontalCenter+i*2,bottom:_handCards[1][0].bottom,onComplete:paixuCard});
+						}
+						break;
+					}
+					case "paixuBtn":
+					{
+						paixuBtn.visible = false;
+						shuMuBtn.visible = true;
+						img_sun.gotoAndPlay(1);
+						land_sun.visible = true;
+						img_sun.addEventListener(Event.ENTER_FRAME,sunHandle);
+						if(!_theModel.m_bTrust) {
+							SortCard(0);
+						}
+						bool_paixu = true;
+//						if(bool_paixu == true)
+//						{
+//							if(!_theModel.m_bTrust) {
+//								SortCard(1);
+//							}
+//							bool_paixu = false;
+//						}else{
+//							if(!_theModel.m_bTrust) {
+//								SortCard(0);
+//							}
+//							bool_paixu = true;
+//						}
+						for(var j:int =0;j<_handCards[1].length;j++){
+							TweenMax.to(_handCards[1][j],0.3,{horizontalCenter:_handCards[1][0].horizontalCenter+j*2,bottom:_handCards[1][0].bottom,onComplete:paixuCard});
+						}
+						break;
+					}
+					case "upBtn":
+					{
+						upCard.visible = true;
+						closeBtn.visible = true;
+						ShowLastCard();
+						break;
+					}
+				}
+			}
+			private function addtuoguanBtn():void
+			{
+				tuoguanBtn.mouseEnabled = true;
+				unTG_btn.mouseEnabled = true;
+				if(_theModel.m_bTrust == true)
+					unTG_btn.visible = true;
+				else
+					tuoguanBtn.visible = true;
+			}
+			private function sunHandle(e:Event):void
+			{
+				if(img_sun.currentLabel == 'end')
+				{
+					img_sun.gotoAndStop(1);
+					img_sun.removeEventListener(Event.ENTER_FRAME,sunHandle);
+					land_sun.visible = false;
+				}
+			}
+			private function paixuCard():void
+			{
+				for(var i:int =0;i<_handCards[1].length;i++){
+					TweenMax.to(_handCards[1][i],0.3,{horizontalCenter:_handCards[1][0].horizontalCenter+i*25,bottom:_handCards[1][0].bottom});
+				}
+			}
+			public function ShowLastCard() : void
+			{
+				if(_bShowLast)return;
+				_bShowLast = true;
+				_lastChaild = new Array();
+				var card : CardImage = new CardImage;
+				for(var i : uint = 3;i<6;i++)
+				{
+					if(_outCards == null)
+					{
+						TweenMax.delayedCall(3,ResetLast);
+						return;
+					}
+					for(var j : uint = 0;j < _outCards[i].length;j++) {
+						card = _outCards[i][j];
+						if(card != null) 
+						{
+							card.scaleX = card.scaleY = 1;
+							this.addElement(card);
+							switch(i) 
+							{
+								case 3:
+								{
+									card.depth = 60+j;
+									card.horizontalCenter = -240 + j * 15;
+									card.verticalCenter = -50;
+									break;
+								}
+								case 4:
+								{
+									card.depth = 60+j;
+									card.horizontalCenter = j*15 - (_outCards[4].length/2)*15;
+									card.verticalCenter = 80;
+									break;
+								}
+								case 5:
+								{
+									card.depth = 70-j;
+									card.horizontalCenter = 240 - j * 15;
+									card.verticalCenter = -50;
+									break;
+								}
+							}
+							_lastChaild.push(card);
+						}
+					}
+				}
+				TweenMax.delayedCall(3,ResetLast);
+			}
+			private function ResetLast() : void
+			{
+				if(upCard.visible == false) {return;}
+				upCard.visible = false;
+				closeBtn.visible = false;
+				_bShowLast = false;
+				var card : CardImage;
+				for(var i : int = _lastChaild.length-1;i>=0;i--)
+				{
+					card = _lastChaild.pop();
+					if(card!=null && this.contains(card)) {
+						this.removeElement(card);
+					}
+				}
+			}
+			private function SendTrust(bTrust : uint) : void
+			{
+				var SendTrust : CMD_C_UserTrustee = new CMD_C_UserTrustee();
+				SendTrust.wUserChairID = _theModel.m_User.GetMeChairID();
+				SendTrust.bTrustee = bTrust;
+				_theModel.m_Tcp.SendData(GameCmd.MDM_GF_GAME,LandCmd.SUB_C_TRUSTEE,SendTrust.toByteArray(),SendTrust.size);
+			}
+			public function onTrustCard(bTrust : Boolean) : void
+			{
+				if(_handCards == null) return;
+				ResetShoot();
+				var card : CardImage;
+				for(var i : uint = 0;i<_handCards[1].length;i++) {
+					card = _handCards[1][i];
+					if(card) {
+						if(bTrust) {
+							card.removeEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+						}else {
+							card.addEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+						}
+					}
+				}
+			}
+			private function RegistBtn(btn : GameMCButton,bool : Boolean) : void
+			{
+				btn.visible = bool;
+			}
+			private function Hide() : void
+			{
+				var i : uint = 0;
+				for(i = 0;i<3;i++)
+				{
+					this['score_' + i].text = '';
+				}
+			}
+			private function hidePaiBtn():void
+			{
+				Btn_a.visible = false;
+				noBtn.visible = false;
+			}
+			
+			private function sendOutCard(bAuto : Boolean = false) : void
+			{
+				if(bAuto && !_theModel.m_bTrust)return;
+				if(_theModel.m_wCurrentUser != _theModel.m_User.GetMeChairID())return;
+				_searchIndex = 0;
+				VerdictOutCard();
+				if(!_theModel.m_bOutCardEnable) {
+					//					ResetShoot();
+					//					_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,LandCmd.SUB_C_PASS_CARD); 
+					return;
+				}
+				var OutCard : CMD_C_OutCard = new CMD_C_OutCard();
+				var arrs : Array = GetOutCard();
+				OutCard.bCardCount = arrs.length;
+				Memory._copyArray(OutCard.bCardData,arrs,OutCard.bCardCount);
+				_theModel.m_Tcp.SendData(GameCmd.MDM_GF_GAME,LandCmd.SUB_C_OUT_CART,OutCard.toByteArray(),OutCard.size);
+				_theModel.m_wCurrentUser = TConst.INVALID_CHAIR;
+			}
+			
+			public function GetOutCard() : Array
+			{
+				var arr : Array = new Array();
+				for(var i : int = _shootCards.length - 1 ; i>=0; i--)
+				{
+					var card : CardImage = _shootCards.pop() as CardImage;
+					if(card != null) { arr.push(card.cardValue); }
+				}
+				_theModel.m_bOutCardEnable = false;
+				return arr;
+			}
+			
+			public function changeBackground(val:int):void
+			{
+				if(val == 4)
+					_bg.source = LandlordSkinClass.land_table4;
+				else if(val == 3)
+					_bg.source = LandlordSkinClass.land_table3;
+				else if(val == 2)
+					_bg.source = LandlordSkinClass.land_table2;
+				else if(val == 1)
+					_bg.source = LandlordSkinClass.land_table1;
+			}
+			
+			//退出游戏
+			override protected function OnSubExitGame():Boolean
+			{
+				
+				//				TweenMax.killAll(true);
+				//				TweenMax.killAll();
+				//onDestroyAllDos();
+				return true;
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<mx:UIComponent id="theNongmin1" depth="40" visible="false"/>
+	<mx:UIComponent id="theNongmin2" depth="40" visible="false"/>
+	<mx:UIComponent id="theDizhu" depth="40" visible="false"/>
+	<mx:UIComponent left="150" verticalCenter="-240" id="readyMc0" visible="true" depth="5"/>
+	<mx:UIComponent horizontalCenter="-255" bottom="210" id="readyMc1" visible="true" depth="5"/>
+	<mx:UIComponent right="274" verticalCenter="-240" id="readyMc2" visible="true" depth="5"/>
+	<s:Label horizontalCenter="-180" bottom="140" color="#CC3333" fontSize="20" fontWeight="bold" width="100" height="25" id="score_1" depth="45" mouseEnabled="false"/>
+	<s:Label left="165" verticalCenter="-130" color="#CC3333" fontSize="20" fontWeight="bold" width="100" height="40" id="score_0" depth="45"/>
+	<s:Label right="165" verticalCenter="-130" color="#CC3333" fontSize="20" fontWeight="bold" width="100" height="40" id="score_2" depth="45" textAlign="right"/>
+	<mx:UIComponent left="135" verticalCenter="20" id="my_Leftchun" depth="50"/>
+	<mx:UIComponent horizontalCenter="-100" bottom="40" id="my_chun" depth="50"/>
+	<mx:UIComponent right="235" verticalCenter="20" id="my_Rightchun" depth="50"/>
+	<s:Image horizontalCenter="0" verticalCenter="-250" source="{LandlordSkinClass.land_blackGround}" visible="true" depth="1"/>
+	<s:Image horizontalCenter="0" verticalCenter="14" source="{LandlordSkinClass.land_table2}" depth="0" id="_bg" visible="true"/>
+	<s:Image horizontalCenter="-8" verticalCenter="-112" source="{LandlordSkinClass.tryplay}" id="tryplay" visible="false"/>
+	<!--<s:Group horizontalCenter="-40" verticalCenter="-125" width="100">
+	<s:Label x="0" y="0" color="#00CCFF" fontSize="15" fontWeight="bold" width="40" height="40" text="倍数:" visible="true" textAlign="left" fontFamily="宋体"/>
+	<s:Label x="40" y="0" color="#00CCFF" fontSize="20" fontWeight="bold" width="40" height="40" id="txt_beishu" visible="true" textAlign="center"/>
+	<s:Label x="80" y="0" color="#00CCFF" fontSize="15" fontWeight="bold" width="40" height="40" text="底注:" visible="true" textAlign="left" fontFamily="宋体"/>
+	<s:Label x="120" y="3" color="#00CCFF" fontSize="15" fontWeight="bold" width="100" height="40" id="txt_dizhu" visible="true" textAlign="left"/>
+	</s:Group>-->
+	<s:Label right="12" top="-2" color="#00CCFF" fontSize="15" width="116" height="40" id="txt_beishu" visible="true" textAlign="left" depth="2"/>
+	<s:Label right="12" top="20" color="#00CCFF" fontSize="15" width="116" height="40" id="txt_dizhu" visible="true" textAlign="left" depth="2"/>
+	<s:Image right="10" top="-10" source="{LandlordSkinClass.land_kuang}" visible="true" depth="1"/>
+	<s:HGroup horizontalCenter="0" verticalCenter="130" depth="100">
+		<com:GameMCButton targetClass="{LandlordSkinClass.land_JiabeiButton}" buttonMode="true" id="Btn_jiabei" visible="false" click="onButtonClick(event)"/>
+		<com:GameMCButton targetClass="{LandlordSkinClass.land_BujiabeiButton}" buttonMode="true" id="Btn_Bujiabei" visible="false" click="onButtonClick(event)"/>
+	</s:HGroup>
+	<s:Group horizontalCenter="0" bottom="180" depth="100" visible="true">
+		<com:GameMCButton x="10" y="0" targetClass="{LandlordSkinClass.land_oneBtn}" buttonMode="true" id="Btn_1"  visible="false" click="onButtonClick(event)"/>
+		<com:GameMCButton x="100" y="0" targetClass="{LandlordSkinClass.land_twoBtn}" buttonMode="true" id="Btn_2"  visible="false" click="onButtonClick(event)"/>
+		<com:GameMCButton x="190" y="0" targetClass="{LandlordSkinClass.land_threeBtn}" buttonMode="true" id="Btn_3"  visible="false" click="onButtonClick(event)"/>
+		<com:GameMCButton x="300" targetClass="{LandlordSkinClass.land_undoBtn}" buttonMode="true" id="undoBtn"  visible="false" click="onButtonClick(event)"/>
+	</s:Group>
+	<com:GameMCButton horizontalCenter="0" bottom="280" targetClass="{LandlordSkinClass.land_start}" id="startBtn" depth="101" visible="false" click="onButtonExClick(event)"/>
+	<s:Group horizontalCenter="0" bottom="195" depth="60" id="Btn_a" visible="false">
+		<com:GameMCButton x="113" y="0" targetClass="{LandlordSkinClass.land_tishiBtn}" buttonMode="true" id="tishiBtn" click="onButtonExClick(event)"/>
+		<com:GameMCButton x="0" y="0" targetClass="{LandlordSkinClass.land_passBtn}" buttonMode="true" id="passBtn" click="onButtonExClick(event)"/>
+		<com:GameMCButton x="226" y="0" targetClass="{LandlordSkinClass.land_sendBtn}" buttonMode="true" id="sendBtn" click="onButtonExClick(event)"/>
+		<com:GameMCButton targetClass="{LandlordSkinClass.land_reSelectBtn}" buttonMode="true" id="reSelectBtn" click="onButtonExClick(event)" visible="false"/> 
+	</s:Group>
+	<com:GameMCButton right="195" bottom="-40" width="111" height="31" depth="10" targetClass="{LandlordSkinClass.land_tuoguan}" id="tuoguanBtn" visible="false" click="onClickButton(event)"/>
+	<com:GameMCButton right="92" bottom="-40" width="97" height="31" depth="10" targetClass="{LandlordSkinClass.land_paixu}" id="paixuBtn" visible="false" click="onClickButton(event)"/>
+	<com:GameMCButton right="92" bottom="-40" width="97" height="31" depth="10" targetClass="{LandlordSkinClass.land_shumu}" id="shuMuBtn" visible="false" click="onClickButton(event)"/>
+	<com:GameMCButton right="7" bottom="-40" width="91" height="31" depth="10" targetClass="{LandlordSkinClass.land_upBtn}" id="upBtn" visible="false" click="onClickButton(event)"/>
+	<com:GameMCButton right="185" bottom="-40" width="111" height="31" depth="10" targetClass="{LandlordSkinClass.land_unTG}" id="unTG_btn" visible="false" click="onClickButton(event)"/>
+	<s:Label left="112" verticalCenter="-127" color="#000000" fontSize="26" fontWeight="bold" width="80" height="80" id="timer_0" textAlign="center" depth="100" visible="false" mouseEnabled="false"/>
+	<s:Label right="112" verticalCenter="-127" color="#000000" fontSize="26" fontWeight="bold" width="80" height="80" id="timer_2" textAlign="center" depth="100" visible="false" mouseEnabled="false"/>
+	<s:Label horizontalCenter="-267" bottom="107" color="#000000" fontSize="26" fontWeight="bold" width="80" height="80" id="timer_1" textAlign="center" depth="100" visible="false" mouseEnabled="false"/>
+	<s:Label horizontalCenter="0" verticalCenter="35" color="#000000" fontSize="26" fontWeight="bold" width="80" height="80" id="timer_3" textAlign="center" depth="100" visible="false" mouseEnabled="false"/>
+	<s:Image left="120" verticalCenter="-160" source="{LandlordSkinClass.land_clock}" id="clock_0" visible="false" depth="20" mouseEnabled="false" mouseChildren="false"/>
+	<s:Image right="120" verticalCenter="-160" source="{LandlordSkinClass.land_clock}" id="clock_2" visible="false" depth="20" mouseEnabled="false" mouseChildren="false"/>
+	<s:Image horizontalCenter="-268" bottom="145" source="{LandlordSkinClass.land_clock}" id="clock_1" visible="false" depth="20" mouseEnabled="false" mouseChildren="false"/>
+	<s:Image horizontalCenter="-0" verticalCenter="0" source="{LandlordSkinClass.land_clock}" id="clock_3" visible="false" depth="20" mouseEnabled="false" mouseChildren="false"/>
+	<mx:UIComponent left="130" verticalCenter="30" id="sendLeft" depth="50" visible="false"/>
+	<mx:UIComponent right="240" verticalCenter="30" id="sendRight" depth="50"/>
+	<mx:UIComponent horizontalCenter="-84" bottom="200" id="sendMy" depth="50"/>
+	<s:Label verticalCenter="18" color="#000000" fontWeight="bold" fontSize="18" width="38" height="38" id="sy_0" textAlign="center" depth="50" visible="false"/>
+	<s:Label verticalCenter="18" color="#000000" fontWeight="bold" fontSize="18" width="38" height="38" id="sy_2" textAlign="center" depth="50" visible="false"/>
+	<!--<mx:UIComponent id="win_chun" depth="50"/>-->
+	<mx:UIComponent horizontalCenter="0" verticalCenter="0" id="land_huojian" depth="50"/>
+	<mx:UIComponent left="-300" verticalCenter="0" id="land_feiji" depth="50"/>
+	<mx:UIComponent horizontalCenter="0" verticalCenter="0" id="land_zhadan" depth="50"/>
+	<mx:UIComponent left="30" verticalCenter="-18" id="JB_left" depth="50"/>
+	<mx:UIComponent right="100" verticalCenter="-18" id="JB_right" depth="50"/>
+	<s:Image left="95" verticalCenter="-96" source="{LandlordSkinClass.land_bei}" id="jiabei_left" visible="false" depth="50"/>
+	<s:Image right="90" verticalCenter="-96" source="{LandlordSkinClass.land_bei}" id="jiabei_right" visible="false" depth="50"/>
+	<s:Image horizontalCenter="-365" bottom="140" source="{LandlordSkinClass.land_bei}" id="jiabei_my" visible="false" depth="50"/>
+	<mx:UIComponent horizontalCenter="-100" verticalCenter="0" id="TS_card" depth="120"/>
+	<s:Group horizontalCenter="0" bottom="150" id="bg_jiaofen" depth="90" visible="false">
+		<!--<s:Image x="0" y="0"  source="{LandlordSkinClass.land_jiaofen}" id="jiaofen_bg"/>
+		<s:Label x="30" y="20" color="#999999" fontSize="14" width="300" height="40" text="请选择叫地主的倍数:" fontFamily="宋体"/>-->
+	</s:Group>
+	<s:Image horizontalCenter="0" bottom="35" source="{LandlordSkinClass.land_TG_land}" id="TG_card" depth="30" visible="false"/>
+	<s:Image horizontalCenter="0" bottom="35" source="{LandlordSkinClass.land_noCard}" id="noCard" depth="30" visible="false"/>
+	<com:MCButton horizontalCenter="-50" bottom="220" targetClass="{LandlordSkinClass.land_noBtn}" id="noBtn" depth="60" visible="false" click="onButtonExClick(event)"/>
+	<s:Image horizontalCenter="0" verticalCenter="0" source="{LandlordSkinClass.land_tishi_up}" id="upCard" depth="60" visible="false"/>
+	<s:Image horizontalCenter="260" verticalCenter="-123" source="{LandlordSkinClass.land_closeBtn}" id="closeBtn" buttonMode="true" depth="60" visible="false" click="onButtonExClick(event)"/>
+	<s:Label fontSize="14" color="#1D581A" fontFamily="宋体" fontWeight="bold" horizontalCenter="-15" verticalCenter="-110" id="theServerName" visible="false"/>
+	<s:Label fontSize="14" color="#1D581A" fontFamily="宋体" horizontalCenter="-20" verticalCenter="-90" id="theServerNum" visible="false"/>
+	<view1:LandlordUser left="0" right="0" top="0" bottom="0" width="100%" height="100%" id="theuser" depth="30" visible="true">
+	</view1:LandlordUser>
+	<s:Group left="10" verticalCenter="-10" id="left_point">
+	</s:Group>
+	<s:Group horizontalCenter="0" bottom="130" id="my_point">
+	</s:Group>
+	<s:Group right="50" verticalCenter="-10" id="right_point">
+	</s:Group>
+	<s:Group horizontalCenter="0" verticalCenter="0" id="center_point">
+	</s:Group>
+	<s:Group horizontalCenter="-30" verticalCenter="-270" id="up_point">
+	</s:Group>
+	<mx:UIComponent horizontalCenter="-245" bottom="200" id="land_sun" depth="50"/>
+	<s:Image left="95" verticalCenter="-125" source="{LandlordSkinClass.land_tuoguan_XS}" id="pic_1" depth="30" visible="false"/>
+	<s:Image right="90" verticalCenter="-125" source="{LandlordSkinClass.land_tuoguan_XS}" id="pic_2" depth="30" visible="false"/>
+	<s:Image horizontalCenter="-392" bottom="140" source="{LandlordSkinClass.land_tuoguan_XS}" id="pic_my" depth="30" visible="false"/>
+	<s:Image horizontalCenter="-84" top="2" source="{LandlordSkinClass.check}" id="check_0" visible="false" depth="25"/>
+	<s:Image horizontalCenter="1" top="2" source="{LandlordSkinClass.check}" id="check_1" visible="false" depth="25"/>
+	<s:Image horizontalCenter="86" top="2" source="{LandlordSkinClass.check}" id="check_2" visible="false" depth="25"/>
+	
+	<s:Image source="{LandlordSkinClass.land_biaozhi}" id="biaozhi" visible="false" depth="25"/>
+</base:GameBaseModule>

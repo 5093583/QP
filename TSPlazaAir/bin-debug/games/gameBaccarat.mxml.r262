@@ -1,0 +1,1822 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base:GameBaseModule xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					 xmlns:s="library://ns.adobe.com/flex/spark" 
+					 xmlns:mx="library://ns.adobe.com/flex/mx" 
+					 xmlns:base="base.*"
+					 implements="base.IModuleGame"
+					 creationComplete="gamebasemodule1_creationCompleteHandler(event)"
+					 horizontalCenter="0" verticalCenter="0"
+					 maxWidth="1300" maxHeight="900"
+					 width="800" height="600" 
+					 xmlns:baccarat="games.baccarat.*" 
+					 xmlns:com="com.*" xmlns:view="games.baccarat.view.*">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			import base.StaticVars;
+			
+			import com.greensock.TweenMax;
+			import com.plaza.MsgManager;
+			
+			import cx.client.logon.model.UserModel;
+			import cx.gamebase.Interface.IUserViewSink;
+			import cx.gamebase.enum.enTimeType;
+			import cx.gamebase.events.GameEvent;
+			import cx.gamebase.sturuct.GameCmd;
+			import cx.gamebase.sturuct.tagServerTimer;
+			import cx.gamebase.sturuct.tagUserInfoHead;
+			import cx.net.Interface.IClientSocket;
+			
+			import gameAssets.baccarat.BaccaratSkinClass;
+			
+			import games.baccarat.model.BaccaratModel;
+			import games.baccarat.model.HistoryModel;
+			import games.baccarat.struct.CMD_C_PlaceJetton;
+			import games.baccarat.struct.CMD_S_ApplyBanker;
+			import games.baccarat.struct.CMD_S_CancelBanker;
+			import games.baccarat.struct.CMD_S_ChangeBanker;
+			import games.baccarat.struct.CMD_S_ChangeUserScore;
+			import games.baccarat.struct.CMD_S_GameEnd;
+			import games.baccarat.struct.CMD_S_GameFree;
+			import games.baccarat.struct.CMD_S_GameStart;
+			import games.baccarat.struct.CMD_S_OutPlayerReson;
+			import games.baccarat.struct.CMD_S_PlaceJetton2;
+			import games.baccarat.struct.CMD_S_StatusFree;
+			import games.baccarat.struct.CMD_S_StatusPlay;
+			import games.baccarat.struct.tagServerGameRecord;
+			import games.baccarat.utils.BaccCMD;
+			import games.baccarat.utils.BaccConst;
+			
+			import mx.events.FlexEvent;
+			import mx.managers.CursorManager;
+			import mx.managers.CursorManagerPriority;
+			import mx.utils.ObjectUtil;
+			
+			import t.cx.air.TConst;
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.IDConvert;
+			import t.cx.air.utils.Memory;
+			
+			
+			
+			private var _theModel : BaccaratModel;
+			
+			private var _chips : Array = [];
+			private var _chipArrs : Array = new Array({x:0,y:0},{x:0,y:200},{x:180,y:200},{x:360,y:200},{x:360,y:0});
+			
+			private var _chipScore:Array = [1, 5, 10, 50, 100, 1000, 10000];
+			private var _userAreaScore:Array;
+			private var _areaScore:Array;
+			private var _allUserAreaScore:Array;
+			
+			private var _timer : Timer;
+			
+			private var _bWarning : Boolean;
+			
+			private var _chipIndex : int;
+			
+			private var _applyBanker : Array;
+			
+			private var _historyVec : Array;
+			
+			private var _clock : DisplayObject;
+			
+			private var showTip:Boolean = true;
+			private var firstTryPlay:Boolean = true;
+			
+			
+			
+			private var _tipAreaLimitScore:Number;
+			private var _tipUserMaxScore:Number;
+			private var _tipApplyBankerCondition:Number;
+			
+			private var _onShowAide:Boolean = false;
+			
+			
+			private var mc_Win_1:MovieClip;
+			private var mc_Win_2:MovieClip;
+			private var mc_Win_3:MovieClip;
+			private var mc_Win_4:MovieClip;
+			private var mc_Win_5:MovieClip;
+			private var mc_Win_6:MovieClip;
+			private var mc_Win_7:MovieClip;
+			private var mc_Win_8:MovieClip;
+	
+			protected function gamebasemodule1_creationCompleteHandler(event:FlexEvent):void
+			{
+				_historyVec = [];
+				_applyBanker = [];
+				
+				if(!ui_clock.numChildren){
+					_clock = BaccaratSkinClass.GetClock();
+					_clock["Status_MC"].gotoAndStop(1);
+					ui_clock.addChild(_clock);
+				}
+				Controller.addEventListener('UPDATE_HISTORY',onUpdateHistory);
+				
+				if(!Controller.hasEventListener('WAINING_TEXT'))
+					Controller.addEventListener('WAINING_TEXT',onWarningEvent);
+				
+				track_0.addEventListener(MouseEvent.CLICK, onMouseDownHandler);
+				track_1.addEventListener(MouseEvent.CLICK, onMouseDownHandler);
+//				for(var i : uint = 1; i < 9;i++)
+//				{
+//					
+//					var e : TEvent = new TEvent('ShowGameEndWinArea',1,i)
+//					onGetWinMovcipArea(e);
+//				}
+			}
+			public function onGetWinMovcipArea(e : TEvent) : void
+			{
+				var val : uint = e.nWParam;
+				var moves : MovieClip = new MovieClip();
+				switch(val)
+				{
+					case 1:
+					{
+						moves = new BaccaratSkinClass.win_xian() as MovieClip;
+						break;
+					}
+					case 2:
+					{
+						moves = new BaccaratSkinClass.win_ping() as MovieClip;
+						break;
+					}
+					case 3:
+					{
+						moves = new BaccaratSkinClass.win_zhuang() as MovieClip;
+						break;
+					}
+					case 4:
+					{
+						moves = new BaccaratSkinClass.win_xianT() as MovieClip;
+						break;
+					}
+					case 5:
+					{
+						moves = new BaccaratSkinClass.win_zhuangT() as MovieClip;
+						break;
+					}
+					case 6:
+					{
+						moves = new BaccaratSkinClass.win_pingall() as MovieClip;
+						break;
+					}
+					case 7:
+					{
+						moves = new BaccaratSkinClass.win_xianD() as MovieClip;
+						break;
+					}
+					case 8:
+					{
+						moves = new BaccaratSkinClass.win_zhuangD() as MovieClip;
+						break;
+					}
+					default:
+					{
+						moves = null;
+					}
+				}
+				if(moves!=null)
+				{
+					if(this['win_area_'+val].getChildByName(moves.name)==null)
+					{
+						this['win_area_'+val].visible = true;
+						this['win_area_'+val].addChild(moves);
+						moves.gotoAndPlay(1);
+					}else
+					{
+						(this['win_area_'+val].getChildByName(moves.name) as MovieClip).visible = true;
+						(this['win_area_'+val].getChildByName(moves.name) as MovieClip).gotoAndPlay(1);
+					}
+				}
+			}
+			private function onHideWinArea(e : TEvent = null) : void
+			{
+				for(var i : uint = 1 ; i < 9;i++)
+				{
+					if(this['win_area_'+i]!=null)
+						this['win_area_'+i].visible = false;
+					
+					
+											this['totalscorearea_' + i].visible = false;
+											this['gparea_' + i].visible = false;
+				}
+			}
+			private function onWarningEvent(e : TEvent) : void
+			{
+				MsgManager.getInstance().showMessage1( String(e.nWParam) ,null,0,-50,false,1);
+			}
+			
+			private function onMouseDownHandler(evt:MouseEvent):void
+			{
+				if(evt.currentTarget == track_0)
+				{
+					//historyGP.horizontalCenter = 75 - (historyGP.width-historyMask.width)*(recordGP.x)/220;
+					if((recordGP.width+recordGP.x) < 440) return;
+					
+					recordGP.x = recordGP.x -27;
+				}else if(evt.currentTarget == track_1)
+				{
+					//historyGP.horizontalCenter = 75 - (historyGP.width-historyMask.width)*(recordGP.x)/220;
+					recordGP.x = recordGP.x + 27;
+				}
+				//track.startDrag(false, new Rectangle(0, 0, 220, 0));
+				
+				//				startX = track.x;
+			}
+			
+			//			private function onMouseMoveHandler(evt:MouseEvent):void
+			//			{
+			//				if(!evt.buttonDown)	return;
+			//				//				historyGP.horizontalCenter = 75 - (historyGP.width-historyMask.width)*(track.x)/220;
+			//				recordGP.x = 0 - (recordGP.width-historyMask.width)*(track.x)/220;
+			//				
+			//			}
+			
+			//			private function onMouseUpHandler(evt:MouseEvent):void
+			//			{
+			//				this.removeEventListener(MouseEvent.MOUSE_UP, onMouseUpHandler);
+			//				//this.removeEventListener(MouseEvent.MOUSE_MOVE, onMouseMoveHandler);
+			//				
+			//			//	track.stopDrag();
+			//			}
+			private function onUpdateHistory(e : TEvent = null) : void
+			{
+				if( e != null ) {
+					//					_rightIndex = _historyMode.HistoryCount<12?12:_historyMode.HistoryCount;
+					//					_leftIndex = _rightIndex - 12;
+					//					_leftIndex = _leftIndex<0?0:_leftIndex;
+				}
+				
+				var _historyMode : HistoryModel = HistoryModel._getInstance();
+				var pServerParams : tagServerGameRecord;
+				var i:int = 0;
+				var start : int = _historyMode.HistoryCount - 11;
+				start = start>0?start:0;
+				for(i=start; i<_historyMode.HistoryCount; i++)
+				{
+					pServerParams = _historyMode.GetHistoryByIndex(i);
+					if(pServerParams!= null) 
+					{
+						this['hz_' + (i-start)].text = pServerParams.cbBankerCount.toString();
+						this['hx_' + (i-start)].text = pServerParams.cbPlayerCount.toString();
+					}
+					else	
+						break;
+				}
+				
+				var labelCount : uint = 0;
+				start = _historyMode.HistoryCount - 100;
+				start = start>0?start:0;
+				
+				
+				var zhuangWin:int=0, xianWin:int=0, pingWin:int=0;
+				for(i=start; i<_historyMode.HistoryCount; i++)
+				{
+					var Record : tagServerGameRecord = _historyMode.GetHistoryByIndex(i);
+					
+					if(labelCount >= _historyVec.length) 
+					{
+						//						var bg:Image = new Image;
+						//						bg.source = BaccaratSkinClass.record_bg;
+						//						bg.x = labelCount*23;
+						//						recordGP.addElement(bg);
+						
+						var nImage : Image = new Image;
+						_historyVec.push( nImage );
+						nImage.x = -5 + labelCount * 27;
+						recordGP.addElement(nImage);
+					}
+					
+					if(Record.cbPlayerCount > Record.cbBankerCount)					//闲家赢
+					{
+						(_historyVec[labelCount] as Image).y = 29;
+						xianWin++;
+					}
+					else if(Record.cbPlayerCount < Record.cbBankerCount)	 			//庄家赢
+					{
+						(_historyVec[labelCount] as Image).y = 2;
+						zhuangWin++;
+					}
+					else 
+					{
+						(_historyVec[labelCount] as Image).y = 56;
+						pingWin++;
+					}
+					
+					
+					(_historyVec[labelCount] as Image).source = BaccaratSkinClass.getUserSelect(Record.cbUserSelect);
+					
+					labelCount++;
+				}
+				if(labelCount > 11)
+					recordGP.width = labelCount*27;
+				//track.x = 220;
+				recordGP.x = 7 - (recordGP.width-historyMask.width);
+				//				ZhuangTxt.text = _historyMode.zhuangWinCount.toString();
+				//				xianTxt.text = _historyMode.xianWinCount.toString();
+				//				pingTxt.text = _historyMode.pingCount.toString();
+				ZhuangTxt.text = zhuangWin.toString();
+				xianTxt.text = xianWin.toString();
+				pingTxt.text = pingWin.toString();
+			}
+			
+			override protected function OnPreInit():Boolean
+			{
+				_theModel = BaccaratModel._getInstance();
+				return true;
+			}
+			override protected function OnInit():Boolean
+			{
+				if( !super.OnInit() ) return false;
+				//设置用户回调钩子
+				_theModel.m_User.SetUserViewSink(theUserView as IUserViewSink);
+				//初始化游戏服务配置
+				_theModel.m_Attribute.playerCount = BaccConst.GAME_PLAYER;
+				
+				//开始加载音效
+//				_theModel.m_Sound.StartLoad('data/sound/Baccarat_sound' + '.swf');
+				_theModel.m_Sound.StartLoad('data/sound/Baccarat_sound' + (TConst.TC_DEUBG == 1?'.swf':'.cxm'));
+				return true;
+			}
+			public function logonSuccess():void
+			{
+				if(theUserView)	theUserView.init();
+				super.addToStage();
+			}
+			
+			
+			public function updateGameNum():void
+			{
+				//				if(theUserView && theUserView.ZGoldTxt)
+				//				{
+				//					if(_theModel.m_wBankerUser == TConst.INVALID_CHAIR)
+				//						theUserView.ZGoldTxt.text	= '*************';
+				//					else
+				//						theUserView.ZGoldTxt.text = TScore.toStringEx(_theModel.m_lBankerScore);
+				//				}
+			}
+			
+			override protected function OnSoundLoadComplete(e : TEvent) : void
+			{
+				super.OnSoundLoadComplete(e);
+				_theModel.m_Sound.Play('m_backgd',true);
+			}
+			
+			//退出游戏
+			override protected function OnSubExitGame() : Boolean
+			{
+				TweenMax.killAll();
+				onDestroyAllDos();
+				return true;
+			}
+			
+			
+			override protected function OnGameFrameScene(pBuffer:ByteArray, wDataSize:int, pIClientSocket:IClientSocket):Boolean
+			{
+				super.OnGameFrameScene(pBuffer,wDataSize,pIClientSocket);
+				var lLiveTime : int = 0;
+				var cbGameStatus : uint = 0;
+				var i : uint = 0;
+				if(_theModel == null)	return true;
+				switch(_theModel.m_bGameStatus)
+				{
+					case TConst.GS_FREE:
+					{
+						var RecvStatusFree : CMD_S_StatusFree = CMD_S_StatusFree._readBuffer(pBuffer);
+						_theModel.l_status = true;
+						lLiveTime = RecvStatusFree.cbTimeLeave;
+						cbGameStatus = 1;
+						_theModel.m_lAreaLimitScore 		= RecvStatusFree.lAreaLimitScore;
+						_theModel.m_lApplyBankerCondition 	= RecvStatusFree.lApplyBankerCondition;
+						_theModel.m_wBankerUser 			= RecvStatusFree.wBankerUser;
+						
+						StaticVars.isTryPlayed = RecvStatusFree.cbIsTryPlay == 1?true:false;
+						
+						_theModel.m_bEnableSysBanker		= RecvStatusFree.bEnableSysBanker;
+						_theModel.m_cbBankerTime			= RecvStatusFree.cbBankerTime;
+						_theModel.m_lBankerScore			= RecvStatusFree.lBankerScore;
+						_theModel.m_lBankerWinScore			= RecvStatusFree.lBankerWinScore;
+						_theModel.m_lAreaLimitScoreLest		= RecvStatusFree.lAreaLimitScoreLest;
+						_theModel.m_lUserMaxScore			= RecvStatusFree.lUserMaxScore;
+						_theModel.m_lChipScore 				= RecvStatusFree.lChipScore;
+						setStatus(1);
+						
+						StartClock(lLiveTime * 1000);
+						setTheStatus(cbGameStatus);
+						theUserView.InitInfo();
+						
+						//						if(showTip)
+						//						{
+						//							showTip			= false;
+						//							gp_tip.visible 	= true;
+						//							tip1.text	= TScore.toStringEx(RecvStatusFree.lAreaLimitScore);
+						//							tip2.text	= TScore.toStringEx(RecvStatusFree.lUserMaxScore);
+						//							tip3.text	= TScore.toStringEx(RecvStatusFree.lApplyBankerCondition);
+						//							
+						//							TweenMax.delayedCall(3, delayCloseTip);
+						//						}
+						
+						_tipAreaLimitScore		= RecvStatusFree.lAreaLimitScore;
+						_tipUserMaxScore		= RecvStatusFree.lUserMaxScore;
+						_tipApplyBankerCondition= RecvStatusFree.lApplyBankerCondition;
+						
+						
+						if(firstTryPlay && StaticVars.isTryPlayed)
+						{
+							firstTryPlay = false;
+							StaticVars.tryPlayScore= RecvStatusFree.lTryPlayScore;
+							theUserView.GoldTxt.text = TScore.toFloatEx(StaticVars.tryPlayScore).toFixed(2);
+							_theModel.l_userTotalIn = TScore.parseFloatEx(theUserView.GoldTxt.text);
+							
+							if(StaticVars.isTryPlayed)
+								MsgManager.getInstance().showMessage1('您当前进入的是试玩房间，只为体验游戏而设，输赢金额不参与房间外结算！', showTheTip,0,-50,false,1);
+							
+							//							if(StaticVars.isTryPlayed && theUserView)
+							//							{
+							//								theUserView.ZTimeTxt.text = '系统坐庄';
+							//							}
+						}
+						
+						if(StaticVars.isTryPlayed)
+							tryplay.visible = true;
+						else
+							showTheTip();
+						
+						theUserView.ChangeLimitScore();
+						
+						break;
+					}
+					case BaccConst.GS_PLACE_JETTON:
+					case BaccConst.GS_GAME_END:
+					{
+						var RecvStatusPlay : CMD_S_StatusPlay = CMD_S_StatusPlay._readBuffer(pBuffer);
+						_theModel.l_status = false;
+						lLiveTime 							= RecvStatusPlay.cbTimeLeave;
+						_theModel.m_lAreaLimitScore 		= RecvStatusPlay.lAreaLimitScore;
+						_theModel.m_lApplyBankerCondition 	= RecvStatusPlay.lApplyBankerCondition;
+						_theModel.m_wBankerUser 			= RecvStatusPlay.wBankerUser;
+						
+						StaticVars.isTryPlayed = RecvStatusPlay.cbIsTryPlay == 1?true:false;
+						
+						_theModel.m_bEnableSysBanker		= RecvStatusPlay.bEnableSysBanker;
+						_theModel.m_cbBankerTime			= RecvStatusPlay.cbBankerTime;
+						_theModel.m_lBankerScore			= RecvStatusPlay.lBankerScore;
+						_theModel.m_lBankerWinScore			= RecvStatusPlay.lBankerWinScore;
+						_theModel.m_lUserMaxScore			= RecvStatusPlay.lUserMaxScore;
+						_theModel.m_lAreaScore[0]			= RecvStatusPlay.lUserPlayerScore;
+						_theModel.m_lAreaScore[1]			= RecvStatusPlay.lAllPlayerScore;
+						
+						_theModel.m_lAreaScore[2]			= RecvStatusPlay.lUserTieScore;
+						_theModel.m_lAreaScore[3]			= RecvStatusPlay.lAllTieScore;
+						
+						_theModel.m_lAreaScore[4]			= RecvStatusPlay.lUserBankerScore;
+						_theModel.m_lAreaScore[5]			= RecvStatusPlay.lAllBankerScore;
+						
+						_theModel.m_lAreaScore[6]			= RecvStatusPlay.lUserPlayerKingScore;
+						_theModel.m_lAreaScore[7]			= RecvStatusPlay.lAllPlayerKingScore;
+						
+						_theModel.m_lAreaScore[8]			= RecvStatusPlay.lUserBankerKingScore;
+						_theModel.m_lAreaScore[9]			= RecvStatusPlay.lAllBankerKingScore;
+						
+						_theModel.m_lAreaScore[10]			= RecvStatusPlay.lUserTieSamePointScore;
+						_theModel.m_lAreaScore[11]			= RecvStatusPlay.lAllTieSamePointScore;
+						
+						_theModel.m_lAreaScore[12]			= RecvStatusPlay.lUserPlayerTwoPair;
+						_theModel.m_lAreaScore[13]			= RecvStatusPlay.lAllPlayerTwoPair;
+						
+						_theModel.m_lAreaScore[14]			= RecvStatusPlay.lUserBankerTwoPair;
+						_theModel.m_lAreaScore[15]			= RecvStatusPlay.lAllBankerTwoPair;
+						_theModel.m_lAreaLimitScoreLest		= RecvStatusPlay.lAreaLimitScoreLest;
+						_theModel.m_lChipScore 				= RecvStatusPlay.lChipScore;
+						
+						
+						//						if(showTip)
+						//						{
+						//							showTip			= false;
+						//							gp_tip.visible 	= true;
+						//							tip1.text	= TScore.toStringEx(RecvStatusPlay.lAreaLimitScore);
+						//							tip2.text	= TScore.toStringEx(RecvStatusPlay.lUserMaxScore);
+						//							tip3.text	= TScore.toStringEx(RecvStatusPlay.lApplyBankerCondition);
+						//							
+						//							TweenMax.delayedCall(4, delayCloseTip);
+						//						}
+						_tipAreaLimitScore		= RecvStatusPlay.lAreaLimitScore;
+						_tipUserMaxScore		= RecvStatusPlay.lUserMaxScore;
+						_tipApplyBankerCondition= RecvStatusPlay.lApplyBankerCondition;
+						
+						
+						if(firstTryPlay && StaticVars.isTryPlayed)
+						{
+							firstTryPlay = false;
+							StaticVars.tryPlayScore= RecvStatusPlay.lTryPlayScore;
+							theUserView.GoldTxt.text = TScore.toFloatEx(StaticVars.tryPlayScore).toFixed(2);
+							_theModel.l_userTotalIn = TScore.parseFloatEx(theUserView.GoldTxt.text);
+							
+							if(StaticVars.isTryPlayed)
+								MsgManager.getInstance().showMessage1('您当前进入的是试玩房间，只为体验游戏而设，输赢金额不参与房间外结算！', showTheTip,0,-50,false,1);
+							
+							//							if(StaticVars.isTryPlayed && theUserView)
+							//							{
+							//								theUserView.ZTimeTxt.text = '系统坐庄';
+							//							}
+						}
+						
+						if(StaticVars.isTryPlayed)
+							tryplay.visible = true;
+						else
+							showTheTip();
+						
+						
+						
+						theUserView.InitInfo();
+						if(_theModel.m_bGameStatus == BaccConst.GS_PLACE_JETTON)
+						{
+							//							setChipClickHandler(true);
+							//							setAreaAddEnable(true);
+							//							setChipAddEnable(true);
+							//							this.addEventListener(MouseEvent.RIGHT_CLICK, rightClickHandler);
+							
+							cbGameStatus 	= 2;
+							StartClock(lLiveTime*1000,true);
+							Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,0);
+//							Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,1);
+						}else {
+							cbGameStatus 	= 3;
+							StartClock(lLiveTime*1000);
+						}
+						setTheStatus(cbGameStatus);
+						
+						
+						setChipClickHandler(false);
+						setAreaAddEnable(false);
+						setChipAddEnable(false);
+						this.removeEventListener(MouseEvent.RIGHT_CLICK, rightClickHandler);
+						
+						
+						
+						if(cbGameStatus == 3) {
+							_theModel.m_lastGameEnd = new CMD_S_GameEnd();
+							_theModel.m_lastGameEnd.cbCardCount  = RecvStatusPlay.cbCardCount;
+							_theModel.m_lastGameEnd.cbTableCardArray = RecvStatusPlay.cbTableCardArray;
+							_theModel.m_lastGameEnd.cbTimeLeave = RecvStatusPlay.cbTimeLeave;
+							_theModel.m_lastGameEnd.lBankerScore = RecvStatusPlay.lEndBankerScore;
+							_theModel.m_lastGameEnd.lBankerTotallScore = RecvStatusPlay.lAllBankerScore;
+							_theModel.m_lastGameEnd.lRevenue = RecvStatusPlay.lEndRevenue;
+							_theModel.m_lastGameEnd.lUserReturnScore = RecvStatusPlay.lEndUserReturnScore;
+							_theModel.m_lastGameEnd.lUserScore = RecvStatusPlay.lEndUserScore;
+							_theModel.m_lastGameEnd.nBankerTime=RecvStatusPlay.cbBankerTime;
+							
+							//							_gameEnd.Show();
+						}
+						setStatus(cbGameStatus);
+						
+						//初始化玩家金币
+						for(i= 0;i<8;i++)
+						{
+							if(_theModel.m_lAreaScore[i*2]>0) {
+								//								OnSelfAddScore(new TEvent('SELF_ADDSCORE',1,_theModel.m_lAreaScore[i*2],(i+1)));
+							}
+							//							if(_theModel.m_lAreaScore[i*2+1] > 0) { theControl.AddChipByGold(i+1,_theModel.m_lAreaScore[i*2+1]); }
+						}
+						theUserView.ChangeLimitScore();
+						break;
+					}
+				}
+				//				theHistoryBtn.addEventListener(MouseEvent.CLICK,onShowHistory);
+				return true;
+			}
+			override protected function OnTcpGameEvent(wSubCmd:uint, pBuffer:ByteArray, wDataSize:int, pIClientSocket:IClientSocket):Boolean
+			{
+				if(super.OnTcpGameEvent(wSubCmd,pBuffer,wDataSize,pIClientSocket)) return true;
+				var i : uint = 0;
+				switch(wSubCmd)
+				{
+					case BaccCMD.SUB_S_GAME_FREE:					//空闲时间
+					{
+						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,1);
+						_theModel.l_status = true;
+						_gameEnd.HideOpenCard();
+						_gameEnd.HideEndTable();
+						onHideWinArea();
+						ClearArea();
+						setChipClickHandler(false);
+						setAreaAddEnable(false);
+						setChipAddEnable(false);
+						this.removeEventListener(MouseEvent.RIGHT_CLICK, rightClickHandler);
+						
+						var RecvGameFree : CMD_S_GameFree = CMD_S_GameFree._readBuffer(pBuffer);
+						
+						StartClock(RecvGameFree.cbTimeLeave * 1000);
+						setTheStatus(1);
+						setStatus(1);
+						
+						_theModel.m_lJettonScore = 0;
+						Memory._zeroArray(_theModel.m_lAreaScore,0);
+						theUserView.InitInfo();
+						theUserView.ChangeLimitScore();
+						
+						return true;
+					}
+					case BaccCMD.SUB_S_GAME_START:					//下注时间
+					{
+						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,0);
+//						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,1);
+						_gameEnd.HideOpenCard();
+						_gameEnd.HideEndTable();
+						ClearArea();
+						
+						var RecvGameStart : CMD_S_GameStart = CMD_S_GameStart._readBuffer(pBuffer);
+						
+						_theModel.lUserTieScore			= RecvGameStart.lUserTieScore;
+						_theModel.lUserBankerScore		= RecvGameStart.lUserBankerScore;
+						_theModel.lUserPlayerScore		= RecvGameStart.lUserPlayerScore;
+						_theModel.lUserTieSamePointScore= RecvGameStart.lUserTieSamePointScore;
+						_theModel.lUserBankerKingScore	= RecvGameStart.lUserBankerKingScore;
+						_theModel.lUserPlayerKingScore	= RecvGameStart.lUserPlayerKingScore;
+						_theModel.lUserPlayerTwoPair	= RecvGameStart.lUserPlayerTwoPair;
+						_theModel.lUserBankerTwoPair	= RecvGameStart.lUserBankerTwoPair;
+						
+						_theModel.lAllTieScore			= RecvGameStart.lAllTieScore;
+						_theModel.lAllBankerScore		= RecvGameStart.lAllBankerScore;
+						_theModel.lAllPlayerScore		= RecvGameStart.lAllPlayerScore;
+						
+						
+						
+						//						_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'lingsheng');
+						playSoundEffect(TConst.INVALID_CHAIR,'beginGame');
+						StartClock(RecvGameStart.cbTimeLeave * 1000,true);
+						setTheStatus(2);
+						_theModel.m_wBankerUser = RecvGameStart.wBankerUser;
+						_theModel.m_lBankerScore = RecvGameStart.lBankerScore;
+						_theModel.m_lUserMaxScore = RecvGameStart.lUserMaxScore;
+						if( RecvGameStart.wBankerUser != _theModel.m_User.GetMeChairID() )  
+						{  
+							setChipClickHandler(true);
+							setAreaAddEnable(true);
+							setChipAddEnable(true);
+							this.addEventListener(MouseEvent.RIGHT_CLICK, rightClickHandler);
+						}
+						else
+						{
+							setChipClickHandler(false);
+							setAreaAddEnable(false);
+							setChipAddEnable(false);
+						}
+						setStatus(2);
+						theUserView.ChangeLimitScore();	
+						if(_theModel.m_wBankerUser == TConst.INVALID_CHAIR)
+						{
+							if(_theModel.m_bEnableSysBanker == 1)
+								theUserView.ZTimeTxt.text = '系统坐庄';
+							else
+								theUserView.ZTimeTxt.text = '无人坐庄';
+							
+							theUserView.ZGoldTxt.text	= '**********';
+						}else
+						{
+							theUserView.ZTimeTxt.text = IDConvert.Id2View(_theModel.m_User.GetUserByChair(_theModel.m_wBankerUser).dwUserID).toString();
+//							trace("-------------+++++++",_theModel.m_User.GetUserByChair(_theModel.m_wBankerUser).UserScoreInfo.lScore);
+							theUserView.ZGoldTxt.text	= TScore.toStringEx(_theModel.m_lBankerScore);
+						}
+						
+						theUserView.ZTimeNum.text = _theModel.m_cbBankerTime.toString();
+						theUserView.ZTimeScore.text = TScore.toStringEx(_theModel.m_lBankerWinScore);
+						//theUserView.ZIDTxt.text		= //StaticVars.serverName;
+						//'牌局:' + StaticVars.szGameNum;
+						
+						return true;
+					}
+					case BaccCMD.SUB_S_GAME_END:					//开牌时间
+					{
+						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,0);
+//						Controller.dispatchEvent(GameEvent.GAME_LEAVE_ENABLE,1);
+						Controller.addEventListener('ShowGameEndWinArea',onGetWinMovcipArea);
+						
+						setStatus(3);
+						setChipClickHandler(false);
+						setAreaAddEnable(false);
+						setChipAddEnable(false);
+						this.removeEventListener(MouseEvent.RIGHT_CLICK, rightClickHandler);
+						
+						_theModel.m_lastGameEnd = CMD_S_GameEnd._readBuffer(pBuffer);
+						
+						
+						_theModel.m_lBankerWinScore = _theModel.m_lastGameEnd.lBankerTotallScore;
+						StartClock(_theModel.m_lastGameEnd.cbTimeLeave * 1000);
+						
+						setTheStatus(3);
+						
+						_theModel.m_cbBankerTime = _theModel.m_lastGameEnd.nBankerTime;
+						_theModel.m_lBankerScore +=  _theModel.m_lastGameEnd.lBankerScore;
+						_theModel.m_lPlayerScore += _theModel.m_lastGameEnd.lUserScore;
+						_theModel.m_lJettonScore = 0;
+						_gameEnd.Show();
+						
+						TweenMax.delayedCall(12,showGameEnd);
+						
+						var new_gold : Number;
+						if(StaticVars.isTryPlayed)
+						{
+							new_gold = StaticVars.tryPlayScore+_theModel.m_lastGameEnd.lUserScore;
+							StaticVars.tryPlayScore += _theModel.m_lastGameEnd.lUserScore;
+						}
+						else
+						{
+							new_gold = _theModel.m_User.GetSelfData().UserScoreInfo.lScore+_theModel.m_lastGameEnd.lUserScore;
+							
+							Controller.dispatchEvent(GameEvent.USER_GAME_SCORE,0,_theModel.m_User.selfID,new_gold);
+						}
+						
+						_theModel.m_User.GetSelfData().UserScoreInfo.lScore = new_gold;
+						
+						//						theUserView.EndShowScore(new_gold);
+						TweenMax.delayedCall(10, theUserView.EndShowScore, [new_gold] );
+						
+						return true;
+					}
+					case BaccCMD.SUB_S_APPLY_BANKER:				//申请上庄
+					{
+						var RecvApplyBanker : CMD_S_ApplyBanker = CMD_S_ApplyBanker._readBuffer(pBuffer);
+						
+						if(RecvApplyBanker.wApplyUser == _theModel.m_User.GetMeChairID()) 
+						{ 
+							_theModel.m_cbApplyBanker = true; 
+							
+							theApplyBanker.source = BaccaratSkinClass.land_cancel;
+							theApplyBanker.enabled = false;
+						}
+						
+						ApplyBanker(RecvApplyBanker.wApplyUser);
+						return true;
+					}
+					case BaccCMD.SUB_S_PLACE_JETTON:				//下注成功
+					{
+						var RecvJetton:CMD_S_PlaceJetton2 = CMD_S_PlaceJetton2._readBuffer(pBuffer);
+						
+						
+						_theModel.lUserTieScore			= RecvJetton.lUserTieScore;
+						_theModel.lUserBankerScore		= RecvJetton.lUserBankerScore;
+						_theModel.lUserPlayerScore		= RecvJetton.lUserPlayerScore;
+						_theModel.lUserTieSamePointScore= RecvJetton.lUserTieSamePointScore;
+						_theModel.lUserBankerKingScore	= RecvJetton.lUserBankerKingScore;
+						_theModel.lUserPlayerKingScore	= RecvJetton.lUserPlayerKingScore;
+						_theModel.lUserPlayerTwoPair	= RecvJetton.lUserPlayerTwoPair;
+						_theModel.lUserBankerTwoPair	= RecvJetton.lUserBankerTwoPair;
+						
+						_theModel.lAllTieScore			= RecvJetton.lAllTieScore;
+						_theModel.lAllBankerScore		= RecvJetton.lAllBankerScore;
+						_theModel.lAllPlayerScore		= RecvJetton.lAllPlayerScore;
+						
+						
+						placeJetton(RecvJetton.lJettonScore, RecvJetton.wChairID);
+						theUserView.ChangeLimitScore();	
+						return true;
+					}
+					case BaccCMD.SUB_S_PLACE_JETTON_FAIL:			//下注失败
+					{
+						//MsgManager.getInstance().showMessage1('下注失败！', null, 0, -50, true,1);
+						return true;
+					}
+					case BaccCMD.SUB_S_CHANGE_BANKER:				//切换上庄
+					{
+						var RecvChangeBank : CMD_S_ChangeBanker = CMD_S_ChangeBanker._readBuffer(pBuffer);
+						if(_theModel.m_wBankerUser == _theModel.m_User.GetMeChairID()) { _theModel.m_cbApplyBanker = false; }
+						
+						_theModel.m_wBankerUser = RecvChangeBank.wBankerUser;
+						_theModel.m_lBankerScore = RecvChangeBank.lBankerScore;
+						_theModel.m_lBankerWinScore = 0;
+						_theModel.m_cbBankerTime = 0;
+						
+						if(_theModel.m_wBankerUser == _theModel.m_User.GetMeChairID()) { _theModel.m_cbApplyBanker = true; }
+						
+						var userInfoBank : tagUserInfoHead = _theModel.m_User.GetUserByChair(RecvChangeBank.wBankerUser);
+						if(userInfoBank != null) 
+						{
+							userInfoBank.UserScoreInfo.lScore = RecvChangeBank.lBankerScore;
+						}
+						
+						ShowLunHuan();
+						
+						theUserView.InitInfo();
+						setStatus(4);
+						
+						
+						if(RecvChangeBank.wBankerUser != TConst.INVALID_CHAIR)
+						{
+							var landName:String = '';
+							
+							if(StaticVars.isTryPlayed)
+							{
+								if(RecvChangeBank.wBankerUser == _theModel.m_User.GetMeChairID())
+									landName = UserModel._getInstance().selfInfo.szAccount;
+								else
+									landName = '游戏玩家';
+								
+								MsgManager.getInstance().showMessage1('[ ' + landName + ' ]成功上庄,携带金币'+TScore.toStringEx(RecvChangeBank.lBankerScore)+'!', null, 0, -50, true,1);
+							}
+							else
+							{
+								if(RecvChangeBank.wBankerUser == _theModel.m_User.GetMeChairID())
+									landName = UserModel._getInstance().selfInfo.szAccount;
+								else
+									landName = '游戏玩家';
+								
+								MsgManager.getInstance().showMessage1('[ ' + landName + ' ]成功上庄,携带金币'+TScore.toStringEx(RecvChangeBank.lBankerScore)+'!', null, 0, -50, true,1);
+							}
+							
+						}
+						return true;
+					}
+					case BaccCMD.SUB_S_SEND_RECORD:
+					{
+						var recordCount : uint = wDataSize / tagServerGameRecord.SIZE;
+						var history : HistoryModel = HistoryModel._getInstance();
+						for(i = 0;i<recordCount;i++)
+						{
+							history.InsertHistory( tagServerGameRecord._readBuffer(pBuffer) );
+						}
+						return true;
+					}
+					case BaccCMD.SUB_S_CHANGE_USER_SCORE:			//更新积分
+					{
+						var RecvChangeScore : CMD_S_ChangeUserScore = CMD_S_ChangeUserScore._readBuffer(pBuffer);
+						return true;
+					}
+					case BaccCMD.SUB_S_CANCEL_BANKER:
+					{
+						var RecvCancel : CMD_S_CancelBanker = CMD_S_CancelBanker._readBuffer(pBuffer);
+						ApplyBanker(RecvCancel.wApplyUser,false);
+						
+						if(RecvCancel.wApplyUser == _theModel.m_User.GetMeChairID()) 
+						{ 
+							_theModel.m_cbApplyBanker = false; 
+							
+							theApplyBanker.source = BaccaratSkinClass.land_apply;
+							theApplyBanker.enabled = true;
+						}
+						
+						setStatus(4);
+						return true;
+					}
+					case BaccCMD.SUB_S_OUTPLAYERRESON:
+					{
+						var outReson:CMD_S_OutPlayerReson = CMD_S_OutPlayerReson._readBuffer(pBuffer);
+						if(outReson.cbReson == 1)
+							MsgManager.getInstance().showMessage1('您的金币不足，请取金币！',null,0,-50,false,1);
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			
+			private var _gameRecord:Array;
+			
+			private function showGameEnd():void
+			{
+				if(_gameRecord == null)
+					_gameRecord = [];
+				
+				var str:String = '牌局:' + StaticVars.szGameNum+'\n'+'庄家:' + theUserView.ZTimeTxt.text+'\n'+'本局输赢:' + TScore.toStringEx(_theModel.m_lastGameEnd.lUserScore)+'\n\n';
+				_gameRecord.push(str);
+				gameEnd.text = "";
+				while(_gameRecord.length > 20)
+					_gameRecord.shift();
+				gameEnd.text = _gameRecord.join('');
+				
+				//				gameEnd.text	+= '牌局:' + StaticVars.szGameNum+'\n';
+				//				gameEnd.text	+= '庄家:' + theUserView.ZTimeTxt.text+'\n';
+				//				gameEnd.text	+= '本局输赢:' + TScore.toStringEx(_theModel.m_lastGameEnd.lUserScore)+'\n\n';
+				
+				gameEnd.validateNow();
+				gameEnd.scroller.verticalScrollBar.value = gameEnd.scroller.verticalScrollBar.maximum;
+				gameEnd.validateNow();
+				gameEnd.scroller.verticalScrollBar.value = gameEnd.scroller.verticalScrollBar.maximum;
+			}
+			//时间消息处理
+			override protected function OnGameTimerEvent(pTimer : tagServerTimer) : Boolean
+			{
+				var bShow : Boolean = pTimer.bTimerType == enTimeType.TT_SHOW;
+				return true;
+			}
+			
+			
+			public function StartClock(time:Number,bWarning : Boolean = false) : void
+			{
+				var repeat : uint = time / 1000;
+				StopClock();
+				_bWarning = bWarning;
+				//theTime.text = (repeat/10).toFixed(1);
+				//theTime.text = (repeat/10)>9.9?theTime.text:('0'+theTime.text);
+				theTime.text = repeat.toString();
+				theTime.text = (repeat)>9?repeat.toString():('0'+repeat);
+				
+				
+				_timer = new Timer(1000,repeat);
+				_timer.addEventListener(TimerEvent.TIMER,onTimerEvent);
+				_timer.start();
+			}
+			public function StopClock() : void
+			{
+				if(_timer) {
+					_timer.stop();
+					_timer.removeEventListener(TimerEvent.TIMER,onTimerEvent);
+					_timer = null;
+					_bWarning = false;
+				}
+				theTime.text = '00';
+			}
+			private function onTimerEvent(e : TimerEvent) : void
+			{
+				var time : int = (_timer.repeatCount - _timer.currentCount);
+				if(time <= 0) {
+					StopClock(); 
+					return;
+				}
+				//				theTime.text = time > 9?time.toString() : ('0' + time);
+				theTime.text = (time).toString();
+				theTime.text = (time)>9?time.toString():('0'+time);
+				if(Number(theTime.text) <= 5)
+				{
+					//					_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'time');
+					playSoundEffect(TConst.INVALID_CHAIR,'time');
+				}
+			}
+			
+			
+			
+			private function playSoundEffect(wChairID : uint,action : String, type : int=-1,value : int=-1,rand : int = -1):void
+			{
+				if(_theModel == null)	return;
+				try
+				{
+					_theModel.m_Sound.PlayEffect(wChairID, action, type, value, rand);
+				}
+				catch(e:Error){};
+			}
+			
+			
+			private function setTheStatus(value:int):void
+			{
+				if(_clock==null) return;
+				_clock["Status_MC"].gotoAndStop(value);
+			}
+			
+			private function addChipToArea(area:int, value:int):void
+			{
+				if( area<1 || area>8 ) return;
+				
+				var valueIndex:Array = [];
+				
+				value = TScore.toFloatEx(value);
+				var pn : int = 0;
+				var len : int = _chipScore.length;
+				for(var i : int = len-1; i>=0; i--)
+				{
+					pn = int(value/_chipScore[i]);
+					if(pn<1)	continue;
+					value = int(value%_chipScore[i]);
+					for(var j : uint = 0;j<pn;j++)
+					{
+						valueIndex.push( i );
+					}
+					if(value <= 0.009)break;
+				}
+				
+				for(var k:int=0, leng:int=valueIndex.length; k<leng; k++)
+				{
+					this['area_' + area].AddChip(valueIndex[k]);
+				}
+				
+			}
+			private function placeJetton(score:Array, wChairID:int):void
+			{
+				for(var i:int=0; i<8; i++)
+				{
+					if(score[i] > 0)
+					{
+						_theModel.m_lAreaScore[(i * 2) + 1] += score[i]; 
+						addChipToArea(i+1, score[i]);
+						_areaScore[i] += score[i];
+						//						if(TScore.toFloatEx(score[i]) >= 100)
+						//						{
+						//							_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'huanhu',-1,-1,Math.random() * 5);
+						//							playSoundEffect(TConst.INVALID_CHAIR,'huanhu',-1,-1,Math.random() * 5);
+						//						}
+						//显示总投注
+						this['totalscorearea_' + (i+1)].visible = true;
+						this['totalscorearea_' + (i+1)].text = '总投注：' + TScore.toStringEx(_areaScore[i]);
+						
+						if( wChairID == _theModel.m_User.GetMeChairID())
+						{
+							this['gparea_' + (i+1)].visible = true;
+							_userAreaScore[i] += score[i];
+							this['scorearea_' + (i+1)].text = TScore.toStringEx(_userAreaScore[i]);
+							
+							var num:Number = Number(theUserView.GoldTxt.text) - TScore.toFloatEx(score[i]);
+							theUserView.GoldTxt.text = num.toFixed(2);
+							_theModel.l_userTotalIn = TScore.parseFloatEx(theUserView.GoldTxt.text);
+						}
+						
+						
+						
+						var userInfo : tagUserInfoHead = BaccaratModel._getInstance().m_User.GetUserByChair(wChairID);
+						if(userInfo != null)
+						{
+							if( userInfo.cbGender > 2)
+							{
+								//机器人下注
+							}
+							else
+							{
+								if(_allUserAreaScore==null)	_allUserAreaScore = Memory._newArrayAndSetValue(8, 0);
+								_allUserAreaScore[i] += score[i];
+							}
+						}
+					}
+					
+				}
+				
+			}
+			
+			public function ClearArea() : void
+			{
+				for(var i : uint = 1;i<9;i++)
+				{
+					this['area_' + i].RemoveChip();
+				}
+			}
+			
+			private function initAreaScore():void
+			{
+				_areaScore 			= [];
+				_userAreaScore 		= [];
+				
+				_allUserAreaScore 	= [];
+				
+				for(var i:int=0; i<8; i++)
+				{
+					_areaScore.push(0);
+					_userAreaScore.push(0);
+					
+					_allUserAreaScore.push(0);
+				}
+			}
+			
+			private function setAreaAddEnable(enable:Boolean):void
+			{
+				_theModel.l_userTotalAdd = 0;
+				
+				initAreaScore();
+				var btn:AreaButton;
+				for(var i:int=1; i<9; i++)
+				{
+					btn = this['area_' + i];
+					
+					btn.ResetStorge(enable);
+					btn.setMouseEnabled(enable);
+					
+					if(enable)
+					{
+						btn.addEventListener(MouseEvent.CLICK, chiparea_clickHandler);
+					}
+					else
+					{
+//						this['totalscorearea_' + i].visible = false;
+//						this['gparea_' + i].visible = false;
+						
+						btn.removeEventListener(MouseEvent.CLICK, chiparea_clickHandler);
+					}
+				}
+				
+				if(enable)
+				{
+					lab_topTip.text = '';
+					this.addEventListener(MouseEvent.MOUSE_MOVE, chip_mouseMoveHandler);
+				}
+				else
+				{
+					lab_topTip.text = '';
+					this.removeEventListener(MouseEvent.MOUSE_MOVE, chip_mouseMoveHandler);
+				}
+				
+				destroyCursor();
+				//				
+				//				btn_confirm.enabled = false;
+				//				btn_cancel.enabled  = false;
+			}
+			
+			
+			
+			private function setChipAddEnable(enable:Boolean):void
+			{
+				var btn:GameMCButton;
+				for(var i:int=0; i<7; i++)
+				{
+					btn = this['AddScore_' + i];
+					btn.visible = true;
+					if(enable)
+					{
+						if(TScore.parseFloatEx(_chipScore[i]) > _theModel.l_userTotalIn)
+						{
+							btn.enabled = false;
+						}else
+						{
+							btn.enabled = true;
+							btn.addEventListener(MouseEvent.CLICK, chip_clickHandler);
+						}
+						Controller.addEventListener("ChangeChipIndex",onChangeChipIndex);
+					}
+					else
+					{
+						btn.removeEventListener(MouseEvent.CLICK, chip_clickHandler);
+						Controller.removeEventListener("ChangeChipIndex",onChangeChipIndex);
+					}
+				}
+			}
+			private function onChangeChipIndex(e : TEvent) : void
+			{
+				setCurChipButton(e.nWParam as int);
+			}
+			private function setChipClickHandler(enable : Boolean) : void
+			{
+				var btn:GameMCButton;
+				for(var i:int=0; i<7; i++)
+				{
+					btn = this['AddScore_' + i];
+					btn.enabled = enable;
+				}
+				
+			}
+			private function rightClickHandler(evt:MouseEvent):void
+			{
+				destroyCursor();
+				setChipAddEnable(true);
+			}
+			
+			private function destroyCursor() : void
+			{
+				cursorManager.removeAllCursors();
+				_theModel.m_ChipIndex = -1;
+			}
+			
+			private function chip_clickHandler(e:MouseEvent):void
+			{
+				var str:String = e.currentTarget.id;
+				var index:int = parseInt(str.charAt(str.length - 1));
+				setCurChipButton(index);
+			}
+			
+			private function setCurChipButton(index:int):void
+			{
+				var i:int = 0;
+				for(i=0; i<7; i++)
+				{
+					if(i==index)
+						this['AddScore_' + i].visible = false;
+					else
+						this['AddScore_' + i].visible = true;
+				}
+				if(index != 6 && _theModel != null)
+				{
+					if(TScore.parseFloatEx(_chipScore[index+1]) > _theModel.l_userTotalIn)
+					{
+						var abc:int = index+1;
+						this['AddScore_' + abc].enabled = false;
+					}
+					if(TScore.parseFloatEx(_chipScore[0]) > _theModel.l_userTotalIn)
+					{
+						destroyCursor();
+						if(_theModel.l_userTotalIn == 0)
+							Controller.dispatchEvent('WAINING_TEXT',1,"金币为零，下注失败！");
+						else
+							Controller.dispatchEvent('WAINING_TEXT',1,"金币不足，您的下注超过手中下注金币最大值！");
+						for(i=0; i<7; i++)
+						{
+							this['AddScore_' + i].enabled = false;
+							this['AddScore_' + i].visible = true;
+						}
+						return;
+					}
+				}
+				initChipCursor(index);
+			}
+			
+			private function initChipCursor(index:int):void
+			{
+				if(index == -1 || index > 6)	
+				{
+					Controller.dispatchEvent('WAINING_TEXT',1,"当前区域下注已满，请选择其他区域");
+//					cursorManager.removeAllCursors();
+//					_theModel.m_ChipIndex = -1;
+//					Mouse.show();
+					return;
+				}
+				
+				if(_theModel == null)
+					_theModel = BaccaratModel._getInstance();
+				
+				_theModel.m_ChipIndex = index;
+				cursorManager.removeAllCursors();
+				cursorManager.setCursor( BaccaratSkinClass.getChipClass(_theModel.m_ChipIndex), CursorManagerPriority.HIGH , -23, -18);
+				Mouse.hide();
+			}
+			
+			
+			
+			private function getGoldByIndex( index : int ) : Number
+			{
+				if(index < 0 || index >6) return 0;
+				return _theModel.m_lChipScore[index];
+			}
+			
+			private function chiparea_clickHandler(e:MouseEvent):void
+			{
+				if(_theModel.m_ChipIndex == -1)
+				{
+					//	TweenMax.fromTo(score_noselect, 2, {alpha:1}, {alpha:0});
+					return;
+				}
+				//				
+				//				btn_confirm.enabled = true;
+				//				btn_cancel.enabled  = true;
+			}
+			
+			private function AppendChip(areaIndex : uint,bScoreIndex : int) : void
+			{
+				if( areaIndex<1 || areaIndex>8 ) return;
+				this['area_' + areaIndex].AddChip(bScoreIndex);
+				//				_theModel.m_Sound.PlayEffect(TConst.INVALID_CHAIR,'jiazhu');
+				playSoundEffect(TConst.INVALID_CHAIR,'chouma');
+				
+			}
+			
+			
+			private function chip_mouseMoveHandler(e:MouseEvent):void
+			{
+				if(_theModel.m_ChipIndex != -1)
+				{
+					var ary:Array = getObjectsUnderPoint(new Point(mouseX, mouseY));
+					if(ary.indexOf(gp_bg) != -1)
+					{
+						cursorManager.removeAllCursors();
+						cursorManager.setCursor( BaccaratSkinClass.getChipClass(_theModel.m_ChipIndex), CursorManagerPriority.HIGH , -23, -18);
+					}
+					else
+					{
+						cursorManager.removeAllCursors();
+					}
+				}
+			}
+			
+			private function getObjcetProperties(obj:Object):String
+			{
+				var str:String = '';
+				var ary:Array = ObjectUtil.getClassInfo(obj).properties;
+				for(var i:int=0, leng:int=ary.length; i<leng; i++)
+				{
+					str += "---" + ary[i].localName + ":" + obj[ary[i].localName] + "  ";
+				}
+				return str;
+			}
+			
+			
+			
+			public function onDestroyAllDos():void
+			{
+				StopClock();
+				this.removeEventListener(MouseEvent.MOUSE_MOVE, chip_mouseMoveHandler);
+				cursorManager.removeAllCursors();
+				CursorManager.getInstance().removeAllCursors();
+				
+				if(_gameRecord)
+				{
+					_gameRecord.length = 0;
+					_gameRecord = null;
+				}
+				
+				Controller.removeEventListener('UPDATE_HISTORY',onUpdateHistory);
+				
+				tryplay.visible = false;
+				
+				for(var i:int=1; i<9; i++)
+				{
+					this['area_' + i].Destroy();
+				}
+				_gameEnd.Destroy();
+				theUserView.Destroy();
+				//				_user = null;
+				_theModel = null;
+			}
+			protected function record_clickHandler(event:MouseEvent):void
+			{
+				btn_record.enabled = false;
+				_record.visible = !_record.visible;
+				
+				if(_record.visible)
+				{
+					btn_record.source = BaccaratSkinClass.btn_closeRecord;
+				}
+				else
+				{
+					btn_record.source = BaccaratSkinClass.btn_getRecord;
+					
+				}
+				theskinHistory.visible = !_record.visible;
+				ZhuangTxt.visible = !_record.visible;
+				xianTxt.visible = !_record.visible;
+				pingTxt.visible = !_record.visible;
+				track_0.visible = !_record.visible;
+				track_1.visible = !_record.visible;
+				_record.Show();
+				_record.addEventListener('updateRecordVisible', updateRecordVisible);
+				TweenMax.delayedCall(1,complete);
+			}
+			private function complete():void
+			{
+				btn_record.enabled = true;
+			}
+			private function updateRecordVisible(e:Event):void
+			{
+				btn_record.source = BaccaratSkinClass.btn_getRecord;
+			}
+			protected function onConfitmAddChip(bAdd:Boolean):void
+			{
+				var i:int;
+				var btn:AreaButton;
+				if(bAdd)
+				{
+					var IsSend : Boolean = false;
+					var SendScore : CMD_C_PlaceJetton = new CMD_C_PlaceJetton();
+					for(i=1; i<9; i++)
+					{
+						btn = this['area_' + i];
+						SendScore.lJettonScore[i-1] = btn.curGold;
+						if(btn.curGold > 0) IsSend = true;
+						btn.ResetStorge(bAdd);
+					}
+					if(IsSend)
+					{
+						BaccaratModel._getInstance().m_Tcp.SendData(GameCmd.MDM_GF_GAME,BaccCMD.SUB_C_PLACE_JETTON,SendScore.toByteArray(),SendScore.size);
+					}
+				}
+				else
+				{
+					for(i=1; i<9; i++)
+					{
+						btn = this['area_' + i];
+						btn.ResetStorge(bAdd);
+					}
+				}
+				
+				//				_theModel.l_userTotalAdd = 0;
+				//				btn_confirm.enabled = false;
+				//				btn_cancel.enabled  = false;
+				//				rightClickHandler(null);
+			}
+			
+			
+			
+			public function ApplyBanker(wChairID : uint,bApplay : Boolean = true) : void
+			{
+				if(bApplay) {
+					_applyBanker.push(wChairID);
+				}else {
+					var index : int =_applyBanker.indexOf(wChairID);
+					if(index != -1) {
+						_applyBanker.splice(index,1);
+					}
+				}
+				for(var i : uint = 0;i<3;i++)
+				{
+					this['applay_' + i].text ='';
+					
+					this['applay_' + i+'S'].text ='';
+					if(i<_applyBanker.length)
+					{
+						var userInfo : tagUserInfoHead = _theModel.m_User.GetUserByChair(_applyBanker[i]);
+						if(userInfo != null) {
+							//this['applay_' + i].text = (i+1) + '         ' + IDConvert.Id2View(userInfo.dwUserID);
+							//							this['applay_' + i].text = (i+1) + '        ' + '游戏玩家';
+							if(userInfo.dwUserID == _theModel.m_User.selfID)
+							{
+								this['applay_' + i].text = IDConvert.Id2View( userInfo.dwUserID).toString();
+								
+								if(StaticVars.isTryPlayed)
+									this['applay_' + i+'S'].text = '******';
+								else
+									this['applay_' + i+'S'].text = TScore.toStringEx(userInfo.UserScoreInfo.lScore);
+							}
+							else
+							{
+								this['applay_' + i].text = IDConvert.Id2View( userInfo.dwUserID).toString();
+								if(StaticVars.isTryPlayed)
+									this['applay_' + i+'S'].text = '******';
+								else
+									this['applay_' + i+'S'].text = TScore.toStringEx(userInfo.UserScoreInfo.lScore);
+							}
+						}
+						else
+							this['applay_' + i].text = '';
+					}
+				}
+			}
+			
+			
+			public function setStatus(val : uint) : void
+			{
+				switch(val)
+				{
+					case 1:				//空闲
+					{
+						if( _theModel.m_cbApplyBanker )
+						{
+							theApplyBanker.source = BaccaratSkinClass.land_cancel;
+							theApplyBanker.enabled = true;
+						}
+						else 
+						{
+							theApplyBanker.source = BaccaratSkinClass.land_apply;
+							theApplyBanker.enabled = true;
+						}
+						
+						if(_theModel.m_lApplyBankerCondition > _theModel.m_User.GetSelfData().UserScoreInfo.lScore) 
+							theApplyBanker.enabled = false;
+						
+						break;
+					}
+					case 2:
+					case 3:				//下注，开牌
+					{
+						if( _theModel.m_cbApplyBanker )
+						{
+							theApplyBanker.source = BaccaratSkinClass.land_cancel;
+							theApplyBanker.enabled = false;
+						}
+						else 
+						{
+							theApplyBanker.enabled = true;
+							theApplyBanker.source = BaccaratSkinClass.land_apply;
+						}
+						
+						if(_theModel.m_lApplyBankerCondition > _theModel.m_User.GetSelfData().UserScoreInfo.lScore) 
+							theApplyBanker.enabled = false;
+						
+						break;
+					}
+					case 4:			//取消上庄，切换上庄
+					{
+						if( _theModel.m_cbApplyBanker )
+						{
+							theApplyBanker.source = BaccaratSkinClass.land_cancel;
+							theApplyBanker.enabled = true;
+						}
+						else 
+						{
+							theApplyBanker.source = BaccaratSkinClass.land_apply;
+							theApplyBanker.enabled = true;
+						}
+						
+						if(_theModel.m_lApplyBankerCondition > _theModel.m_User.GetSelfData().UserScoreInfo.lScore) 
+							theApplyBanker.enabled = false;
+						
+						
+						break;
+					}
+				}
+			}
+			
+			
+			public function ShowLunHuan() : void
+			{
+				//				theLunHuan.visible = true;
+				//				TweenMax.from(theLunHuan,1,{y:350,onComplete:hideLunHuan});
+				if(_theModel.m_wBankerUser != _applyBanker[0])
+				{
+					return;
+				}
+				if(_applyBanker.length > 0) {
+					_applyBanker.shift();
+					var userInfo : tagUserInfoHead;
+					for(var i : uint = 0;i<3;i++)
+					{
+						this['applay_' + i].text = '';
+						this['applay_' + i+'S'].text = '';
+						if(i<_applyBanker.length) {
+							userInfo =  _theModel.m_User.GetUserByChair(_applyBanker[i]);
+							//							this['applay_' + i].text = (i+1) + '         ' + IDConvert.Id2View(userInfo.dwUserID);
+							//							this['applay_' + i].text = (i+1) + '        ' + '游戏玩家';
+							if(userInfo)
+							{
+								this['applay_' + i].text = IDConvert.Id2View( userInfo.dwUserID).toString();
+								if(StaticVars.isTryPlayed)
+									this['applay_' + i+'S'].text = '******';
+								else
+									this['applay_' + i+'S'].text = TScore.toStringEx(userInfo.UserScoreInfo.lScore);
+//								if(userInfo.dwUserID == _theModel.m_User.selfID)
+//								{
+//									this['applay_' + i].text = IDConvert.Id2View( userInfo.dwUserID).toString();
+//									if(StaticVars.isTryPlayed)
+//										this['applay_' + i+'S'].text = '******';
+//									else
+//										this['applay_' + i+'S'].text = TScore.toStringEx(userInfo.UserScoreInfo.lScore);
+//								}
+									
+//								else
+//								{
+//									this['applay_' + i].text = '游戏玩家';
+//									this['applay_' + i+'S'].text = ''
+//								}
+							}
+						}else {
+							this['applay_' + i].text = '';
+							this['applay_' + i+'S'].text = ''
+						}
+					}
+				}
+			}
+			
+			
+			protected function onApplyBanker(event:MouseEvent):void
+			{
+				if(_theModel.m_User.GetSelfData().UserScoreInfo.lScore < _theModel.m_lApplyBankerCondition) { return; }
+				//_theModel.m_cbApplyBanker = !_theModel.m_cbApplyBanker;
+				if(!_theModel.m_cbApplyBanker) 
+				{
+					//					theApplyBanker.label = '取消上庄';
+					//					theApplyBanker.source = BaccaratSkinClass.land_cancel;
+					_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,BaccCMD.SUB_C_APPLY_BANKER);
+				}
+				else 
+				{
+					//					theApplyBanker.label = '申请上庄';
+					//					theApplyBanker.source = BaccaratSkinClass.land_apply;
+					_theModel.m_Tcp.SendCmd(GameCmd.MDM_GF_GAME,BaccCMD.SUB_C_CANCEL_BANKER);
+				}
+				
+				theApplyBanker.enabled = false;
+			}
+			
+			
+			private function showTheTip():void
+			{
+				if(showTip)
+				{
+					showTip			= false;
+					gp_tip.visible 	= true;
+					tip1.text	= TScore.toStringEx(_tipAreaLimitScore);
+					tip2.text	= TScore.toStringEx(_tipUserMaxScore);
+					tip3.text	= TScore.toStringEx(_tipApplyBankerCondition);
+					
+					TweenMax.delayedCall(4, delayCloseTip);
+					
+					if(_gameRecord == null)
+						_gameRecord = [];
+					
+					var str:String = '本游戏桌区域限制：' + tip1.text+'\n'+'玩家投注限制：' + tip2.text+'\n'+'上庄条件：' + tip3.text+'\n\n';
+					_gameRecord.push(str);
+					gameEnd.text = _gameRecord.join('');
+				}
+			}
+			
+			private function delayCloseTip():void
+			{
+				if(gp_tip && gp_tip.visible)
+					gp_tip.visible = false;
+			}
+			
+			public function changeBackground(val:int):void
+			{
+				if(val == 4)
+					_bg.source = BaccaratSkinClass.bjl_bg4;
+				else if(val == 3)
+					_bg.source = BaccaratSkinClass.bjl_bg3;
+				else if(val == 2)
+					_bg.source = BaccaratSkinClass.bjl_bg2;
+				else if(val == 1)
+					_bg.source = BaccaratSkinClass.bjl_bg1;
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Group width="746" height="359" horizontalCenter="-118" verticalCenter="-68" id="gp_bg">
+		<s:Rect x="0" y="0" width="100%" height="100%">
+			<s:fill>
+				<s:SolidColor color="0x000000" alpha="0"/>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+	<s:Image source="{BaccaratSkinClass.bjl_bg2}" horizontalCenter="3" verticalCenter="14" id="_bg" visible="true"/>
+	<s:Image source="{BaccaratSkinClass.bjl_bg}" horizontalCenter="3" verticalCenter="14"/>
+	<s:Image source="{BaccaratSkinClass.tryplay}" horizontalCenter="-118" verticalCenter="-63" id="tryplay" visible="false"/>
+	
+	<mx:UIComponent id="_chipUI" width="700" height="430" horizontalCenter="0" verticalCenter="-10"/>
+	
+	<s:Image horizontalCenter="200" bottom="78" click="onApplyBanker(event)" id="theApplyBanker" source="{BaccaratSkinClass.land_apply}" buttonMode="true"/>
+	<s:Label filters="{[gf01]}" top="40" horizontalCenter="150" id="applay_0" color="#f0c05c" fontFamily="微软雅黑" width="150"/>
+	<s:Label filters="{[gf01]}" top="60" horizontalCenter="150" id="applay_1" color="#f0c05c" fontFamily="微软雅黑" width="150"/>
+	<s:Label filters="{[gf01]}" top="80" horizontalCenter="150" id="applay_2" color="#f0c05c" fontFamily="微软雅黑" width="150"/>
+	
+	<s:Label filters="{[gf01]}" top="40" horizontalCenter="240" id="applay_0S" color="#f0c05c" fontFamily="微软雅黑" width="150"/>
+	<s:Label filters="{[gf01]}" top="60" horizontalCenter="240" id="applay_1S" color="#f0c05c" fontFamily="微软雅黑" width="150"/>
+	<s:Label filters="{[gf01]}" top="80" horizontalCenter="240" id="applay_2S" color="#f0c05c" fontFamily="微软雅黑" width="150"/>
+	
+	<s:Image horizontalCenter="180" bottom="-23" id="theskinHistory" source="{BaccaratSkinClass.skinHistory}"/>
+	
+	<s:Group bottom="130" horizontalCenter="120" width="54" height="54" id="gp_clock" visible="true"  depth="500">
+		<mx:UIComponent x="-5" y="2" id="ui_clock"/>
+		<s:Label filters="{[gf01]}" x="-10" y="25" color="#ddd6c2" fontSize="22" fontWeight="bold" text="00" id="theTime" width="54" textAlign="center"/>
+	</s:Group>
+	
+	<baccarat:AreaButton targetClass="{BaccaratSkinClass.btn_left0}" index="5" horizontalCenter="-490" verticalCenter="-201" id="area_7" click="onConfitmAddChip(true)"/>
+	<baccarat:AreaButton targetClass="{BaccaratSkinClass.btn_left1}" index="0" horizontalCenter="-490" verticalCenter="-125" id="area_1" click="onConfitmAddChip(true)"/>
+	<baccarat:AreaButton targetClass="{BaccaratSkinClass.btn_left2}" index="3" horizontalCenter="-490" verticalCenter="19" id="area_4" click="onConfitmAddChip(true)"/>
+	
+	<baccarat:AreaButton targetClass="{BaccaratSkinClass.btn_center1}" index="1" horizontalCenter="-275" verticalCenter="-125" id="area_2" click="onConfitmAddChip(true)"/>
+	<baccarat:AreaButton targetClass="{BaccaratSkinClass.btn_center2}" index="7" horizontalCenter="-275" verticalCenter="19" id="area_6" click="onConfitmAddChip(true)"/>
+	
+	<baccarat:AreaButton targetClass="{BaccaratSkinClass.btn_right0}" index="6" horizontalCenter="40" verticalCenter="-201" id="area_8" click="onConfitmAddChip(true)"/>
+	<baccarat:AreaButton targetClass="{BaccaratSkinClass.btn_right1}" index="2" horizontalCenter="40" verticalCenter="-125" id="area_3" click="onConfitmAddChip(true)"/>
+	<baccarat:AreaButton targetClass="{BaccaratSkinClass.btn_right2}" index="4" horizontalCenter="40" verticalCenter="19" id="area_5" click="onConfitmAddChip(true)"/>
+	
+	
+	<mx:UIComponent horizontalCenter="-492" verticalCenter="-203" id="win_area_7"/>
+	<mx:UIComponent horizontalCenter="-492" verticalCenter="-129" id="win_area_1"/>
+	<mx:UIComponent horizontalCenter="-492" verticalCenter="17" id="win_area_4"/>
+	
+	<mx:UIComponent horizontalCenter="-277" verticalCenter="-127" id="win_area_2"/>
+	<mx:UIComponent horizontalCenter="-277" verticalCenter="17" id="win_area_6"/>
+	
+	<mx:UIComponent horizontalCenter="38" verticalCenter="-203" id="win_area_8"/>
+	<mx:UIComponent horizontalCenter="38" verticalCenter="-127" id="win_area_3"/>
+	<mx:UIComponent horizontalCenter="38" verticalCenter="17" id="win_area_5"/>
+	
+	
+	
+	<s:Group width="160" height="40" mouseEnabled="false" mouseChildren="false" horizontalCenter="-400" verticalCenter="-170" id="gparea_7" visible="false"> 
+		<s:Image x="0" y="0" source="{BaccaratSkinClass.view_chipTotal}"/>
+		<s:Label filters="{[gf01]}" fontSize="16" width="160" textAlign="center" y="15" x="0" color="#FFFFFF" fontWeight="bold" id="scorearea_7"/>
+	</s:Group>
+	<s:Group width="160" height="40" mouseEnabled="false" mouseChildren="false" horizontalCenter="-400" verticalCenter="-95" id="gparea_1" visible="false">
+		<s:Image x="0" y="0" source="{BaccaratSkinClass.view_chipTotal}"/>
+		<s:Label filters="{[gf01]}" fontSize="16" width="160" textAlign="center" y="15" x="0" color="#FFFFFF" fontWeight="bold" id="scorearea_1"/>
+	</s:Group>
+	<s:Group width="160" height="40" mouseEnabled="false" mouseChildren="false" horizontalCenter="-400" verticalCenter="49" id="gparea_4" visible="false">
+		<s:Image x="0" y="0" source="{BaccaratSkinClass.view_chipTotal}"/>
+		<s:Label filters="{[gf01]}" fontSize="16" width="160" textAlign="center" y="15" x="0" color="#FFFFFF" fontWeight="bold" id="scorearea_4"/>
+	</s:Group>
+	
+	<s:Group width="160" height="40" mouseEnabled="false" mouseChildren="false" horizontalCenter="-155" verticalCenter="-95" id="gparea_2" visible="false">
+		<s:Image x="0" y="0" source="{BaccaratSkinClass.view_chipTotal}"/>
+		<s:Label filters="{[gf01]}" fontSize="16" width="160" textAlign="center" y="15" x="0" color="#FFFFFF" fontWeight="bold" id="scorearea_2"/>
+	</s:Group>
+	<s:Group width="160" height="40" mouseEnabled="false" mouseChildren="false" horizontalCenter="-155" verticalCenter="49" id="gparea_6" visible="false">
+		<s:Image x="0" y="0" source="{BaccaratSkinClass.view_chipTotal}"/>
+		<s:Label filters="{[gf01]}" fontSize="16" width="160" textAlign="center" y="15" x="0" color="#FFFFFF" fontWeight="bold" id="scorearea_6"/>
+	</s:Group>
+	
+	<s:Group width="160" height="40" mouseEnabled="false" mouseChildren="false" horizontalCenter="145" verticalCenter="-171" id="gparea_8" visible="false">
+		<s:Image x="0" y="0" source="{BaccaratSkinClass.view_chipTotal}"/>
+		<s:Label filters="{[gf01]}" fontSize="16" width="160" textAlign="center" y="15" x="0" color="#FFFFFF" fontWeight="bold" id="scorearea_8"/>
+	</s:Group>
+	<s:Group width="160" height="40" mouseEnabled="false" mouseChildren="false" horizontalCenter="145" verticalCenter="-95" id="gparea_3" visible="false">
+		<s:Image x="0" y="0" source="{BaccaratSkinClass.view_chipTotal}"/>
+		<s:Label filters="{[gf01]}" fontSize="16" width="160" textAlign="center" y="15" x="0" color="#FFFFFF" fontWeight="bold" id="scorearea_3" />
+	</s:Group>
+	<s:Group width="160" height="40" mouseEnabled="false" mouseChildren="false" horizontalCenter="145" verticalCenter="49" id="gparea_5" visible="false">
+		<s:Image x="0" y="0" source="{BaccaratSkinClass.view_chipTotal}"/>
+		<s:Label  filters="{[gf01]}" fontSize="16" width="160" textAlign="center" y="15" x="0" color="#FFFFFF" fontWeight="bold" id="scorearea_5"/>
+	</s:Group>
+	
+	<s:Label fontSize="15" horizontalCenter="-400" verticalCenter="-140" color="#d3d36c" fontFamily="微软雅黑" fontWeight="bold" mouseEnabled="false"
+			 id="totalscorearea_7" filters="{[gf01]}" />
+	<s:Label fontSize="15" horizontalCenter="-400" verticalCenter="0" color="#d3d36c"  fontFamily="微软雅黑" fontWeight="bold" mouseEnabled="false"
+			 id="totalscorearea_1" filters="{[gf01]}" />
+	<s:Label fontSize="15" horizontalCenter="-400" verticalCenter="95" color="#d3d36c"  fontFamily="微软雅黑" fontWeight="bold" mouseEnabled="false"
+			 id="totalscorearea_4"  filters="{[gf01]}"/>
+	
+	<s:Label fontSize="15" horizontalCenter="-155" verticalCenter="0" color="#d3d36c" fontFamily="微软雅黑" fontWeight="bold" mouseEnabled="false"
+			 id="totalscorearea_2"  filters="{[gf01]}" />
+	<s:Label fontSize="15" horizontalCenter="-155" verticalCenter="95" color="#d3d36c" fontFamily="微软雅黑" fontWeight="bold" mouseEnabled="false"
+			 id="totalscorearea_6"  filters="{[gf01]}"/>
+	
+	<s:Label fontSize="15" horizontalCenter="145" verticalCenter="-140" color="#d3d36c" fontFamily="微软雅黑" fontWeight="bold" mouseEnabled="false"
+			 id="totalscorearea_8"  filters="{[gf01]}"/>
+	<s:Label fontSize="15" horizontalCenter="145" verticalCenter="0" color="#d3d36c" fontFamily="微软雅黑" fontWeight="bold" mouseEnabled="false"
+			 id="totalscorearea_3"  filters="{[gf01]}"/>
+	<s:Label fontSize="15" horizontalCenter="145" verticalCenter="95" color="#d3d36c" fontFamily="微软雅黑" fontWeight="bold" mouseEnabled="false"
+			 id="totalscorearea_5"  filters="{[gf01]}"/>
+	
+	
+	<!--<s:Image source="{BaccaratSkinClass.view_top}"  top="-15" horizontalCenter="0"/>
+	<s:Image source="{BaccaratSkinClass.view_bottom}" bottom="0" horizontalCenter="0"/>-->
+	
+	<s:Label filters="{[gf01]}" fontFamily="微软雅黑" fontSize="14" color="0xffffff"  id="lab_topTip"
+			 top="140" fontWeight="bold" horizontalCenter="-5" textAlign="center" width="200"/>
+	
+	<baccarat:BaccaratUserAir horizontalCenter="0" verticalCenter="0" id="theUserView" width="800" height="100%"/>
+	<!--<s:Image source="{BaccaratSkinClass.chip_bg}" bottom="100" horizontalCenter="-240"/>-->
+	<s:Image bottom="78" horizontalCenter="110" source="{BaccaratSkinClass.btn_getRecord}" id="btn_record"  buttonMode="true" click="record_clickHandler(event)"/>
+	
+	<s:Image horizontalCenter="214" bottom="5400" source="{BaccaratSkinClass.history_doubleline}"/>
+	<s:Image horizontalCenter="214" bottom="3200" source="{BaccaratSkinClass.history_doubleline}"/>
+	<s:Label  filters="{[gf01]}" horizontalCenter="205" bottom="36" color="#f0c05c" id="ZhuangTxt"/>
+	<s:Label filters="{[gf01]}"  horizontalCenter="205" bottom="8" color="#f0c05c" id="xianTxt"/>
+	<s:Label filters="{[gf01]}" horizontalCenter="205" bottom="-20" color="#f0c05c" id="pingTxt"/>
+	
+	<s:HGroup fontFamily="宋体" filters="{[gf01]}" fontSize="14" color="#f4d580" top="55" horizontalCenter="-356" width="190" height="25" gap="9">
+		<s:Label id="hz_0"/>
+		<s:Label id="hz_1"/>
+		<s:Label id="hz_2"/>
+		<s:Label id="hz_3"/>
+		<s:Label id="hz_4"/>
+		<s:Label id="hz_5"/>
+		<s:Label id="hz_6"/>
+		<s:Label id="hz_7"/>
+		<s:Label id="hz_8"/>
+		<s:Label id="hz_9"/>
+		<s:Label id="hz_10"/>
+	</s:HGroup>
+	<s:HGroup fontFamily="宋体" fontSize="14" color="#f4d580" top="75" horizontalCenter="-356" width="190" height="25" gap="9">
+		<s:Label id="hx_0"/>
+		<s:Label id="hx_1"/>
+		<s:Label id="hx_2"/>
+		<s:Label id="hx_3"/>
+		<s:Label id="hx_4"/>
+		<s:Label id="hx_5"/>
+		<s:Label id="hx_6"/>
+		<s:Label id="hx_7"/>
+		<s:Label id="hx_8"/>
+		<s:Label id="hx_9"/>
+		<s:Label id="hx_10"/>
+	</s:HGroup>
+	
+	<!--<com:GameMCButton targetClass="{BaccaratSkinClass.btn_ConfirmBtn}" bottom="60" horizontalCenter="300" id="btn_confirm" click="onConfitmAddChip(true)"/>
+	<com:GameMCButton targetClass="{BaccaratSkinClass.btn_CancelBtn}" bottom="20" horizontalCenter="300"  id="btn_cancel" click="onConfitmAddChip(false)"/>-->
+	
+	
+	<com:GameMCButton id="AddScore_0" buttonMode="true" targetClass = "{BaccaratSkinClass.btn_chip1}" bottom="75" horizontalCenter="-450"/>
+	<com:GameMCButton id="AddScore_1" buttonMode="true" targetClass="{BaccaratSkinClass.btn_chip5}" bottom="75" horizontalCenter="-370"/>
+	<com:GameMCButton id="AddScore_2" buttonMode="true" targetClass="{BaccaratSkinClass.btn_chip10}" bottom="75" horizontalCenter="-290"/>
+	<com:GameMCButton id="AddScore_3" buttonMode="true" targetClass="{BaccaratSkinClass.btn_chip50}" bottom="75" horizontalCenter="-210"/>
+	<com:GameMCButton id="AddScore_4" buttonMode="true" targetClass="{BaccaratSkinClass.btn_chip100}" bottom="75" horizontalCenter="-130"/>
+	<com:GameMCButton id="AddScore_5" buttonMode="true" targetClass="{BaccaratSkinClass.btn_chip1000}" bottom="75" horizontalCenter="-50"/>
+	<com:GameMCButton id="AddScore_6" buttonMode="true" targetClass="{BaccaratSkinClass.btn_chip10000}" bottom="75" horizontalCenter="30"/>
+	
+	<s:Image id="score_noselect" source="{BaccaratSkinClass.chip_noSelect}" bottom="115" horizontalCenter="110" alpha="0" mouseChildren="false" mouseEnabled="false"/>
+	
+	<view:GameEndView id="_gameEnd" x="-100" y="-50" width="100%" height="100%" alpha="0" />
+	
+	
+	<s:Image id="_targetNow" mouseChildren="false" mouseEnabled="false"/>
+	
+	
+	
+	<s:Group bottom="-25" horizontalCenter="-50" width="430" height="80" id="historyMask">
+		<s:Rect x="0" y="0" width="430" height="80">
+			<s:fill>
+				<s:SolidColor color="0xcccccc"/>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+	<s:Group id="historyGP" bottom="-25" horizontalCenter="-51" width="430" height="80" mask="{historyMask}">
+		<s:Group id="recordGP" x="0" y="0" width="430" height="80"/>
+	</s:Group>
+	<!--<s:Group bottom="11" horizontalCenter="73" width="245" height="15">
+	<s:Image source="{BaccaratSkinClass.btn_scroll}" x="0" y="1" buttonMode="true" id="track"/>
+	</s:Group>-->
+	
+	
+	<com:MCButton targetClass="{BaccaratSkinClass.hisbtn_1}" x="730" y="550" buttonMode="true" id="track_1"/>
+	<com:MCButton targetClass="{BaccaratSkinClass.hisbtn_0}" x="730" y="590" buttonMode="true" id="track_0"/>
+	
+	
+	<baccarat:BaccaratRecord horizontalCenter="-2" verticalCenter="0" visible="false" id="_record"/>
+	
+	<s:Group width="413" height="192" horizontalCenter="-110" verticalCenter="-58" fontFamily="微软雅黑" fontSize="14" color="0xFFFFFF" visible="false" id="gp_tip">
+		<s:Image source="{SkinClass.showmsg_bg1}" x="0" y="0"/>
+		
+		<s:Label filters="{[gf01]}" x="47" y="55" text="本游戏桌区域限制："/>
+		<s:Label filters="{[gf01]}" x="47" y="75" text="玩家投注限制："/>
+		<s:Label filters="{[gf01]}" x="47" y="95" text="上庄条件："/>
+		
+		<s:Label filters="{[gf01]}" x="177" y="54" fontSize="16" id="tip1" text="12000.00"/>
+		<s:Label filters="{[gf01]}" x="147" y="74" fontSize="16" id="tip2" text="300.00"/>
+		<s:Label filters="{[gf01]}" x="117" y="94" fontSize="16" id="tip3" text="1000.00"/>
+		
+		<com:MCButton x="140" y="120" targetClass="{SkinClass.showmsg_sure}" click="delayCloseTip()"/>
+	</s:Group>
+	
+	<s:TextArea id="gameEnd" width="212" height="270" right="25" bottom="-37" borderVisible="false" 
+				editable="false" color="#f4d580" fontSize="15" fontFamily="宋体"
+				textIndent="0" contentBackgroundAlpha="0" paddingLeft="5" paddingRight="0" 
+				verticalScrollPolicy="off" lineHeight="20" filters="{[gf01]}"
+				mouseEnabled="false" selectable="false" />
+</base:GameBaseModule>

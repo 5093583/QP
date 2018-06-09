@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 currentState="State1"
+		 width="413" height="312" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import com.PopManager;
+			import com.plaza.MsgManager;
+			
+			import cx.client.logon.model.LogonModel;
+			import cx.client.logon.model.UserModel;
+			import cx.client.logon.model.struct.CMD_GP_CashMoney;
+			import cx.client.logon.model.struct.CMD_GP_CashMoneyResult;
+			import cx.client.logon.model.struct.CMD_GP_SaveMoney;
+			import cx.client.logon.model.struct.CMD_GP_SaveMoneyResult;
+			import cx.client.logon.model.struct.LGCmd;
+			import cx.net.Interface.IClientSocket;
+			import cx.net.enum.enSocketState;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TScore;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.MD5;
+			
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_bg")]
+			public static var bank_bg:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_inSel")]
+			public static var bank_inSel:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_outSel")]
+			public static var bank_outSel:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_in")]
+			public static var bank_in:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_out")]
+			public static var bank_out:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_saveM")]
+			public static var bank_saveM:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_getM")]
+			public static var bank_getM:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_close")]
+			public static var bank_close:Class;
+			
+			
+			
+			
+			private var user:UserModel;
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				user = UserModel._getInstance();
+				
+				if( !Controller.hasEventListener('bank_save_event') )
+					Controller.addEventListener('bank_save_event', inscoreHandler);
+				if( !Controller.hasEventListener('bank_cash_event') )
+					Controller.addEventListener('bank_cash_event', outscoreHandler);
+			}
+			
+			
+			private function inscoreHandler(e:TEvent):void
+			{
+				var saveResult : CMD_GP_SaveMoneyResult = e.nWParam;
+				if(saveResult.lResultCode == 0) {
+					user.UpdateUserInfo({score:saveResult.lScore,bankScore:saveResult.insureScore});
+					
+					close_clickHandler();
+					MsgManager.getInstance().showMessage1("存入成功,当前身上携带金币" + TScore.toStringEx(user.selfInfo.lScore));
+					trace("存入成功,当前身上携带金币" + TScore.toStringEx(UserModel._getInstance().selfInfo.lScore))
+				}else {
+					MsgManager.getInstance().showMessage1(saveResult.szDescribeMsg + ",存入失败!");
+				}
+			}
+			
+			private function outscoreHandler(e:TEvent):void
+			{
+				var cashResult : CMD_GP_CashMoneyResult = e.nWParam;
+				if(cashResult.lResultCode == 0) {
+					user.UpdateUserInfo({score:cashResult.lScore,bankScore:cashResult.insureScore});
+					
+					close_clickHandler();
+					MsgManager.getInstance().showMessage1('取出成功,当前携带金币' + TScore.toStringEx(cashResult.lScore));
+					trace('取出成功,当前携带金币' + TScore.toStringEx(cashResult.lScore))
+				}else {
+					MsgManager.getInstance().showMessage1(cashResult.szDescribeMsg);
+				}
+			}
+			
+			
+			
+			
+			public function reinit():void
+			{
+				currentState = 'State1';
+				
+				_in.selected  = true;
+				_out.selected = false;
+				if(_txt1)	_txt1.text = '';
+			}
+			
+			
+			
+			
+			
+			
+			protected function state1_enterStateHandler(event:FlexEvent):void
+			{
+				_in.selected  = true;
+				_out.selected = false;
+				
+				if(_txt1)
+				{
+					_txt1.text = '';
+					_txt1.setFocus();
+				}
+			}
+			
+			protected function state2_enterStateHandler(event:FlexEvent):void
+			{
+				_in.selected  = false;
+				_out.selected = true;
+				
+				if(_txt2)
+				{
+					_txt2.text = '';
+					_txt2.setFocus();
+				}
+				if(_txt3)	_txt3.text = '';
+			}
+			
+			protected function _in_clickHandler(event:MouseEvent):void
+			{
+				currentState = 'State1';
+			}
+			
+			protected function _out_clickHandler(event:MouseEvent):void
+			{
+				currentState = 'State2';
+			}
+			
+			
+			protected function close_clickHandler(event:MouseEvent=null):void
+			{
+				PopManager.getInstance().removePop();
+			}
+			
+			protected function saveM_clickHandler(event:MouseEvent):void
+			{
+				var save : Number = TScore.parseFloatEx(_txt1.text);
+				
+				if(save <= 0 || save > UserModel._getInstance().selfInfo.lScore ) {
+					MsgManager.getInstance().showMessage1('请正确输入存入金币值!');
+					return;
+				}
+				LogonModel._GetInstance().MainNet.SendBankSave(saveCakkBack);
+			}
+			
+			
+			private function saveCakkBack(pClientSocket : IClientSocket,szErr : String='') : void
+			{
+				if(pClientSocket.GetConnectState() == enSocketState.en_Connected) {
+					var save : CMD_GP_SaveMoney = new CMD_GP_SaveMoney();
+					save.mUserID = UserModel._getInstance().selfInfo.dwUserID;
+					save.szPassword = MD5.hash(UserModel._getInstance().selfInfo.szPassword);
+					save.insureScore = TScore.parseFloatEx(_txt1.text);
+					pClientSocket.SendData(LGCmd.MDM_GP_BANK,LGCmd.SUB_GP_BANK_SAVE,save.ToByteArray(),save.size);
+				}else {
+					MsgManager.getInstance().showMessage1(szErr);
+				}
+			}
+			
+			
+			
+			
+			protected function getM_clickHandler(event:MouseEvent):void
+			{
+				var  save : Number = TScore.parseFloatEx(_txt2.text);
+				var pass : String = _txt3.text;
+				if(save <= 0 || save > UserModel._getInstance().selfInfo.lBankScore ) 
+				{
+					MsgManager.getInstance().showMessage1('请正确输入金币值!');
+					return;
+				}
+				if(pass.length < 6)
+				{
+					MsgManager.getInstance().showMessage1('请正确输入保险箱密码!');
+					return;
+				}
+				LogonModel._GetInstance().MainNet.SendBankCash(CashCallBack);
+			}
+			
+			private function CashCallBack(pClientSocket : IClientSocket,szErr : String='') : void
+			{
+				if( pClientSocket.GetConnectState() == enSocketState.en_Connected ) {
+					var catchMoney : CMD_GP_CashMoney = new CMD_GP_CashMoney();
+					catchMoney.mUserID = UserModel._getInstance().selfInfo.dwUserID;
+					catchMoney.szPassword = MD5.hash(UserModel._getInstance().selfInfo.szPassword);
+					catchMoney.szBankPassword = MD5.hash( _txt3.text);
+					catchMoney.insureScore = TScore.parseFloatEx(_txt2.text);
+					pClientSocket.SendData(LGCmd.MDM_GP_BANK,LGCmd.SUB_GP_BANK_CASH,catchMoney.ToByteArray(),catchMoney.size);
+				}else {
+					MsgManager.getInstance().showMessage1(szErr);
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="State1" enterState="state1_enterStateHandler(event)"/>
+		<s:State name="State2" enterState="state2_enterStateHandler(event)"/>
+	</s:states>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Image x="0" y="0" source="{bank_bg}" />
+	<com:MCButton x="321" y="16" targetClass="{bank_close}" click="close_clickHandler(event)"/>
+	
+	<com:MCButton x="30" y="42" targetClass="{bank_inSel}" id="_in" click="_in_clickHandler(event)"/>
+	<com:MCButton x="210" y="42" targetClass="{bank_outSel}" id="_out" click="_out_clickHandler(event)"/>
+	
+	
+	<s:Image includeIn="State1" x="57" y="113" source="{bank_in}"/>
+	<s:TextInput includeIn="State1" x="177" y="169" fontSize="24" borderVisible="false" id="_txt1" color="0x98865a" width="175"
+				 contentBackgroundAlpha="0" restrict="0-9" maxChars="12"/>
+	<com:MCButton includeIn="State1" x="114" y="237" targetClass="{bank_saveM}" click="saveM_clickHandler(event)"/>
+	
+	
+	<s:Image includeIn="State2" x="58" y="94" source="{bank_out}"/>
+	<s:TextInput includeIn="State2" x="180" y="134" fontSize="24" borderVisible="false" id="_txt2" color="0x98865a" width="175"
+				 contentBackgroundAlpha="0" restrict="0-9" maxChars="12"/>
+	<s:TextInput includeIn="State2" x="180" y="188" borderVisible="false" id="_txt3" color="0x98865a" width="175" maxChars="20"
+				 contentBackgroundAlpha="0" displayAsPassword="true" fontFamily="Times New Roman" fontSize="24"/>
+	<com:MCButton includeIn="State2" x="114" y="237" targetClass="{bank_getM}" click="getM_clickHandler(event)"/>
+	
+	
+</s:Group>

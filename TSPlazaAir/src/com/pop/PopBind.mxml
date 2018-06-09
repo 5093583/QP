@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:com="com.*"
+		 width="413" height="322" creationComplete="group1_creationCompleteHandler(event)"
+		 currentState="State1">
+	<fx:Script>
+		<![CDATA[
+			import com.PopManager;
+			import com.plaza.MsgManager;
+			
+			import cx.client.logon.model.LogonNet;
+			import cx.client.logon.model.UserModel;
+			import cx.client.logon.model.struct.CMD_GP_LockMachine;
+			import cx.client.logon.model.struct.LGCmd;
+			import cx.net.Interface.IClientSocket;
+			import cx.net.enum.enSocketState;
+			
+			import mx.events.FlexEvent;
+			
+			import t.cx.air.TDas;
+			import t.cx.air.controller.Controller;
+			import t.cx.air.controller.TEvent;
+			import t.cx.air.utils.MD5;
+			import t.cx.air.utils.SystemEx;
+			
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bind.swf", symbol="bind_bg")]
+			public static var bind_bg:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bind.swf", symbol="bind_close")]
+			public static var bind_close:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bind.swf", symbol="bind_cancel")]
+			public static var bind_cancel:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bind.swf", symbol="bind_sure")]
+			public static var bind_sure:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bind.swf", symbol="bind_no")]
+			public static var bind_no:Class;
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bind.swf", symbol="bind_yes")]
+			public static var bind_yes:Class;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				if( !Controller.hasEventListener("bindComputerResult") )
+					Controller.addEventListener("bindComputerResult", bingComputerResultHandler);
+			}
+			
+			
+			protected function close_clickHandler(event:MouseEvent=null):void
+			{
+				PopManager.getInstance().removePop();
+			}
+			
+			protected function bind_clickHandler(event:MouseEvent):void
+			{
+				if( (_txt1 && _txt1.text.length < 6) )
+				{
+					MsgManager.getInstance().showMessage1('请正确输入保险箱密码!');
+					return;
+				}
+				
+				LogonNet._getInstance().SendBindComputer(onBindCallBack);
+			}
+			protected function bind_clickHandler1(event:MouseEvent):void
+			{
+				if( (_txt2 && _txt2.text.length < 6))
+				{
+					MsgManager.getInstance().showMessage1('请正确输入保险箱密码!');
+					return;
+				}
+				
+				LogonNet._getInstance().SendBindComputer(onBindCallBack);
+			}
+			
+			private function bingComputerResultHandler(e:TEvent):void
+			{
+				if(e.nWParam.lResultCode !=0) 
+				{
+					MsgManager.getInstance().showMessage1(e.nWParam.szErrorDescribe);
+				}
+				else
+				{
+					UserModel._getInstance().selfInfo.cbMoorStatus = UserModel._getInstance().selfInfo.cbMoorStatus == 0?1:0;
+					var sucStr : String = UserModel._getInstance().selfInfo.cbMoorStatus == 0?'撤销机器绑定成功！':'本机绑定成功，该账号只能在本机登录';
+					if(UserModel._getInstance().selfInfo.cbMoorStatus == 0) { TDas._setStringItem('gameMac','',32); }
+					MsgManager.getInstance().showMessage1(sucStr);
+				}
+				
+//				reinit();
+				close_clickHandler();
+			}
+			
+			public function reinit():void
+			{
+				if(UserModel._getInstance().selfInfo.cbMoorStatus == 1)
+					this.currentState = 'State2';
+				else
+					this.currentState = 'State1';
+				
+				if(_txt1)
+				{
+					_txt1.text = '';
+					_txt1.setFocus();
+				}
+				if(_txt2)	
+				{
+					_txt2.text = '';
+					_txt2.setFocus();
+				}
+			}
+			
+			
+			private function onBindCallBack(pIClientSocket : IClientSocket,szErr : String='') : void
+			{
+				//发送绑定本机消息
+				if(pIClientSocket.GetConnectState() == enSocketState.en_Connected) {
+					var bind : CMD_GP_LockMachine = new CMD_GP_LockMachine();
+					bind.dwOper = UserModel._getInstance().selfInfo.cbMoorStatus == 0?1:0;
+					bind.mUserID = UserModel._getInstance().selfInfo.dwUserID;
+					if(UserModel._getInstance().selfInfo.cbMoorStatus == 0)
+						bind.szPassword = MD5.hash(_txt1.text);
+					else
+						bind.szPassword = MD5.hash(_txt2.text);
+					bind.szSerialNumber = SystemEx._clientSequence();
+					pIClientSocket.SendData(LGCmd.MDM_GP_USER,LGCmd.SUB_GP_MOOR_MACHINE,bind.toByteArray(),bind.size);
+				}else {
+					MsgManager.getInstance().showMessage1(szErr);
+				}
+			}
+			
+			
+			protected function state1_enterStateHandler(event:FlexEvent):void
+			{
+				if(_txt1)
+					_txt1.setFocus();
+			}
+			
+			protected function state2_enterStateHandler(event:FlexEvent):void
+			{
+				if(_txt2)
+					_txt2.setFocus();
+			}
+			
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="State1" enterState="state1_enterStateHandler(event)"/>
+		<s:State name="State2" enterState="state2_enterStateHandler(event)"/>
+	</s:states>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	
+	<s:Image x="0" y="0" source="{bind_bg}"/>
+	<com:MCButton targetClass="{bind_close}" x="320" y="17" click="close_clickHandler(event)"/>
+	
+	<s:Image includeIn="State1" x="57" y="90" source="{bind_no}"/>
+	<s:TextInput includeIn="State1" x="202" y="150" width="150" borderVisible="false" id="_txt1"
+				 color="0x98865a" contentBackgroundAlpha="0" displayAsPassword="true"
+				 fontFamily="Times New Roman" fontSize="24" maxChars="20"/>
+	<com:MCButton includeIn="State1" targetClass="{bind_sure}" x="112" y="237" click="bind_clickHandler(event)"/>
+	
+	
+	<s:Image includeIn="State2" x="47" y="90" source="{bind_yes}"/>
+	<s:TextInput includeIn="State2" x="202" y="150" width="150" borderVisible="false" id="_txt2"
+				 color="0x98865a" contentBackgroundAlpha="0" displayAsPassword="true"
+				 fontFamily="Times New Roman" fontSize="24" maxChars="20"/>
+	<com:MCButton includeIn="State2" targetClass="{bind_cancel}" x="112" y="237" click="bind_clickHandler1(event)"/>
+	
+</s:Group>

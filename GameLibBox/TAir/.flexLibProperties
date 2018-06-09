@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="true" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="t.cx.air.TCenterPostion"/>
+    <classEntry path="t.cx.air.file.TPather"/>
+    <classEntry path="t.cx.air.TConst"/>
+    <classEntry path="t.cx.air.skin.CheckBoxEx"/>
+    <classEntry path="t.cx.air.skin.CheckGroup"/>
+    <classEntry path="t.cx.Interface.ICXKernel"/>
+    <classEntry path="t.cx.common.events.GlobalEvent"/>
+    <classEntry path="t.cx.Interface.ICxKernelClient"/>
+    <classEntry path="t.cx.air.KeyboardManager"/>
+    <classEntry path="t.cx.cmd.TCmd"/>
+    <classEntry path="t.cx.cmd.events.CxEvent"/>
+    <classEntry path="t.cx.air.graphics.TBezier"/>
+    <classEntry path="t.cx.air.TScore"/>
+    <classEntry path="t.cx.Interface.IHtmlContiner"/>
+    <classEntry path="t.cx.air.utils.IDConvert"/>
+    <classEntry path="t.cx.Interface.IKernelSocket"/>
+    <classEntry path="t.cx.Interface.IKernelFile"/>
+    <classEntry path="t.cx.Interface.IKernelWin"/>
+    <classEntry path="t.cx.air.Stage3d.ButtonEx3D"/>
+    <classEntry path="t.cx.air.NativeWin"/>
+    <classEntry path="t.cx.air.skin.ButtonMovie"/>
+    <classEntry path="t.cx.air.skin.ICheckDisplay"/>
+    <classEntry path="t.cx.air.TCheckLocalIP"/>
+    <classEntry path="t.cx.air.utils.CType.LONGLONG"/>
+    <classEntry path="t.cx.Interface.IVersion"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>

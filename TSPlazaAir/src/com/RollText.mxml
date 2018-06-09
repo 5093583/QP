@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 creationComplete="group1_creationCompleteHandler(event)" 		
+		 height="30">
+	<fx:Script>
+		<![CDATA[
+			import base.NavigateURL;
+			import base.StaticVars;
+			
+			import flash.net.navigateToURL;
+			
+			import mx.events.FlexEvent;
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+//				moveeffect.xFrom = _rollWidth;
+//				moveeffect.xTo = 0-lab.width-50;
+//				moveeffect.duration = 20000 + lab.width*20;
+//				moveeffect.repeatDelay = 1000;
+//				moveeffect.repeatCount = 100;
+//				moveeffect.play();
+				
+				lab.x = _rollWidth;
+				lab.addEventListener(Event.ENTER_FRAME, lab_enterFrameHandler);
+			}
+			
+			private function lab_enterFrameHandler(e:Event):void
+			{
+				lab.x -= 1;
+				if(lab.x < (0-lab.width))
+				{
+					lab.x = _rollWidth;	
+				}
+			}
+			
+			
+			
+			
+			private var _rollWidth:int;
+			public function set rollWidth(value:int):void
+			{
+				_rollWidth = value;
+				rect.width = value;
+//				lab.width = value;
+				this.width = value;
+			}
+			
+			private var _isstop:Boolean;
+			public function set isstop(value:Boolean):void
+			{
+				_isstop = value;
+			}
+
+			
+			protected function lab_rollOverHandler(event:MouseEvent):void
+			{
+				if(_isstop)
+					moveeffect.pause();
+			}
+			
+			protected function lab_rollOutHandler(event:MouseEvent):void
+			{
+				if(_isstop)
+					moveeffect.resume();
+			}
+			
+			protected function lab_clickHandler(event:MouseEvent):void
+			{
+//				navigateToURL(new URLRequest(NavigateURL.logon_rollTextUrl));
+			}
+			
+			public function set labFontColor(value:uint):void
+			{
+				lab.setStyle('color', value);
+			}
+			
+			public function set labFontSize(value:uint):void
+			{
+				lab.setStyle('fontSize', value);
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:GlowFilter id="gf01" color="0x000000" strength="10" blurX="2" blurY="2"/>
+		<s:Move target="{lab}"  id="moveeffect" />
+	</fx:Declarations>
+	
+	<s:Group x="0" y="0" id="labMask">
+		<s:Rect height="30" id="rect">
+			<s:fill>
+				<s:SolidColor color="0xffffff"/>
+			</s:fill>
+		</s:Rect>
+	</s:Group>
+	
+	<s:Label  filters="{[gf01]}" id="lab" y="6" fontFamily="宋体" fontSize="14" mask="{labMask}" 
+			
+			 text="{StaticVars.hallRollTextStr}"/>
+</s:Group>

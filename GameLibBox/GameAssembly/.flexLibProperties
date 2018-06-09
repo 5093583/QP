@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="true" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="cx.assembly.card.CardEmbed"/>
+    <classEntry path="cx.assembly.card.Card"/>
+    <classEntry path="cx.assembly.card.enCardType"/>
+    <classEntry path="cx.assembly.head.HeadEmbed"/>
+    <classEntry path="cx.assembly.card.YBCardEmbed"/>
+    <classEntry path="cx.assembly.chip.YBChipEmbed"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>

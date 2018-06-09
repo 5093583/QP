@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 creationComplete="group1_creationCompleteHandler(event)"
+		 width="413" height="245" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			
+			import com.coltware.airxzip.ZipEntry;
+			import com.coltware.airxzip.ZipFileReader;
+			import com.plaza.MsgManager;
+			
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			
+			import t.cx.air.file.TPather;
+			
+			
+			private var _proPath:String = '';
+			private var _proName:String = '';
+			
+			
+			[Bindable]
+			[Embed(source="assets/swf/pujing_bank.swf", symbol="bank_close")]
+			public static var bank_close:Class;
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				
+			}
+			
+			
+			
+			private var _fileLoader : URLLoader;			//加载器
+			
+			public function startDownload(kindID:int):void
+			{
+				if(kindID == 1004)
+				{
+					_proPath = 'FishPC_JC.zip';
+					_proName = '金蟾捕鱼';
+					
+					img.source = 'assets/ui/fish1.png';
+				}
+				else if(kindID == 1008)
+				{
+					_proPath = 'FishPC_DR.zip';
+					_proName = '捕鱼达人';
+					
+					img.source = 'assets/ui/fish4.png';
+				}
+				
+				var downLoadUrl : String = 'http://xpjadmin.zhenqian22.com/download/' + _proPath;
+				
+				if(_fileLoader == null)
+				{
+					_fileLoader = new URLLoader();
+					_fileLoader.dataFormat = URLLoaderDataFormat.BINARY;
+					_fileLoader.addEventListener(Event.COMPLETE,_complete);
+					_fileLoader.addEventListener(IOErrorEvent.IO_ERROR,_error);
+					_fileLoader.addEventListener(ProgressEvent.PROGRESS,_progressEvent);
+					_fileLoader.addEventListener(SecurityErrorEvent.SECURITY_ERROR,_error);
+				}
+				
+				_fileLoader.load(new URLRequest(downLoadUrl));
+			}
+			
+			private function _complete(e : Event) : void
+			{
+				var fileStream : FileStream = new FileStream();
+				var path : String = TPather._fullPath(_proPath);
+				var file : File = new File(path);
+				fileStream.open(file, FileMode.WRITE);
+				fileStream.writeBytes (_fileLoader.data);
+				fileStream.close();
+				
+				timer = new Timer(5000, 100);	
+				timer.addEventListener(TimerEvent.TIMER, timerHandler);
+				timer.start();
+				
+				_tip.text = '下载完成，正在安装......';
+			}
+			private function _error(e : ErrorEvent) : void
+			{
+				_tip.text = '下载失败，请稍后尝试！';
+				
+				if(_fileLoader)
+				{
+					_fileLoader.close();
+					_fileLoader.removeEventListener(Event.COMPLETE,_complete);
+					_fileLoader.removeEventListener(IOErrorEvent.IO_ERROR,_error);
+					_fileLoader.removeEventListener(ProgressEvent.PROGRESS,_progressEvent);
+					_fileLoader.removeEventListener(SecurityErrorEvent.SECURITY_ERROR,_error);
+					_fileLoader = null;
+				}
+			}
+			private function _progressEvent(e : ProgressEvent) : void
+			{
+				_tip.text = '正在下载' + _proName + '客户端: ' + FormatByte(e.bytesLoaded) + ' / ' + FormatByte(e.bytesTotal);
+			}
+			
+			
+			
+			
+			private function FormatByte(byte:Number):String
+			{
+				var str:String = (byte/ (1024*1024)).toFixed(2) + ' M';
+				return str;
+			}
+			
+			
+			private var timer:Timer;
+			
+			
+			private function timerHandler(e:TimerEvent):void
+			{
+				var path : String = _proPath;
+				path = TPather._fullPath(path);
+				if(TPather._exist(path)) 
+				{
+					timer.stop();
+					timer.removeEventListener(TimerEvent.TIMER, timerHandler);
+					
+					onDownComplete();
+				}
+			}
+			
+			
+			private function onDownComplete() : void
+			{
+				//解压压缩包
+				var reader:ZipFileReader = unzip_init(_proPath);
+				var list:Array = reader.getEntries();
+				var tempFile : File,tempFileStream : FileStream;
+				for each(var entry:ZipEntry in list){
+					tempFile = new File( File.applicationDirectory.nativePath + '\\' +entry.getFilename() );
+					
+					if(entry.isDirectory()){
+						if(!tempFile.exists){ tempFile.createDirectory(); }
+					}
+					else
+					{
+						var bytes:ByteArray = reader.unzip(entry);
+						tempFileStream = new FileStream();
+						tempFileStream.open(tempFile,FileMode.WRITE);
+						tempFileStream.writeBytes(bytes);
+						tempFileStream.close();
+					}
+				}
+				reader.close();
+				
+				
+				cancel_clickHandler(null);
+				MsgManager.getInstance().showMessage1('游戏成功安装，您可以开始游戏了！');
+			}
+			
+			public function unzip_init(filename:String):ZipFileReader{
+				var reader:ZipFileReader = new ZipFileReader();
+				var file:File = File.applicationDirectory.resolvePath(filename);
+				reader.open(file);
+				return reader;
+			}
+			
+			
+			
+			
+			protected function OnFileErrorEvent(err : String) : void
+			{
+				//trace('更新下载失败,请关闭客户端重新尝试或联系客服.');
+				cancel_clickHandler(null);
+				
+				MsgManager.getInstance().showMessage1('下载失败,请关闭客户端重新尝试或联系客服.');
+			}
+			
+			
+			private function cancel_clickHandler(e:MouseEvent):void
+			{
+				PopUpManager.removePopUp(this);
+				
+				
+				if(_fileLoader)
+				{
+					_fileLoader.close();
+					_fileLoader.removeEventListener(Event.COMPLETE,_complete);
+					_fileLoader.removeEventListener(IOErrorEvent.IO_ERROR,_error);
+					_fileLoader.removeEventListener(ProgressEvent.PROGRESS,_progressEvent);
+					_fileLoader.removeEventListener(SecurityErrorEvent.SECURITY_ERROR,_error);
+					_fileLoader = null;
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Image x="0" y="0" source="assets/ui/download.png"/>
+	<s:Image id="img" x="28" y="46" source="assets/ui/fish1.png"/>
+
+	<com:MCButton x="320" y="18" click="cancel_clickHandler(event)" targetClass="{bank_close}"/>
+	<s:Label id="_tip" x="25" y="190" color="#CDB57A" fontFamily="微软雅黑" fontSize="16"/>
+	
+	
+	
+</s:Group>

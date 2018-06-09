@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="80" height="70">
+	<fx:Script>
+		<![CDATA[
+			import gameAssets.DDZhouHL.DDZhouHLSkinClass;
+			public function Destory():Boolean
+			{
+//				sy_text.text = '';
+				score.text = '';
+				this.visible = false;
+				return true;
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<mx:GlowFilter id="glow"  blurX="5" blurY="5" strength="2.5" color="#000000" />
+	</fx:Declarations>
+	<!--<s:Image x="0" y="37" source="{DDZhouHLSkinClass.syBg}" />-->
+	<!--<s:Label id="sy_text" x="15" y="0" fontFamily="黑体" fontSize="30" color="#CCFF00" text="赢" />-->
+	<s:Label id="score" x="0" y="36" width="80" height="34" color="#FF962D" fontSize="15"
+			 textAlign="center" verticalAlign="middle" filters="{[glow]}"/>
+</s:Group>

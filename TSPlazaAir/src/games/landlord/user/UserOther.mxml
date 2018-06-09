@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="97" height="154"
+		 creationComplete="group1_creationCompleteHandler(event)" fontFamily="宋体">
+	<fx:Script>
+		<![CDATA[
+			import base.SkinClass;
+			
+			import cx.ip.IPLocation;
+			import cx.ip.IPScanner;
+			import cx.ip.IPScannerNew;
+			
+			import gameAssets.landlord.LandlordSkinClass;
+			
+			import games.landlord.model.LandModel;
+			
+			import mx.events.FlexEvent;
+			
+			private var _userid : int;
+			public function set userID(val : int) : void
+			{
+				_userid = val;
+				//				IDTxt.text = val.toString();
+				Id_0.text = '游戏玩家';
+				if(_userid == LandModel._getInstance().m_User.selfID)
+				{
+//					SelfTxt.text = TScore.toStringEx(ZjhModel._getInstance().m_User.GetSelfData().UserScoreInfo.lScore);
+				}
+			}
+			public function get userID() : int
+			{
+				return _userid;
+			}
+			public function set IP(val : String) : void
+			{
+//				var localIP : IPLocation = IPScanner._getInstance().Query(val);
+//				Ip_0.text = localIP.country + ' ' + localIP.local;
+				Ip_0.text = IPScannerNew._getInstance().getIpnew(val); /////////新;
+			}
+			public function set JinBi(val : Number) : void
+			{
+				if(_userid == LandModel._getInstance().m_User.selfID)
+				{
+//					SelfTxt.text = TScore.toStringEx(val);
+				}
+			}
+			public function set Face(index : uint) : void
+			{
+				if(index == 2)
+					left_bg.source = SkinClass.hall_head_female_small;
+				else
+					left_bg.source = SkinClass.hall_head_male_small;
+			}
+			private var _time : Timer;
+			public function Offlie(timelen : int) : void
+			{
+				destroyTime();
+				if(timelen > 0)
+				{
+					_time = new Timer(1000,timelen/1000);
+					_time.addEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time.start();
+					
+					//					setChildIndex(OffLineTxt,this.numChildren-1);
+					setElementIndex(off_0,this.numChildren-1);
+					off_0.text = '断线' + _time.repeatCount;
+				}
+			}
+			private function onOfflieTime(e : TimerEvent) : void
+			{
+				off_0.text="断线" + (_time.repeatCount-_time.currentCount).toString();
+				if(_time.repeatCount == _time.currentCount) { destroyTime(); }
+			}
+			private function destroyTime() : void
+			{
+				if(_time != null)
+				{
+					_time.reset();
+					_time.removeEventListener(TimerEvent.TIMER,onOfflieTime);
+					_time = null;
+				}
+				off_0.text = '';
+			}
+			public function Destroy() : void
+			{
+				destroyTime();
+			}
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub
+				
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<mx:GlowFilter id="glow"  blurX="5" blurY="5" strength="2.5" color="#000000" />
+	</fx:Declarations>
+	<!--<s:Image x="0" y="0" source="{LandlordSkinClass.land_head}" id="head_left"/>-->
+	<s:Image x="19" y="19" id="left_headbg" source="{LandlordSkinClass.land_headBg}"/>
+	<s:Image x="25" y="26" id="left_bg"/>
+	<!--<s:Image x="0" y="10" source="{LandlordSkinClass.land_tuoguan_XS}" id="tuoguan_XS" visible="true"/>-->
+	<s:Label x="0" y="-15" color="0xFF0000" id="off_0" width="80" fontSize="16" fontWeight="bold" textAlign="center" filters="{[glow]}"/>
+	<s:Label x="0" y="100" color="#FFFFFF" fontSize="12" width="97" height="16" textAlign="center" id="Id_0" fontFamily="宋体"/>
+	<s:Label x="0" y="130" color="#FFFFFF" fontSize="12" width="97" height="16" textAlign="center" id="Ip_0" fontFamily="宋体"/>
+</s:Group>

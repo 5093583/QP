@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 buttonMode="true"
+		 width="42" height="42" xmlns:com="com.*">
+	<fx:Script>
+		<![CDATA[
+			import gameAssets.cow.CowcowSkinClass;
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<!--<s:Image x="0" y="0" source="{CowcowSkinClass.addscore_bg}"/>-->
+	<com:GameMCButton x="0" y="0" targetClass="{CowcowSkinClass.addscore_bg}"  />
+	<s:Label x="5" y="9" width="42" color="#FF6600" fontSize="18" textAlign="center" id="lab_score" fontFamily="宋体"/>
+</s:Group>
